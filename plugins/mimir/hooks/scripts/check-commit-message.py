@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PreToolUse (Bash): controlla i messaggi dei commit creati da Claude Code.
+"""PreToolUse (Bash e PowerShell): controlla i messaggi dei commit creati da Claude Code.
 
 Blocca (exit 2, motivo su stderr):
 - le attribuzioni a un'AI: trailer come Co-Authored-By con un nome di AI,
@@ -8,6 +8,9 @@ Blocca (exit 2, motivo su stderr):
 
 Le parole da sole (un file CLAUDE.md, un percorso, "integra l'API di Anthropic")
 non bloccano: conta la forma dell'attribuzione, non l'argomento del commit.
+
+Un errore inatteso blocca (exit 2) solo se il comando contiene "git" e "commit": per Claude Code
+un hook che esce con 1 è un errore non bloccante, e il commit passerebbe senza controllo.
 """
 import json
 import os
@@ -25,8 +28,14 @@ ATTRIBUTION = [
     re.compile(r"claude\.(ai|com)/(code|claude-code)", re.I),
 ]
 
-# git commit come comando (a inizio riga o dopo ; & | ( ), non citato dentro una stringa di un altro comando
-COMMIT = re.compile(r"(?:^|[;&|(\n])\s*git\s+(?:-C\s+\S+\s+)?commit(?:-tree)?\b")
+# git commit come comando (a inizio riga, dopo ; & | ( { o dopo then/do/else), non citato dentro una
+# stringa di un altro comando. Ammette git.exe, le opzioni globali prima del sottocomando e le maiuscole
+# (PowerShell non le distingue).
+GIT_OPTION = r"(?:\s+(?:-C|-c|--git-dir|--work-tree|--namespace)\s+\S+|\s+--?[\w-]+(?:=\S+)?)"
+COMMIT = re.compile(r"(?:^|[;&|({\n]|\b(?:then|do|else)\b)\s*git(?:\.exe)?" + GIT_OPTION + r"*\s+commit(?:-tree)?\b",
+                    re.I)
+# il valore di "command" nel JSON, per quando l'input non si riesce a leggere
+RAW_COMMAND = re.compile(r'"command"\s*:\s*"((?:[^"\\]|\\.)*)')
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n(.*?)\n[ \t]*\2[ \t]*(?:\n|$)", re.S)
 
 
@@ -90,8 +99,29 @@ def length_problems(message):
     return problems
 
 
-def main():
-    data = json.load(sys.stdin)
+def split_command(flat, tool_name):
+    """Divide il comando in argomenti con le regole della sua shell."""
+    if tool_name != "PowerShell":
+        return shlex.split(flat)
+    # PowerShell non usa il backslash come escape: in modalità POSIX C:\tmp\m.txt diventerebbe C:tmpm.txt
+    return [tok[1:-1] if len(tok) > 1 and tok[0] == tok[-1] and tok[0] in "\"'" else tok
+            for tok in shlex.split(flat, posix=False)]
+
+
+def command_of(raw):
+    """Il comando dell'input, anche quando il JSON non si riesce a leggere; se non si trova, tutto l'input."""
+    try:
+        cmd = (json.loads(raw).get("tool_input") or {}).get("command")
+        if isinstance(cmd, str):
+            return cmd
+    except (ValueError, AttributeError):
+        pass
+    match = RAW_COMMAND.search(raw)
+    return match.group(1) if match else raw
+
+
+def check(raw):
+    data = json.loads(raw)
     cmd = (data.get("tool_input") or {}).get("command") or ""
     if not COMMIT.search(cmd):
         return 0
@@ -99,7 +129,7 @@ def main():
 
     bodies, flat = heredoc_bodies(cmd)
     try:
-        tokens = shlex.split(flat)
+        tokens = split_command(flat, data.get("tool_name"))
     except ValueError:
         tokens = []
     message = message_from_args(tokens, bodies, cwd) if tokens else None
@@ -122,6 +152,21 @@ def main():
                   file=sys.stderr)
             return 2
     return 0
+
+
+def main():
+    # Su Windows la codifica di default della console non è UTF-8: messaggi accentati e motivi del blocco si rovinerebbero.
+    sys.stderr.reconfigure(encoding="utf-8")
+    raw = sys.stdin.buffer.read().decode("utf-8", errors="replace")
+    try:
+        return check(raw)
+    except Exception as exc:  # confine dell'hook: nessun errore deve far passare un commit
+        cmd = command_of(raw).lower()
+        if "git" in cmd and "commit" in cmd:
+            print(f"Commit bloccato: il controllo del messaggio è fallito ({type(exc).__name__}: {exc}). "
+                  "Riprova o segnala il problema dell'hook.", file=sys.stderr)
+            return 2
+        return 0
 
 
 if __name__ == "__main__":

@@ -8,11 +8,15 @@
   "permissions": {
     "ask": [
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "PowerShell(git commit:*)",
+      "PowerShell(git push:*)"
     ],
     "deny": [
       "Bash(git push --force:*)",
-      "Bash(git push -f:*)"
+      "Bash(git push -f:*)",
+      "PowerShell(git push --force:*)",
+      "PowerShell(git push -f:*)"
     ]
   }
 }

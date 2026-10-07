@@ -25,7 +25,7 @@ CONTEXT = (
 
 def main():
     try:
-        data = json.load(sys.stdin)
+        data = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     except (json.JSONDecodeError, ValueError):
         return
     if not isinstance(data, dict):
@@ -43,4 +43,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # Su Windows la codifica di default della console non è UTF-8: il contesto accentato si rovinerebbe.
+    sys.stdout.reconfigure(encoding="utf-8")
     main()

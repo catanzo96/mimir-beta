@@ -53,7 +53,7 @@ def next_count(session_id):
 
 def main():
     try:
-        data = json.load(sys.stdin)
+        data = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     except (json.JSONDecodeError, ValueError):
         return
     session_id = str(data.get("session_id", "")) if isinstance(data, dict) else ""
@@ -72,4 +72,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # Su Windows la codifica di default della console non è UTF-8: il promemoria accentato si rovinerebbe.
+    sys.stdout.reconfigure(encoding="utf-8")
     main()
