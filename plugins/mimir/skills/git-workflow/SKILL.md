@@ -73,3 +73,7 @@ Anche nelle MR e PR, nessun riferimento a Claude o all'AI.
 - SemVer: `vMAJOR.MINOR.PATCH`.
 - Il bump segue i commit: `fix` → PATCH, `feat` → MINOR, breaking change → MAJOR.
 - Il tag si crea sul commit rilasciato, secondo il flusso del progetto.
+
+## Nella sandbox
+- `.git/config` è protetto: `git config`, `git remote add`/`set-url`, `git branch -m` e il primo `push -u` falliscono con "could not lock config file". Proponili subito fuori dalla sandbox, con conferma, dicendo il perché. Se fallisce solo l'aggiornamento della config, l'operazione sui ref è già avvenuta: verifica con `git branch -vv` e `git config --get-regexp '^branch\.'` prima di ripetere.
+- Push e fetch autenticati: la sessione non legge le credenziali e non ha un terminale per chiederle. Prepara il comando esatto (remote e branch) e lascialo lanciare all'utente dal suo terminale.

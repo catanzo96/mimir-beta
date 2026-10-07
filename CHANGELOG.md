@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-07 (retro)
+- `git-workflow`: sezione "Nella sandbox" su `.git/config` protetto e push autenticati lanciati dall'utente. Plugin `mimir` 0.17.1.
+- README, Confini: niente dati personali o aziendali nemmeno nella configurazione.
+
 ## 2026-10-07 (prima versione pubblica)
 - Mímir pubblicato come pacchetto generico: nel repo solo il metodo, i dati personali in file locali ignorati da git.
   - `profile/profile.md` e `inbox.md` locali, creati da `install.sh` a partire da `profile/profile.example.md` e `inbox.example.md`.

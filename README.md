@@ -97,7 +97,7 @@ Come si scrivono skill, agent, regole e hook: skill `scrivi-skill`.
 
 ## Confini
 - **Lavoro e privato separati**: il plugin `mimir` vale in ogni ambito, `brokkr` solo per il lavoro; più avanti arriverà `frigg` per la vita privata.
-- **Qui il metodo, non i dati riservati**: niente codice, credenziali o informazioni di azienda e clienti. Quelli restano nei progetti.
+- **Qui il metodo, non i dati**: il repo è pubblico, quindi niente codice, credenziali, informazioni di azienda e clienti né dati personali, nemmeno nella configurazione (host della sandbox, percorsi, email). Quelli stanno nei progetti, in file locali ignorati da git (`profile/profile.md`, `inbox.md`) o nelle impostazioni utente di Claude Code.
 
 ## Ciclo di miglioramento
 1. Mentre lavori, annota in `inbox.md` (locale).
