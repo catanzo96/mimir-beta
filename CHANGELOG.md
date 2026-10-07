@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-07 (retro)
+- Verifica della sandbox con il launcher: `/sandbox` non si apre quando la configurazione arriva da `--settings`; README e `sicurezza-claude-code` indicano la prova di rete (host ammesso risponde, host escluso bloccato). Plugin `mimir` 0.17.2.
 - `git-workflow`: sezione "Nella sandbox" su `.git/config` protetto e push autenticati lanciati dall'utente. Plugin `mimir` 0.17.1.
 - README, Confini: niente dati personali o aziendali nemmeno nella configurazione.
 

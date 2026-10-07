@@ -56,7 +56,7 @@ I nomi vengono dalla mitologia norrena; nei nomi tecnici (cartelle, plugin, vari
 - **Credenziali**: `~/.ssh`, `~/.git-credentials`, `~/.aws/credentials`, `~/.docker/config.json`, `~/.gnupg`, `~/.m2/settings.xml`, `~/.gradle/gradle.properties`, `~/.claude.json` e i `.env` non si leggono né con lo strumento Read né dai comandi: le `deny` su `Read` valgono anche per la sandbox (provato il 05/10 con e senza le regole).
 - **Sandbox obbligatoria**: `failIfUnavailable: true`, se la sandbox non parte Claude Code non parte.
 - **Niente wildcard sulla home in `denyRead`**: su Linux vengono espanse percorrendo tutta la home (cestino e `node_modules` compresi) e l'avvio si blocca.
-- **Rete**: solo i domini ammessi. Nel repo ci sono solo registri pubblici (GitHub, Maven Central, npm); gli host privati vanno in `~/.claude/settings.json`: Claude Code unisce le liste dei diversi file di impostazioni invece di sostituirle. Controlla il risultato con `/sandbox`.
+- **Rete**: solo i domini ammessi. Nel repo ci sono solo registri pubblici (GitHub, Maven Central, npm); gli host privati vanno in `~/.claude/settings.json`: Claude Code unisce le liste dei diversi file di impostazioni invece di sostituirle. Per controllare il risultato, fai eseguire a Claude nella sandbox un `curl` verso un host ammesso (deve rispondere) e uno escluso (deve essere bloccato): con il launcher `/sandbox` non si apre, perché la configurazione arriva da `--settings`, che ha la precedenza.
 - **Uscita dalla sandbox**: ogni nuovo tentativo di un comando fuori dalla sandbox chiede conferma (`ask` su `Bash(dangerouslyDisableSandbox:true)`), anche in modalità auto, dove altrimenti lo approverebbe il classificatore (visto nel test del 05/10).
 - Disattiva anche il sondaggio di feedback.
 - **Lista delle skill**: `skillListingBudgetFraction` al 3% (anche in `settings.template.json`). Con il default dell'1%, su un modello da 200k token Claude Code scartava 33 descrizioni su 38; al 3% le vede tutte (provato in headless il 03/10).
@@ -73,7 +73,7 @@ Per provarla in un repo senza toccare la configurazione globale:
 ```bash
 cd ~/workspace/<repo> && claude --settings <cartella di Mímir>/sandbox.settings.json
 ```
-Dentro la sessione, `/sandbox` mostra la configurazione attiva.
+Anche qui `/sandbox` non si apre, per lo stesso motivo: verifica con la prova di rete descritta sopra.
 
 ## Livelli
 

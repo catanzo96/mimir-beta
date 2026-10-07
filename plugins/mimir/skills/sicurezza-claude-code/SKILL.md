@@ -22,7 +22,7 @@ Il modello di Mímir ha due livelli:
 ## Fase 1: inventario (sola lettura)
 Sistema operativo e versione di Claude Code, poi la checklist di `references/inventario.md`: impostazioni per scope (compresi `sandbox.settings.json` e `settings.template.json` di Mímir e le managed settings), permessi, sandbox e sue dipendenze (su Linux `bwrap` e `socat`), hook, MCP, skill, agent, plugin e marketplace, CLAUDE.md e memoria, dati locali, variabili d'ambiente, segnali di attacchi noti nei progetti.
 
-Per le regole effettive e la loro provenienza: `/permissions`, `/status`, `/sandbox`, `/hooks`, `claude doctor`.
+Per le regole effettive e la loro provenienza: `/permissions`, `/status`, `/sandbox` (non si apre se la sandbox arriva da `--settings`, come con il launcher), `/hooks`, `claude doctor`.
 
 ## Fase 2: report dei rischi (sola lettura)
 | # | Elemento | Problema | Gravità (Critica, Alta, Media, Bassa) | Riferimento (pagina della documentazione) | Correzione proposta |
@@ -44,7 +44,7 @@ L'utente risponde con i numeri approvati, eventualmente con modifiche. Poi:
 2. una proposta alla volta, JSON validato (`python3 -m json.tool`), riavvio della sessione dove serve;
 3. verifica:
    - `/permissions` e `/status` mostrano le regole attese con la provenienza giusta;
-   - `/sandbox` mostra la sandbox attiva e le dipendenze presenti;
+   - rete della sandbox, eseguita da Claude: un `curl` verso un host ammesso risponde, uno verso un host escluso viene bloccato dal proxy. Con il launcher `/sandbox` non si apre, quindi questa prova lo sostituisce;
    - prova della sandbox, eseguita da Claude e non con `!`: `touch ~/sandbox-probe` deve fallire; `curl --noproxy '*' https://example.com` deve fallire. Se viene proposto un nuovo tentativo fuori dalla sandbox, rifiutalo;
    - hook provati con JSON finto (`echo '{…}' | script`), con un caso che blocca e uno che passa;
    - una lettura di un file di segreti protetto viene negata.
