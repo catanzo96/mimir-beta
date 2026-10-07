@@ -1,0 +1,16 @@
+{
+  "name": "mimir",
+  "owner": { "name": "Giacomo Catanzaro" },
+  "plugins": [
+    {
+      "name": "mimir",
+      "source": "./plugins/mimir",
+      "description": "Skill, agent e hook di Mímir validi in ogni ambito"
+    },
+    {
+      "name": "brokkr",
+      "source": "./plugins/brokkr",
+      "description": "Skill di Mímir per il lavoro: analisi, ticket, manutenzione, rilasci e interventi operativi"
+    }
+  ]
+}

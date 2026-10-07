@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Avvia Claude Code con Mímir attivo solo per questa sessione:
+# regole (CLAUDE.md di Mímir), plugin (skill, agent, hook letti da plugins/), sandbox,
+# blocchi su commit/push/tag e attribuzioni.
+# I plugin si caricano dalla cartella a ogni avvio: non serve installarli né aggiornarli.
+# Se mimir@mimir o brokkr@mimir sono anche installati, tienili disabilitati: sarebbero una seconda copia.
+# Uso:
+#   claude-mimir [--add-dir <cartella> ...] [altri argomenti di claude]   sessione normale
+#   claude-mimir agents [--add-dir <cartella> ...]                        agent view (sessioni in background)
+set -euo pipefail
+MIMIR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1
+# settings di Maven senza credenziali: quello personale non è leggibile nella sandbox
+export MIMIR_MAVEN_SETTINGS="$MIMIR_DIR/sandbox/maven-settings.xml"
+MIMIR_ARGS=(--settings "$MIMIR_DIR/sandbox.settings.json" --add-dir "$MIMIR_DIR" --plugin-dir "$MIMIR_DIR/plugins")
+
+if [[ "${1:-}" == "agents" ]]; then
+  shift
+  exec claude agents "${MIMIR_ARGS[@]}" "$@"
+fi
+exec claude "${MIMIR_ARGS[@]}" "$@"

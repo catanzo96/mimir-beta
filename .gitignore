@@ -1,0 +1,15 @@
+.env
+*.env
+.credentials.json
+*.key
+*.pem
+*.bak
+
+# IDE
+.idea/
+.vscode/
+.serena/
+
+# Dati personali di chi usa Mímir: li crea install.sh dagli esempi
+profile/profile.md
+inbox.md

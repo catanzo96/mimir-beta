@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Settings di Maven per le sessioni claude-mimir: la sandbox nega la lettura di
+  ~/.m2/settings.xml (credenziali), e Maven si ferma se il file non è leggibile.
+  Il launcher esporta il percorso di questo file in MIMIR_MAVEN_SETTINGS.
+  Uso: mvn -llr -s "$MIMIR_MAVEN_SETTINGS" <goal>
+  -llr serve perché gli artefatti in cache sono stati scaricati da repository
+  definiti nel settings.xml personale, che qui non sono noti.
+  Nessuna credenziale e nessun repository: dentro la sandbox Maven non ha rete.
+-->
+<settings>
+  <offline>true</offline>
+</settings>

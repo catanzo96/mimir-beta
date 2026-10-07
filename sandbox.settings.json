@@ -1,0 +1,92 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "skillListingBudgetFraction": 0.03,
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": true,
+    "filesystem": {
+      "allowWrite": [
+        "~/.m2/repository",
+        "~/.m2/wrapper",
+        "~/.npm/_cacache",
+        "~/.npm/_logs",
+        "~/.cache/yarn",
+        "~/.local/share/pnpm",
+        "~/.gradle/caches",
+        "~/.gradle/wrapper"
+      ]
+    },
+    "credentials": {
+      "files": [
+        {
+          "path": "~/.ssh",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.git-credentials",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.aws/credentials",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.claude/.credentials.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.docker/config.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.gnupg",
+          "mode": "deny"
+        }
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "github.com",
+        "*.github.com",
+        "repo.maven.apache.org",
+        "repo1.maven.org",
+        "oss.sonatype.org",
+        "registry.npmjs.org",
+        "*.npmjs.org",
+        "registry.yarnpkg.com"
+      ]
+    },
+    "failIfUnavailable": true
+  },
+  "permissions": {
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Read(~/.ssh/**)",
+      "Read(~/.git-credentials)",
+      "Read(~/.aws/credentials)",
+      "Read(~/.claude/.credentials.json)",
+      "Read(~/.m2/settings.xml)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.gradle/gradle.properties)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.claude.json)",
+      "Read(**/.env)",
+      "Read(**/.env.*)"
+    ],
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git tag:*)",
+      "Bash(dangerouslyDisableSandbox:true)"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1"
+  }
+}

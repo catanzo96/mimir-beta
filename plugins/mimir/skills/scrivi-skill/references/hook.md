@@ -1,0 +1,71 @@
+# Scrivere un hook
+
+Un hook è un comando (o una chiamata HTTP, un prompt, un agent) che l'harness esegue a un evento della sessione. Vale al 100% perché non dipende da ciò che Claude decide. Per le regole di comportamento, che Claude può interpretare, usa una regola o una skill. Dettagli e nomi sulla pagina `hooks` della documentazione di Claude Code, da controllare quando cambia la versione.
+
+## Eventi che servono di più
+| Evento | Quando scatta | Può bloccare? |
+|---|---|---|
+| `PreToolUse` | prima che un tool venga eseguito | sì |
+| `PostToolUse` | dopo un tool riuscito | no (il tool è già girato); lo stderr arriva a Claude |
+| `UserPromptSubmit` | quando l'utente invia un prompt | sì |
+| `SessionStart` | all'avvio, alla ripresa, dopo `/clear` o `/compact` | no; lo stdout entra nel contesto |
+| `Stop` | quando Claude sta per concludere il turno | sì (lo obbliga a continuare) |
+| `SubagentStart`, `SubagentStop` | avvio e fine di un subagent | `SubagentStop` sì |
+| `PreCompact` | prima della compattazione | sì |
+| `PermissionRequest` | quando sta per comparire una richiesta di permesso | decide lui |
+
+Ne esistono molti altri (`PostToolUseFailure`, `Notification`, `SessionEnd`, `PreModelSwitch`, `FileChanged`, ...): l'elenco completo e quali bloccano sono nella pagina `hooks`. Un evento che non blocca non può fermare l'azione: se serve un divieto, usa `PreToolUse`.
+
+## Input
+Lo script riceve un oggetto JSON su stdin. Campi comuni: `session_id`, `transcript_path`, `cwd`, `permission_mode`, `hook_event_name`; per gli eventi sui tool anche `tool_name` e `tool_input` (per Bash, `tool_input.command`). Leggi con un parser JSON (`json.load(sys.stdin)`, `jq`), non con grep sul testo.
+
+## Uscita
+- **Exit 0**: via libera. Lo stdout è letto come JSON se è un oggetto; altrimenti è solo log, salvo `UserPromptSubmit`, `SessionStart` e pochi altri, dove entra nel contesto di Claude.
+- **Exit 2**: blocca (dove l'evento lo consente) e lo stderr viene mostrato a Claude come motivo. Scrivi un messaggio che dica cosa correggere: Claude lo legge e riprova.
+- **Qualsiasi altro codice (anche 1)**: errore non bloccante, l'azione prosegue. Un controllo che deve bloccare ma esce con 1 non blocca: è l'errore più comune.
+- **JSON in stdout con exit 0**, dove l'evento supporta una decisione:
+  - `PreToolUse`: `{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow|deny|ask|defer", "permissionDecisionReason": "...", "updatedInput": {...}}}`; `updatedInput` riscrive i parametri del tool;
+  - `UserPromptSubmit`, `PostToolUse`, `Stop` e altri: `{"decision": "block", "reason": "..."}`;
+  - `PostToolUse` e `SessionStart`: `additionalContext` per aggiungere testo al contesto di Claude;
+  - campi universali: `continue: false` con `stopReason`, `systemMessage`.
+  Non mischiare i due stili: con exit 2 il JSON è ignorato.
+
+## Matcher e filtri
+- `matcher` è una stringa unica sul nome del tool (`PreToolUse`, `PostToolUse`): `Bash`, oppure `Edit|Write` per più tool. Usa una stringa, non un array. Con caratteri diversi da lettere, cifre, `_`, `-`, spazi, `|`, `,` è una regex (non ancorata): `^Bash$`, `mcp__.*`.
+- Il nome del tool è sensibile alle maiuscole: `Bash`, non `bash`.
+- Altri eventi filtrano su altro (per `SessionStart` la sorgente: `startup`, `resume`, `clear`, `compact`); `UserPromptSubmit` e `Stop` non hanno matcher.
+- Il campo `if` (permission rule syntax, per esempio `Bash(git *)`) restringe ancora, ma solo sugli eventi dei tool. Non sostituisce il controllo nello script: i pattern complessi girano comunque.
+
+## Timeout
+Il campo `timeout` è in secondi: default 600 per i comandi, 30 per `UserPromptSubmit`. Imposta un valore breve (5-10 s per un controllo, come `check-commit-message.py`): un hook lento rallenta ogni azione. Niente rete negli hook di controllo, e nessun dato sensibile nei log.
+
+## Dove si definisce
+- **Plugin**: `hooks/hooks.json` del plugin, con la chiave `hooks` (come in `plugins/mimir/hooks/hooks.json`). Vale per chi installa il plugin. Script in `hooks/scripts/`.
+- **Settings**: `hooks` in `settings.json` (utente, progetto, locale, gestito). Non esiste un file di hook separato per progetto o utente.
+- Anche nel frontmatter di skill e agent: valgono finché la skill o l'agent sono attivi.
+- Verifica con `/hooks` che l'hook compaia; con `claude --debug-file <file>` leggi quali matcher sono stati valutati, il codice di uscita e l'output. Le modifiche a `settings.json` si applicano in sessione senza riavvio.
+
+## Percorsi e variabili
+Dentro `command` Claude Code sostituisce `${CLAUDE_PLUGIN_ROOT}` (cartella di installazione del plugin), `${CLAUDE_PROJECT_DIR}` (radice del progetto) e `${CLAUDE_PLUGIN_DATA}` (dati persistenti del plugin). Il percorso può contenere spazi: nella forma shell mettilo tra virgolette (`"\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/x.py\""` in JSON). Nella forma exec (`command` con `args`) non passa dalla shell e il problema non c'è. Lo script deve avere il bit di esecuzione e lo shebang (`#!/usr/bin/env python3`).
+
+## Scrivere lo script di controllo
+- **Riconosci il comando, non la stringa.** Un controllo su `git commit` che cerca la parola nel testo scatta anche su `echo "git commit"`, su un messaggio che parla di commit, su un percorso. Individua il comando in posizione di comando (inizio riga o dopo `;`, `&`, `|`, `(`), scomponi gli argomenti con un vero tokenizer (`shlex.split`) e controlla il contenuto dove conta (il messaggio, non l'intero comando). Pattern come `CLAUDE.md` o `Claude` da soli sono falsi positivi: blocca la forma dell'abuso (un trailer, una frase), non la parola.
+- **Gestisci le forme alternative**: `-m` ripetuto, `--message=`, `-F file`, `-F -` con heredoc, `--trailer`. Se non riesci a ricostruire l'input, scegli esplicitamente se lasciar passare o bloccare, e dichiaralo nel commento in testa allo script.
+- **Fallisci in modo esplicito**: input non JSON o campo mancante non devono produrre un blocco involontario né un crash silenzioso.
+- Il messaggio su stderr dice cosa non va e come correggere.
+- Uno script che modifica il comando (`updatedInput`) o decide permessi richiede ancora più prudenza: provalo con casi ostili.
+
+## Provare l'hook
+Prima di affidarti a un hook provalo su casi che devono bloccare e casi che devono passare, e guarda il test fallire contro una versione sbagliata.
+- Il modello è `plugins/mimir/hooks/scripts/test_check_commit_message.py`: due dizionari (`BLOCK` e `PASS`) di comandi, lo script lanciato con il JSON su stdin, e il controllo del codice di uscita (2 per i blocchi, 0 per i passaggi). Lancio: `python3 plugins/mimir/hooks/scripts/test_check_commit_message.py [percorso script]`; esce con 1 se un caso sbaglia e stampa quale.
+- Includi: il caso base che deve bloccare; le varianti di forma (altro modo di passare lo stesso messaggio); i falsi positivi già visti (parole nel comando, percorsi, nomi di file); il limite esatto (72 caratteri esatti passano, 73 bloccano).
+- Quando correggi un falso positivo, aggiungi prima il caso al test, guardalo fallire, poi correggi.
+- Dopo il test sullo script, prova una volta l'hook vero in una sessione (`/hooks` per vederlo, poi un'azione che deve bloccare): il test sullo script non prova il matcher né il percorso nel `hooks.json`.
+
+## Trappole
+- Exit 1 al posto di 2: non blocca.
+- Matcher in minuscolo, o array, o tool scritto male: l'hook non scatta e non dà errori.
+- Stdout con testo aggiuntivo (un `echo` dimenticato, l'output del profilo della shell) rompe il JSON.
+- Script non eseguibile o percorso senza virgolette con spazi: l'hook fallisce in modo non bloccante.
+- Hook di `PostToolUse` usato per vietare: il tool è già stato eseguito.
+- Controlli lenti o con rete: il timeout predefinito è lungo e ogni azione ne paga il costo.
