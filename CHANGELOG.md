@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-07 (limatura, fase 1)
+- Hook multipiattaforma: gli hook passano da `run-python.sh`, che sceglie l'interprete (`python3`, `python`, `py -3`) invece di affidarsi allo shebang, e leggono e scrivono in UTF-8. Senza Python, o con un errore interno, i comandi git che scrivono vengono bloccati invece di passare senza controllo.
+- `check-commit-message.py` diventa `git-guard.py`: riconosce git tra i token del comando (`git -C "cartella"`, `FOO=1 git`, `/usr/bin/git`, `git.exe`, `sh -c`, `eval`, corpi degli heredoc, tool PowerShell) invece che con regex, che su input costruiti andavano in timeout e lasciavano passare il comando. Blocca il force push e ogni commit, push o tag non in forma semplice: la conferma resta alle regole `ask` di settings, perché Claude Code ha ignorato un `ask` restituito dall'hook. Limiti dichiarati nel README.
+- La skill `commit` scrive il messaggio in un file e usa `git commit -F <file>` come comando a sé. Regole `ask` su `git tag` anche in `settings.template.json`.
+- Regole `ask` e `deny` anche per il tool PowerShell; `.gitattributes` fissa le fini riga degli script. Plugin `mimir` 0.18.0.
+
 ## 2026-10-07 (retro)
 - Verifica della sandbox con il launcher: `/sandbox` non si apre quando la configurazione arriva da `--settings`; README e `sicurezza-claude-code` indicano la prova di rete (host ammesso risponde, host escluso bloccato). Plugin `mimir` 0.17.2.
 - `git-workflow`: sezione "Nella sandbox" su `.git/config` protetto e push autenticati lanciati dall'utente. Plugin `mimir` 0.17.1.

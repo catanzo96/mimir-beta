@@ -4,8 +4,9 @@
 # dello Store esiste nel PATH ma non esegue nulla: ogni candidato si prova prima di usarlo.
 # Un hook che non parte è un errore non bloccante per Claude Code: con --fail-closed,
 # se manca Python, il wrapper blocca (exit 2) i comandi il cui campo "command" contiene
-# "commit" (anche in maiuscolo: PowerShell non distingue) e lascia passare gli altri,
-# perché l'hook gira su ogni comando. Il resto dell'input (cwd, transcript_path) non conta.
+# "git" seguito da commit, push o tag come parole intere (anche in maiuscolo: PowerShell
+# non distingue) e lascia passare gli altri, perché l'hook gira su ogni comando.
+# Il resto dell'input (cwd, transcript_path) non conta.
 # Uso: run-python.sh [--fail-closed] <script.py>
 set -uo pipefail
 
@@ -25,11 +26,15 @@ done
 
 if (( fail_closed )); then
   IFS= read -r -d '' input || true
-  # valore JSON di "command": caratteri normali o sequenze di escape, fino a "commit"
-  command_with_commit='"command"[[:space:]]*:[[:space:]]*"([^"\\]|\\.)*commit'
+  # valore JSON di "command" (caratteri normali o sequenze di escape) con git e poi commit, commit-tree,
+  # push, tag o send-pack non attaccati a lettere, cifre, _ o - (così --tags e committer non contano);
+  # tabulazione, a capo e virgolette nel JSON sono \t, \n e \", e valgono come separatori
+  json_char='([^"\\]|\\.)'
+  separator='(\\[tn"]|[^[:alnum:]_-])'
+  git_write="\"command\"[[:space:]]*:[[:space:]]*\"${json_char}*git${json_char}*${separator}(commit(-tree)?|push|tag|send-pack)([^[:alnum:]_-]|\$)"
   shopt -s nocasematch
-  if [[ "$input" =~ $command_with_commit ]]; then
-    echo "Mímir: Python 3.8+ non trovato, il controllo dei commit non può partire: commit bloccato. Installa Python o rilancia l'installer di Mímir." >&2
+  if [[ "$input" =~ $git_write ]]; then
+    echo "Mímir: Python 3.8+ non trovato, il controllo di commit, push e tag non può partire: comando bloccato. Installa Python o rilancia l'installer di Mímir." >&2
     exit 2
   fi
   exit 0

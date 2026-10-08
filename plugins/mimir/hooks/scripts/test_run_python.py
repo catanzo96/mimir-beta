@@ -80,12 +80,29 @@ try:
         ("senza Python, fail-closed, Git COMMIT bloccato",
          (EMPTY, ["--fail-closed"], bash_command("Git COMMIT -m x"), 2)),
         ("senza Python, senza flag, git commit passa", (EMPTY, [], commit, 0)),
+        ("senza Python, fail-closed, git push bloccato",
+         (EMPTY, ["--fail-closed"], bash_command("git push origin main"), 2)),
+        ("senza Python, fail-closed, git tag bloccato", (EMPTY, ["--fail-closed"], bash_command("git tag v1"), 2)),
+        ("senza Python, fail-closed, git commit-tree bloccato",
+         (EMPTY, ["--fail-closed"], bash_command("git commit-tree abc -m x"), 2)),
+        ("senza Python, fail-closed, git send-pack bloccato",
+         (EMPTY, ["--fail-closed"], bash_command("git send-pack origin main"), 2)),
+        ("senza Python, fail-closed, git e push separati da tab bloccato",
+         (EMPTY, ["--fail-closed"], bash_command("git\tpush"), 2)),
+        ("senza Python, fail-closed, git e push separati da a capo bloccato",
+         (EMPTY, ["--fail-closed"], bash_command("git status\ngit push"), 2)),
+        ("senza Python, fail-closed, git \"push\" tra virgolette bloccato",
+         (EMPTY, ["--fail-closed"], bash_command('git "push" origin'), 2)),
+        ("senza Python, fail-closed, git fetch --tags passa",
+         (EMPTY, ["--fail-closed"], bash_command("git fetch --tags"), 0)),
+        ("senza Python, fail-closed, docker tag passa",
+         (EMPTY, ["--fail-closed"], bash_command("docker tag img:1 img:latest"), 0)),
     ]:
         path_dir, flags, stdin, code = args
         check(name, run(path_dir, flags, stdin), code)
         CASES += 1
     check("senza Python, fail-closed, git commit bloccato con il motivo",
-          run(EMPTY, ["--fail-closed"], commit), 2, stderr="commit bloccato")
+          run(EMPTY, ["--fail-closed"], commit), 2, stderr="comando bloccato")
     check("python3 rotto, si usa python: exit e stdout dello script",
           run(FAKE, ["--fail-closed"], commit), 3, stdout=commit)
     check("python3 stub e python vecchio, si usa py -3",

@@ -9,7 +9,7 @@ disable-model-invocation: true
 Scopo: portare la configurazione di Claude Code al massimo livello di sicurezza ragionevole **senza rompere il flusso di lavoro**, e senza modificare nulla prima dell'ok dell'utente. Si applica insieme alle regole sempre attive, in particolare `rules/git-and-safety.md`.
 
 Il modello di Mímir ha due livelli:
-- **modalità assistita**: sessioni avviate con `bin/claude-mimir` (sandbox, plugin dalla cartella, hook dei commit); l'utente approva le azioni;
+- **modalità assistita**: sessioni avviate con `bin/claude-mimir` (sandbox, plugin dalla cartella, hook su commit, push e tag); l'utente approva le azioni;
 - **via libera a Claude** (lavoro autonomo, `--dangerously-skip-permissions` o `bypassPermissions`): solo dentro un dev container. Vedi `references/devcontainer.md`. Mai proporlo sulla macchina dell'utente.
 
 ## Regole

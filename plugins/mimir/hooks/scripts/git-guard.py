@@ -1,0 +1,463 @@
+#!/usr/bin/env python3
+"""PreToolUse (Bash e PowerShell): vincoli di Mímir su commit, push e tag lanciati da Claude Code.
+
+Blocca (exit 2, motivo su stderr):
+- i commit con attribuzioni a un'AI: trailer come Co-Authored-By con un nome di AI,
+  frasi "Generated with/by" o "Generato con/da" seguite da un'AI, link a Claude Code;
+- i commit con intestazione o righe del corpo oltre 72 caratteri (le righe con un URL sono escluse);
+- il force push: -f anche tra opzioni corte raggruppate, --mirror, refspec +ref, --force,
+  --force-with-lease, --force-if-includes e le loro abbreviazioni.
+
+Blocca anche ogni commit, push e tag che non sia in forma semplice. La conferma la chiedono le regole
+ask di settings (Bash(git commit:*), PowerShell(git push:*)…), che riconoscono solo il prefisso: forme
+come git -C . commit, FOO=1 git push o git add x && git commit nella sandbox partirebbero senza
+conferma. L'hook non risponde "ask": verificato l'08/10 con Claude Code 2.1.293 (sandbox e modalità
+auto), un "ask" dell'hook è stato ignorato e il commit è partito. Forma semplice: l'intero comando è
+git commit …, git push … o git tag …, con quel prefisso esatto, senza separatori, a capo, $( o
+backtick (per PowerShell senza distinguere le maiuscole, come le sue regole). commit-tree, send-pack e
+git.exe non hanno una regola ask e sono sempre bloccati. Passano senza controllo git tag senza
+argomenti e git tag -l/--list senza opzioni di scrittura, che non scrivono.
+
+Come riconosce i comandi: divide il comando in token con shlex (lineare, niente regex con
+backtracking), separa i comandi semplici su ; & | ( ) e a capo, e cerca un token git (anche
+/usr/bin/git, git.exe, dopo FOO=1, env, sudo, xargs) seguito, dopo le opzioni globali, dal
+sottocomando. Entra negli argomenti di sh/bash/zsh -c, eval, iex/Invoke-Expression e cmd /c, non nei
+messaggi dei commit. Se il comando non si divide (virgolette sbilanciate) o supera MAX_COMMAND, una
+ricerca lineare di git seguito da commit, push o tag decide: se la trova, blocca.
+
+Limiti: è una rete contro errori e injection banali, non contro un avversario determinato. Non vede
+alias di git (anche -c alias.x=push, -c remote.x.push=+ref), alias e variabili di PowerShell, funzioni
+shell, script, make, hook git, comandi passati a ssh, update-ref e fast-import; merge, revert,
+cherry-pick e pull creano commit senza passare da qui. Accanto restano la sandbox (credenziali negate)
+e le regole ask, alle quali l'hook lascia i comandi in forma semplice.
+
+Le parole da sole (un file CLAUDE.md, un percorso, "integra l'API di Anthropic") non bloccano il
+commit: conta la forma dell'attribuzione, non l'argomento.
+
+Un errore inatteso blocca (exit 2) solo se il comando sembra un commit, un push o un tag: per Claude
+Code un hook che esce con 1 è un errore non bloccante, e il comando passerebbe senza controllo.
+"""
+import json
+import os
+import re
+import shlex
+import sys
+
+MAX_LINE = 72
+MAX_COMMAND = 100_000
+MAX_DEPTH = 3
+
+AI = r"(claude|anthropic|openai|chatgpt|gpt-?\d|copilot|gemini|cursor|codeium|tabnine|\bai\b|assistant|assistente|llm)"
+ATTRIBUTION = [
+    re.compile(r"^[ \t]*(co-authored-by|co-developed-by|assisted-by|generated-by)\s*:.*" + AI, re.I | re.M),
+    re.compile(r"(generated|created|written)\s+(with|by|using)\b[^\n]{0,40}" + AI, re.I),
+    re.compile(r"(generat[oa]|creat[oa]|scritt[oa])\s+(con|da|tramite)\b[^\n]{0,40}" + AI, re.I),
+    re.compile(r"claude\.(ai|com)/(code|claude-code)", re.I),
+]
+
+WRITE_SUBCOMMANDS = {"commit", "commit-tree", "push", "send-pack", "tag"}
+# i sottocomandi con una regola ask in settings: solo questi possono passare in forma semplice
+SIMPLE_SUBCOMMANDS = ("commit", "push", "tag")
+GIT_NAMES = {"git", "git.exe"}
+GIT_OPTIONS_WITH_VALUE = {"-c", "-C", "--git-dir", "--work-tree", "--namespace", "--config-env"}
+PUSH_OPTIONS_WITH_VALUE = {"-o", "--push-option", "--repo", "--receive-pack", "--exec"}
+FORCE_OPTIONS = ("--force", "--force-with-lease", "--force-if-includes")
+TAG_LIST_OPTIONS = {"-l", "--list"}
+TAG_WRITE_OPTIONS = {"-a", "-s", "-u", "-f", "-d", "-m", "-F", "-e", "--annotate", "--sign", "--local-user",
+                     "--force", "--delete", "--message", "--file", "--edit"}
+SHELLS = {"sh", "bash", "zsh", "dash", "ksh", "su", "sh.exe", "bash.exe"}
+POWERSHELLS = {"pwsh", "powershell", "pwsh.exe", "powershell.exe"}
+CMDS = {"cmd", "cmd.exe"}
+EVALUATORS = {"eval", "iex", "invoke-expression"}
+NESTING = SHELLS | POWERSHELLS | CMDS | EVALUATORS
+QUOTES = "\"'`"
+
+# << seguito dal delimitatore, ma non <<< (here-string di bash)
+HEREDOC_START = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)(\w+)\1")
+LOOSE_GIT = re.compile(r"\bgit\b", re.I)
+LOOSE_WRITE = re.compile(r"(?<![\w-])(commit|push|tag|send-pack)(?![\w-])", re.I)
+LOOSE_COMMIT = re.compile(r"(?<![\w-])commit(?![\w-])", re.I)
+
+
+def arithmetic_spans(line):
+    """Intervalli di ((…)) e $((…)) nella riga, dove << è uno shift e non un heredoc; uno non chiuso arriva in fondo."""
+    spans, start = [], line.find("((")
+    while start != -1:
+        end = line.find("))", start + 2)
+        end = len(line) if end == -1 else end + 2
+        spans.append((start, end))
+        start = line.find("((", end)
+    return spans
+
+
+def heredoc_starts(line):
+    """I << che aprono un heredoc: match e intervalli aritmetici sono in ordine, un solo passaggio."""
+    spans, k, starts = arithmetic_spans(line), 0, []
+    for m in HEREDOC_START.finditer(line):
+        while k < len(spans) and spans[k][1] <= m.start():
+            k += 1
+        if k == len(spans) or m.start() < spans[k][0]:
+            starts.append(m)
+    return starts
+
+
+def heredoc_bodies(cmd):
+    """Corpi degli heredoc e comando senza di essi, riga per riga (lineare); un heredoc non chiuso arriva in fondo."""
+    bodies, kept, pending, body = [], [], [], None
+    for line in cmd.split("\n"):
+        if body is not None:
+            if line.strip() == pending[0]:
+                bodies.append("\n".join(body))
+                pending.pop(0)
+                body = [] if pending else None
+            else:
+                body.append(line)
+            continue
+        starts = heredoc_starts(line)
+        delimiters = [m.group(2) for m in starts]
+        for m in reversed(starts):
+            line = line[:m.start()] + " __HEREDOC__ " + line[m.end():]
+        kept.append(line)
+        if delimiters:
+            pending, body = delimiters, []
+    if body is not None:
+        bodies.append("\n".join(body))
+    return bodies, "\n".join(kept)
+
+
+def split_command(text, tool_name):
+    """Token del comando con le regole della sua shell; ; & | ( ) e a capo diventano token separati."""
+    powershell = tool_name == "PowerShell"
+    # continuazione di riga: \ a capo in bash, ` a capo in PowerShell
+    text = text.replace("`\n" if powershell else "\\\n", " ")
+    # PowerShell non usa il backslash come escape: in modalità POSIX C:\tmp\m.txt diventerebbe C:tmpm.txt
+    lexer = shlex.shlex(text, posix=not powershell, punctuation_chars="();|&\n")
+    lexer.whitespace_split = True
+    lexer.whitespace = " \t\r"
+    lexer.commenters = ""
+    tokens = list(lexer)
+    if powershell:
+        tokens = [tok[1:-1] if len(tok) > 1 and tok[0] == tok[-1] and tok[0] in "\"'" else tok for tok in tokens]
+    return tokens
+
+
+def is_separator(tok):
+    return tok != "" and all(ch in "();|&\n" for ch in tok)
+
+
+def simple_commands(tokens):
+    current = []
+    for tok in tokens:
+        if is_separator(tok):
+            if current:
+                yield current
+            current = []
+        else:
+            current.append(tok)
+    if current:
+        yield current
+
+
+def bare(tok):
+    """Il token senza redirect attaccato (push>/dev/null), virgolette o backtick ai lati e percorso, in minuscolo."""
+    tok = re.split(r"[<>]", tok, maxsplit=1)[0].strip(QUOTES)
+    return re.split(r"[\\/]", tok)[-1].lower()
+
+
+def git_calls(tokens, tool_name, depth=0):
+    """(sottocomando, argomenti) per ogni git commit/commit-tree/push/send-pack/tag nei token.
+
+    Una shell che legge lo script da stdin o da un file (bash <<< …, echo … | sh) dà ("shell", []):
+    il chiamante decide con la ricerca lineare su tutto il comando.
+    """
+    calls = []
+    for words in simple_commands(tokens):
+        for i, word in enumerate(words):
+            name = bare(word)
+            if name in GIT_NAMES:
+                j = i + 1
+                while j < len(words) and words[j].startswith("-"):
+                    j += 2 if words[j] in GIT_OPTIONS_WITH_VALUE else 1
+                if j < len(words) and bare(words[j]) in WRITE_SUBCOMMANDS:
+                    calls.append((bare(words[j]), words[j + 1:]))
+                elif j < len(words) and ("$" in words[j] or "`" in words[j]):
+                    calls.append(("dynamic", []))  # git $SUB, git ${X:-push}
+                continue
+            if depth < MAX_DEPTH and ("$(" in word or "`" in word):
+                # sostituzione tra virgolette ("$(git push)", "`git push`"): shlex la lascia in un solo token
+                try:
+                    calls.extend(git_calls(split_command(word, tool_name), tool_name, depth + 1))
+                except ValueError:
+                    if loose_git_write(word):
+                        calls.append(("shell", []))
+            if "$" in word and ((i + 1 < len(words) and bare(words[i + 1]) in WRITE_SUBCOMMANDS)
+                                or loose_git_write(word)):
+                calls.append(("dynamic", []))  # "$GIT" push, git${IFS}push
+            if depth < MAX_DEPTH and name in NESTING:
+                script = nested_script(name, words, i + 1)
+                if script is None:
+                    calls.append(("shell", []))
+                else:
+                    calls.extend(git_calls(split_command(script, tool_name), tool_name, depth + 1))
+                # il resto del comando semplice sono argomenti della shell: guardarlo di nuovo a ogni parola
+                # costerebbe un tempo quadratico (bash bash bash …)
+                break
+    return calls
+
+
+def nested_script(name, words, start):
+    """Il comando passato a una shell o a un valutatore (sh -c, pwsh -Command, eval, iex, cmd /c), o None."""
+    rest = words[start:]
+    if name in EVALUATORS:
+        return " ".join(rest) if rest else None
+    for k, tok in enumerate(rest[:-1]):
+        option = tok.lower()
+        if name in POWERSHELLS:
+            # -c, -com, -command: PowerShell accetta le abbreviazioni dei parametri
+            if len(option) >= 2 and "-command".startswith(option):
+                return rest[k + 1]
+        elif name in CMDS:
+            if option == "/c":
+                return " ".join(rest[k + 1:])
+        elif re.fullmatch(r"-[a-z]*c[a-z]*", option):
+            # bash -c -- 'script': -- chiude le opzioni, lo script è dopo
+            return rest[k + 2] if rest[k + 1] == "--" and k + 2 < len(rest) else rest[k + 1]
+    return None
+
+
+def is_force_push(args):
+    skip = False
+    # il backtick di una sostituzione `git push -f` resta attaccato all'ultimo argomento
+    for arg in (a.strip("`") for a in args):
+        if skip:
+            skip = False
+            continue
+        option = arg.split("=", 1)[0].lower()
+        if option in PUSH_OPTIONS_WITH_VALUE:
+            skip = "=" not in arg
+            continue
+        if arg.startswith("+") and len(arg) > 1:
+            return True
+        if option == "--mirror":
+            return True
+        # git accetta le abbreviazioni univoche delle opzioni lunghe: --force-w vale --force-with-lease
+        if len(option) >= 4 and option.startswith("--f") and any(full.startswith(option) for full in FORCE_OPTIONS):
+            return True
+        if re.fullmatch(r"-[A-Za-z0-9]+", arg) and "f" in arg[1:]:
+            return True
+    return False
+
+
+def is_tag_listing(args):
+    args = [a.strip("`") for a in args if a.strip("`")]
+    if not args:
+        return True
+    if args[0] not in TAG_LIST_OPTIONS:
+        return False
+    return not any(arg.split("=", 1)[0] in TAG_WRITE_OPTIONS for arg in args)
+
+
+def message_from_args(tokens, bodies, cwd):
+    """Ricostruisce il messaggio da -m/--message, -F/--file e --trailer. None se non determinabile."""
+    parts, trailers, i = [], [], 0
+    while i < len(tokens):
+        tok = tokens[i]
+        value = None
+        if tok == "--trailer" and i + 1 < len(tokens):
+            trailers.append(tokens[i + 1])
+            i += 2
+            continue
+        if tok.startswith("--trailer="):
+            trailers.append(tok.split("=", 1)[1])
+            i += 1
+            continue
+        if tok in ("-m", "--message", "-F", "--file") and i + 1 < len(tokens):
+            value, i = tokens[i + 1], i + 1
+            is_file = tok in ("-F", "--file")
+        elif tok.startswith("--message="):
+            value, is_file = tok.split("=", 1)[1], False
+        elif tok.startswith("--file="):
+            value, is_file = tok.split("=", 1)[1], True
+        elif tok.startswith("-m") and len(tok) > 2:
+            value, is_file = tok[2:], False
+        if value is not None:
+            # here-string di PowerShell (@" … "@): il tokenizzatore la spezza alle righe, il messaggio non è ricostruibile
+            if value.startswith(("@\"", "@'")):
+                return None
+            if not is_file:
+                parts.append(value)
+            elif value == "-":
+                if not bodies:
+                    return None
+                parts.append(bodies[0])
+            else:
+                path = value if os.path.isabs(value) else os.path.join(cwd, value)
+                # solo file regolari e con un limite: -F /dev/zero non finirebbe mai di leggere
+                if not os.path.isfile(path):
+                    return None
+                try:
+                    with open(path, encoding="utf-8", errors="replace") as fh:
+                        parts.append(fh.read(MAX_COMMAND + 1))
+                except OSError:
+                    return None
+        i += 1
+    if trailers:
+        parts.append("\n".join(trailers))
+    return "\n\n".join(p.strip("\n") for p in parts) if parts else None
+
+
+def length_problems(message):
+    lines = message.splitlines()
+    problems = []
+    if lines and len(lines[0]) > MAX_LINE:
+        problems.append(f"intestazione di {len(lines[0])} caratteri (massimo {MAX_LINE})")
+    for n, line in enumerate(lines[1:], start=2):
+        if len(line) > MAX_LINE and "://" not in line and not line.startswith("#"):
+            problems.append(f"riga {n} di {len(line)} caratteri (massimo {MAX_LINE})")
+    return problems
+
+
+def has_attribution(text):
+    return any(pattern.search(text) for pattern in ATTRIBUTION)
+
+
+def commit_problem(commit_args, bodies, cwd, attribution_in_cmd):
+    """Il motivo per cui il messaggio del commit va bloccato, o None se è in regola o non ricostruibile.
+
+    attribution_in_cmd dice se c'è un'attribuzione in tutto il comando: si calcola una volta sola,
+    perché con molti commit nello stesso comando ripeterla costerebbe un tempo quadratico.
+    """
+    message = message_from_args(commit_args, bodies, cwd) if commit_args else None
+    # Attribuzioni: nel messaggio ricostruito. Se non si riesce a ricostruirlo, in tutto il comando
+    # (heredoc compresi): i pattern sono abbastanza specifici da non scattare su percorsi o nomi di file.
+    if has_attribution(message) if message is not None else attribution_in_cmd():
+        return ("Commit bloccato: il messaggio contiene un'attribuzione all'AI "
+                "(trailer come Co-Authored-By, 'Generated with…', link a Claude Code). "
+                "Rimuovila e riproponi il commit.")
+    if message is not None:
+        problems = length_problems(message)
+        if problems:
+            return ("Commit bloccato: " + "; ".join(problems)
+                    + ". Vedi la skill commit: intestazione e righe del corpo entro 72 caratteri.")
+    return None
+
+
+def loose_git_write(text):
+    """Ricerca lineare: git seguito più avanti da commit, push, tag o send-pack come parole intere."""
+    match = LOOSE_GIT.search(text)
+    return bool(match and LOOSE_WRITE.search(text, match.end()))
+
+
+def is_simple_form(cmd, tokens, tool_name):
+    """L'intero comando è git commit/push/tag con il prefisso esatto delle regole ask di settings."""
+    text = cmd.strip()
+    if "\n" in text or "$(" in text or "`" in text or any(is_separator(tok) for tok in tokens):
+        return False
+    # le regole PowerShell non distinguono le maiuscole, quelle Bash sì
+    flags = re.I if tool_name == "PowerShell" else 0
+    return re.match(r"git (?:" + "|".join(SIMPLE_SUBCOMMANDS) + r")(?: |$)", text, flags) is not None
+
+
+def block_form(reason=""):
+    print("Comando git bloccato: commit, push e tag vanno lanciati da soli, in forma semplice, dalla cartella "
+          "del repo (git commit -F <file>, git commit -m \"…\", git push …, git tag …), così chiede conferma "
+          "la regola ask di settings. Niente git -C, opzioni globali, variabili, &&, ;, |, redirect, heredoc, "
+          "$( ) o messaggi su più righe: per il messaggio scrivi un file in $TMPDIR e usa git commit -F <file>. "
+          "commit-tree e send-pack non sono ammessi." + reason, file=sys.stderr)
+    return 2
+
+
+def check(raw):
+    data = json.loads(raw)
+    cmd = (data.get("tool_input") or {}).get("command") or ""
+    tool_name = data.get("tool_name")
+
+    if len(cmd) > MAX_COMMAND:
+        return block_form(" (Comando troppo lungo per l'analisi.)") if loose_git_write(cmd) else 0
+    bodies, flat = heredoc_bodies(cmd)
+    try:
+        tokens = split_command(flat, tool_name)
+        calls = git_calls(tokens, tool_name)
+    except ValueError:
+        if not loose_git_write(cmd):
+            return 0
+        # anche senza token un commit con attribuzione si riconosce nel testo (here-string di PowerShell)
+        if LOOSE_COMMIT.search(cmd) and has_attribution(cmd):
+            print("Commit bloccato: il comando contiene un'attribuzione all'AI. Rimuovila e riproponi il commit.",
+                  file=sys.stderr)
+            return 2
+        return block_form(" (Comando non analizzabile: virgolette sbilanciate.)")
+
+    # il corpo di un heredoc può essere uno script eseguito (bash <<EOF): nel dubbio è una scrittura
+    writes = ["heredoc"] if any(loose_git_write(body) for body in bodies) else []
+    attribution_cache = []
+    shell_checked = False
+
+    def attribution_in_cmd():
+        if not attribution_cache:
+            attribution_cache.append(has_attribution(cmd))
+        return attribution_cache[0]
+
+    for sub, args in calls:
+        if sub == "dynamic":
+            writes.append(sub)
+            continue
+        if sub == "shell":
+            # shell che legge lo script da stdin o da un file: non si vede cosa esegue, nel dubbio è una
+            # scrittura; la ricerca su tutto il comando si fa una volta sola anche con molte shell
+            if not shell_checked:
+                shell_checked = True
+                if loose_git_write(cmd):
+                    writes.append(sub)
+            continue
+        if sub == "push" and is_force_push(args):
+            print("Force push bloccato: Mímir non lo esegue mai. Se serve davvero, lancialo tu a mano "
+                  "nel terminale, fuori da Claude Code.", file=sys.stderr)
+            return 2
+        if sub == "commit" or sub == "commit-tree":
+            problem = commit_problem(args, bodies, data.get("cwd") or os.getcwd(), attribution_in_cmd)
+            if problem:
+                print(problem, file=sys.stderr)
+                return 2
+        if sub == "tag" and is_tag_listing(args):
+            continue
+        writes.append(sub)
+
+    if not writes:
+        return 0
+    if len(calls) == 1 and writes == [calls[0][0]] and writes[0] in SIMPLE_SUBCOMMANDS \
+            and is_simple_form(cmd, tokens, tool_name):
+        return 0  # ci pensa la regola ask di settings
+    return block_form()
+
+
+def command_of(raw):
+    """Il comando dell'input, anche quando il JSON non si riesce a leggere; se non si trova, tutto l'input."""
+    try:
+        cmd = (json.loads(raw).get("tool_input") or {}).get("command")
+        if isinstance(cmd, str):
+            return cmd
+    except (ValueError, AttributeError):
+        pass
+    match = re.search(r'"command"\s*:\s*"((?:[^"\\]|\\.)*)', raw)
+    return match.group(1) if match else raw
+
+
+def main():
+    raw = None
+    try:
+        # Su Windows la codifica di default della console non è UTF-8: motivi e messaggi si rovinerebbero.
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+        raw = sys.stdin.buffer.read().decode("utf-8", errors="replace")
+        return check(raw)
+    except Exception as exc:  # confine dell'hook: nessun errore deve far passare un commit, un push o un tag
+        if raw is None or loose_git_write(command_of(raw)):
+            print(f"Comando bloccato: il controllo git di Mímir è fallito ({type(exc).__name__}: {exc}). "
+                  "Riprova o segnala il problema dell'hook.", file=sys.stderr)
+            return 2
+        return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

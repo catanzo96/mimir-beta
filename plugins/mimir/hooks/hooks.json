@@ -5,7 +5,7 @@
       {
         "matcher": "Bash|PowerShell",
         "hooks": [
-          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-python.sh\" --fail-closed \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/check-commit-message.py\"", "timeout": 10 }
+          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-python.sh\" --fail-closed \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/git-guard.py\"", "timeout": 10 }
         ]
       }
     ],
