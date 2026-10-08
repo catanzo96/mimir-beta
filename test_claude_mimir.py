@@ -18,7 +18,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 PYTHON = Path(sys.executable).resolve()
-PWSH = os.environ.get("MIMIR_TEST_PWSH") or shutil.which("pwsh") or shutil.which("powershell")
+# Percorso assoluto: su POSIX subprocess cerca il programma nel PATH di env=, che qui è ridotto
+PWSH = (shutil.which(os.environ["MIMIR_TEST_PWSH"]) or os.environ["MIMIR_TEST_PWSH"]
+        if os.environ.get("MIMIR_TEST_PWSH") else shutil.which("pwsh") or shutil.which("powershell"))
 # Verso un .cmd (il claude finto su Windows, e lo shim di npm) gli argomenti passano in modo Legacy:
 # nella 5.1 sempre, in pwsh 7.3+ per .bat e .cmd ($PSNativeCommandArgumentPassing = 'Windows')
 expected_failure_on_windows = unittest.expectedFailure if os.name == "nt" else (lambda test: test)
@@ -36,7 +38,8 @@ sys.exit(int(os.environ.get("FAKE_CLAUDE_EXIT", "0")))
 
 def write(path, text):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8", newline="\n")
+    with open(path, "w", encoding="utf-8", newline="\n") as file:  # write_text(newline=) è dalla 3.10
+        file.write(text)
 
 
 @unittest.skipUnless(PWSH, "PowerShell non trovato (MIMIR_TEST_PWSH, pwsh o powershell)")

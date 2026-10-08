@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "git-guard.py")
@@ -37,7 +38,8 @@ HEREDOC = "git commit -F - <<'EOF'\n{}\nEOF"
 CONTENT_BLOCK = {
     "Generated with Claude Code": 'git commit -m "feat: x" -m "🤖 Generated with [Claude Code](https://claude.com/claude-code)"',
     "trailer passato con --trailer": 'git commit -m "feat: x" --trailer "Co-authored-by: Claude <noreply@anthropic.com>"',
-    "attribuzione in un file -F": f"git commit -F {DIRTY_FILE}",
+    # con le barre: un percorso Windows con i backslash e senza virgolette bash lo rompe (anche Git Bash)
+    "attribuzione in un file -F": f"git commit -F {Path(DIRTY_FILE).as_posix()}",
     "intestazione oltre 72": f'git commit -m "{LONG}"',
     "intestazione accentata di 73 caratteri": 'git commit -m "feat: ' + "è" * 67 + '"',
     "trailer Claude in heredoc": HEREDOC.format("feat: aggiungi x\n\nCo-Authored-By: Claude <noreply@anthropic.com>"),

@@ -36,7 +36,8 @@ install = load_install()
 
 def write(path, text):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8", newline="\n")
+    with open(path, "w", encoding="utf-8", newline="\n") as file:  # write_text(newline=) è dalla 3.10
+        file.write(text)
 
 
 def make_executable(path, body):
@@ -418,7 +419,9 @@ class Installer(unittest.TestCase):
         self.assertFalse((self.box.home / ".claude").exists())
 
 
-PWSH = os.environ.get("MIMIR_TEST_PWSH") or shutil.which("pwsh") or shutil.which("powershell")
+# Percorso assoluto: su POSIX subprocess cerca il programma nel PATH di env=, che qui è ridotto
+PWSH = (shutil.which(os.environ["MIMIR_TEST_PWSH"]) or os.environ["MIMIR_TEST_PWSH"]
+        if os.environ.get("MIMIR_TEST_PWSH") else shutil.which("pwsh") or shutil.which("powershell"))
 
 
 class ElevazioneDichiarata(unittest.TestCase):
@@ -558,7 +561,9 @@ class InstallPs1(Ps1Case):
         result = self.run_ps1("-Yes")
         self.assertNotIn("wsl", self.log.read_text() if self.log.exists() else "", "wsl lanciato con -Yes")
         self.assertNotIn("install.ps1:", result.stderr, "errore di PowerShell")
-        self.assertNotIn("WSL2", result.stdout)
+        # i testi di install.ps1 su WSL; install.py nomina WSL2 da sé su Windows
+        for text in ("Attivo WSL2", "WSL2 presente", "Per la protezione completa (sandbox)"):
+            self.assertNotIn(text, result.stdout)
         self.assertTrue((self.box.home / ".claude" / "settings.json").exists())
 
 
