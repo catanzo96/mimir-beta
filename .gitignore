@@ -4,6 +4,7 @@
 *.key
 *.pem
 *.bak
+__pycache__/
 
 # IDE
 .idea/
