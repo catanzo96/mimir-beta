@@ -264,6 +264,9 @@ class Installer(unittest.TestCase):
         for name in ("install.py", "install.ps1", "test_install.py", "test_claude_mimir.py", "inbox.example.md"):
             self.assertIn(f"Edit(/{mimir}/{name})", settings["permissions"]["ask"])
             self.assertIn(f"{mimir}/{name}", settings["sandbox"]["filesystem"]["denyWrite"])
+        # il workflow della CI gira su GitHub dopo il push: come gli installer, non si modifica senza conferma
+        self.assertIn(f"Edit(/{mimir}/.github/**)", settings["permissions"]["ask"])
+        self.assertIn(f"{mimir}/.github", settings["sandbox"]["filesystem"]["denyWrite"])
         self.assertEqual(settings["permissions"]["ask"], sorted(settings["permissions"]["ask"]))
         self.assertIn("/.bashrc", (mimir / ".git" / "info" / "exclude").read_text(encoding="utf-8"))
         self.assertTrue((mimir / "inbox.md").exists())

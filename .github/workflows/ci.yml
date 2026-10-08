@@ -1,0 +1,140 @@
+# Prova hook, installer e launcher di Mímir su Ubuntu, macOS e Windows, senza API key.
+# Su Windows i runner girano come amministratore (doc dei runner GitHub, "Administrative privileges"):
+# install.ps1 lì si ferma, quindi lo stop si prova da amministratore e il resto con un utente locale
+# non amministratore (.github/scripts/run-as-user.ps1).
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # su main ogni commit ha il suo esito
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, Python ${{ matrix.python }}${{ matrix.powershell && format(', {0}', matrix.powershell) || '' }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.8 è il minimo dichiarato da install.py, install.sh e install.ps1
+        include:
+          - { os: ubuntu-latest, python: "3.8" }
+          - { os: ubuntu-latest, python: "3.14" }
+          - { os: macos-latest, python: "3.8" }
+          - { os: macos-latest, python: "3.14" }
+          # sui runner pwsh viene prima di powershell: la 5.1 si sceglie in modo esplicito
+          - { os: windows-latest, python: "3.8", powershell: powershell }
+          - { os: windows-latest, python: "3.8", powershell: pwsh }
+          - { os: windows-latest, python: "3.14", powershell: powershell }
+          - { os: windows-latest, python: "3.14", powershell: pwsh }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Test (Linux e macOS)
+        if: runner.os != 'Windows'
+        env:
+          MIMIR_TEST_PWSH: pwsh
+        run: python -I .github/scripts/run_tests.py
+
+      - name: Versione di PowerShell della matrice
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          MIMIR_TEST_PWSH: ${{ matrix.powershell }}
+        run: |
+          $major = & $env:MIMIR_TEST_PWSH -NoProfile -Command '$PSVersionTable.PSVersion.Major'
+          Write-Output "$env:MIMIR_TEST_PWSH -> PowerShell $major"
+          $expected51 = $env:MIMIR_TEST_PWSH -eq 'powershell'
+          if (($expected51 -and $major -ne '5') -or (-not $expected51 -and [int]$major -lt 7)) {
+              Write-Output "::error::$env:MIMIR_TEST_PWSH non è la versione attesa"
+              exit 1
+          }
+
+      - name: Stop di install.ps1 da amministratore (Windows)
+        if: runner.os == 'Windows'
+        env:
+          MIMIR_TEST_PWSH: ${{ matrix.powershell }}
+          MIMIR_TEST_ELEVATED: "1"
+        run: python -I test_install.py ElevazioneDichiarata InstallPs1Amministratore
+
+      - name: Test come utente non amministratore (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          MIMIR_TEST_PWSH: ${{ matrix.powershell }}
+          MIMIR_TEST_ELEVATED: "0"
+          # il bash di Git, non quello di WSL
+          MIMIR_TEST_BASH: C:\Program Files\Git\bin\bash.exe
+        run: >-
+          & .\.github\scripts\run-as-user.ps1 -UserName mimirci
+          -Command 'python -I .github/scripts/run_tests.py'
+          -PassEnv PATH, GITHUB_ACTIONS, MIMIR_TEST_PWSH, MIMIR_TEST_ELEVATED, MIMIR_TEST_BASH
+
+  install:
+    name: install (${{ matrix.os }}${{ matrix.powershell && format(', {0}', matrix.powershell) || '' }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest }
+          - { os: macos-latest }
+          - { os: windows-latest, powershell: powershell }
+          - { os: windows-latest, powershell: pwsh }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Preparazione di apt (Ubuntu)
+        if: runner.os == 'Linux'
+        # install.py non lancia apt-get update (voce aperta in inbox): qui si prepara l'ambiente
+        run: |
+          sudo apt-get update
+          for tool in bwrap socat; do
+            if command -v "$tool" >/dev/null; then
+              echo "::warning::$tool già presente nell'immagine: l'installazione da zero non è provata"
+            fi
+          done
+
+      - name: Installer due volte in una HOME pulita (Linux e macOS)
+        if: runner.os != 'Windows'
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          mkdir -p "$HOME"
+          python -I .github/scripts/check_install.py ./install.sh --yes
+
+      - name: Sandbox utilizzabile (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          socat -V >/dev/null
+          bwrap --ro-bind / / true
+
+      - name: Installer due volte come utente non amministratore (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          MIMIR_SHELL: ${{ matrix.powershell }}
+        # il profilo dell'utente appena creato è la HOME pulita
+        run: >-
+          & .\.github\scripts\run-as-user.ps1 -UserName mimirci
+          -Command 'python -I .github/scripts/check_install.py $env:MIMIR_SHELL -NoProfile -ExecutionPolicy Bypass -File install.ps1 -Yes'
+          -PassEnv PATH, MIMIR_SHELL

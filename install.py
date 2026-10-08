@@ -43,7 +43,7 @@ PERSONAL_FILES = [("profile/profile.example.md", "profile/profile.md"), ("inbox.
 # Girano fuori dalla sandbox o entrano in ogni sessione: la shell nella sandbox non li deve scrivere,
 # Edit e Write chiedono conferma. Solo file versionati: un denyWrite su un percorso che non c'è fa
 # creare alla sandbox un file vuoto nel repo.
-PROTECTED_DIRS = ["plugins", "bin", ".claude-plugin", ".claude", "sandbox", "rules", "profile"]
+PROTECTED_DIRS = ["plugins", "bin", ".claude-plugin", ".claude", "sandbox", "rules", "profile", ".github"]
 PROTECTED_FILES = ["sandbox.settings.json", "settings.template.json", "inbox.example.md", "install.sh", "install.py",
                    "install.ps1", "test_install.py", "test_claude_mimir.py", "CLAUDE.md"]
 
