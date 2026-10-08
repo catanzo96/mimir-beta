@@ -25,6 +25,16 @@ with open(CLEAN_FILE, "w", encoding="utf-8") as fh:
     fh.write("feat(core): aggiungi una skill\n\nCorpo breve.\n")
 with open(DIRTY_FILE, "w", encoding="utf-8") as fh:
     fh.write("feat: aggiungi una skill\n\nCo-Authored-By: GitHub Copilot <copilot@github.com>\n")
+# Esche nella cwd con i nomi letterali che la shell invece espanderebbe: l'hook non deve leggerle
+for decoy in ("$TMPDIR", "~"):
+    os.makedirs(os.path.join(TMP, decoy), exist_ok=True)
+    shutil.copyfile(CLEAN_FILE, os.path.join(TMP, decoy, "msg-pulito.txt"))
+if os.name != "nt":  # su Windows * non può stare nel nome di un file
+    shutil.copyfile(CLEAN_FILE, os.path.join(TMP, "msg-pul*.txt"))
+# Un messaggio più lungo di quanto l'hook legge, con l'attribuzione in fondo
+LONG_FILE = os.path.join(TMP, "msg-lungo.txt")
+with open(LONG_FILE, "w", encoding="utf-8") as fh:
+    fh.write("feat: x\n\n" + "y\n" * 60000 + "Co-Authored-By: Claude <noreply@anthropic.com>\n")
 # Percorso Windows relativo alla cwd del test: su POSIX è un file con il backslash nel nome
 WIN_REL = "attr\\msg.txt"
 WIN_FILE = os.path.join(TMP, "attr", "msg.txt") if os.name == "nt" else os.path.join(TMP, WIN_REL)
@@ -40,6 +50,15 @@ CONTENT_BLOCK = {
     "trailer passato con --trailer": 'git commit -m "feat: x" --trailer "Co-authored-by: Claude <noreply@anthropic.com>"',
     # con le barre: un percorso Windows con i backslash e senza virgolette bash lo rompe (anche Git Bash)
     "attribuzione in un file -F": f"git commit -F {Path(DIRTY_FILE).as_posix()}",
+    # fail-closed: un messaggio che l'hook non può leggere non si può controllare
+    "file -F inesistente": f"git commit -F {Path(TMP, 'manca.txt').as_posix()}",
+    "--file= inesistente": f"git commit --file={Path(TMP, 'manca.txt').as_posix()}",
+    "file -F che è una cartella": f"git commit -F {Path(TMP).as_posix()}",
+    # la shell espande, l'hook no: una cartella letterale "$TMPDIR" o "~" nella cwd farebbe leggere un altro file
+    "-F con una variabile": "git commit -F $TMPDIR/msg-pulito.txt",
+    "-F con ~": "git commit -F ~/msg-pulito.txt",
+    "-F con un glob": f"git commit -F {Path(TMP).as_posix()}/msg-pul*.txt",
+    "attribuzione oltre il limite di lettura": f"git commit -F {Path(LONG_FILE).as_posix()}",
     "intestazione oltre 72": f'git commit -m "{LONG}"',
     "intestazione accentata di 73 caratteri": 'git commit -m "feat: ' + "è" * 67 + '"',
     "trailer Claude in heredoc": HEREDOC.format("feat: aggiungi x\n\nCo-Authored-By: Claude <noreply@anthropic.com>"),
@@ -126,8 +145,8 @@ ALLOW = {
     "tag cancellato": "git tag -d v1",
     "commit con -m": 'git commit -m "feat: x"',
     "commit con -m ripetuti": 'git commit -m "feat: x" -m "Corpo breve."',
-    "commit con -F su un file pulito": f"git commit -F {CLEAN_FILE}",
-    "commit -F su un file che non finisce": "git commit -F /dev/zero",
+    "commit con -F su un file pulito": f"git commit -F {Path(CLEAN_FILE).as_posix()}",
+    "commit con -F relativo alla cwd": "git commit -F msg-pulito.txt",
     "argomento AI": 'git commit -m "feat(api): integra l\'API di Anthropic"',
     "messaggio che descrive l'hook": 'git commit -m "fix(core): l\'hook ignora i nomi di file come CLAUDE.md"',
     "commit che cita un force push nel messaggio": 'git commit -m "docs: git push --force resta vietato"',
@@ -242,6 +261,8 @@ SLOW = {
     "cmd ripetuto": ("cmd " * 10000, 0),
     "heredoc e aritmetica alternati": ("<<a (()) " * 10000, 0),
     "messaggio con 20000 righe vuote": ('git commit -m "feat: x' + "\n" * 20000 + 'y"', 2),
+    # non è un file regolare: bloccato senza leggerlo (e senza restare appeso)
+    "commit -F su un file che non finisce": ("git commit -F /dev/zero", 2),
 }
 for name, (cmd, code) in SLOW.items():
     start = time.monotonic()

@@ -257,8 +257,19 @@ def is_tag_listing(args):
     return not any(arg.split("=", 1)[0] in TAG_WRITE_OPTIONS for arg in args)
 
 
+class UnreadableMessageFile(Exception):
+    """Il file di -F/--file non si legge: il messaggio non si può controllare, quindi si blocca."""
+
+    def __init__(self, path, reason):
+        super().__init__(f"{path}: {reason}")
+        self.path, self.reason = path, reason
+
+
 def message_from_args(tokens, bodies, cwd):
-    """Ricostruisce il messaggio da -m/--message, -F/--file e --trailer. None se non determinabile."""
+    """Ricostruisce il messaggio da -m/--message, -F/--file e --trailer. None se non determinabile.
+
+    Solleva UnreadableMessageFile se il file del messaggio non è un file regolare leggibile.
+    """
     parts, trailers, i = [], [], 0
     while i < len(tokens):
         tok = tokens[i]
@@ -291,15 +302,21 @@ def message_from_args(tokens, bodies, cwd):
                     return None
                 parts.append(bodies[0])
             else:
+                # la shell espande variabili, ~ e caratteri jolly, l'hook no: leggerebbe un altro file
+                if "$" in value or value.startswith("~") or any(c in value for c in "*?["):
+                    raise UnreadableMessageFile(value, "contiene variabili, ~ o caratteri jolly")
                 path = value if os.path.isabs(value) else os.path.join(cwd, value)
                 # solo file regolari e con un limite: -F /dev/zero non finirebbe mai di leggere
                 if not os.path.isfile(path):
-                    return None
+                    raise UnreadableMessageFile(path, "non è un file esistente")
                 try:
                     with open(path, encoding="utf-8", errors="replace") as fh:
-                        parts.append(fh.read(MAX_COMMAND + 1))
+                        text = fh.read(MAX_COMMAND + 1)
                 except OSError:
-                    return None
+                    raise UnreadableMessageFile(path, "non si apre") from None
+                if len(text) > MAX_COMMAND:
+                    raise UnreadableMessageFile(path, f"supera {MAX_COMMAND} caratteri")
+                parts.append(text)
         i += 1
     if trailers:
         parts.append("\n".join(trailers))
@@ -327,7 +344,12 @@ def commit_problem(commit_args, bodies, cwd, attribution_in_cmd):
     attribution_in_cmd dice se c'è un'attribuzione in tutto il comando: si calcola una volta sola,
     perché con molti commit nello stesso comando ripeterla costerebbe un tempo quadratico.
     """
-    message = message_from_args(commit_args, bodies, cwd) if commit_args else None
+    try:
+        message = message_from_args(commit_args, bodies, cwd) if commit_args else None
+    except UnreadableMessageFile as exc:
+        return (f"Commit bloccato: il file del messaggio {exc.path[:80]!r} {exc.reason}, quindi non si può "
+                "controllare. Scrivi il messaggio con lo strumento Write e passa a git commit -F il percorso "
+                "assoluto che restituisce (su Windows con le barre, C:/…).")
     # Attribuzioni: nel messaggio ricostruito. Se non si riesce a ricostruirlo, in tutto il comando
     # (heredoc compresi): i pattern sono abbastanza specifici da non scattare su percorsi o nomi di file.
     if has_attribution(message) if message is not None else attribution_in_cmd():
@@ -362,7 +384,8 @@ def block_form(reason=""):
     print("Comando git bloccato: commit, push e tag vanno lanciati da soli, in forma semplice, dalla cartella "
           "del repo (git commit -F <file>, git commit -m \"…\", git push …, git tag …), così chiede conferma "
           "la regola ask di settings. Niente git -C, opzioni globali, variabili, &&, ;, |, redirect, heredoc, "
-          "$( ) o messaggi su più righe: per il messaggio scrivi un file in $TMPDIR e usa git commit -F <file>. "
+          "$( ) o messaggi su più righe: scrivi il messaggio in un file con lo strumento Write e usa "
+          "git commit -F con il percorso assoluto che restituisce. "
           "commit-tree e send-pack non sono ammessi." + reason, file=sys.stderr)
     return 2
 

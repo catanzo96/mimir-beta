@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-08 (limatura, fase 1, passo 6)
+- `git-guard.py` blocca un commit se non può leggere il file di `-F`/`--file`: file inesistente o non regolare, percorso con variabili, `~` o caratteri jolly (la shell li espande, l'hook leggerebbe un altro file), file oltre 100000 caratteri. Prima il messaggio non veniva controllato e restava solo la conferma `ask`.
+- Skill `commit`: il file del messaggio si passa a `git commit -F` con il percorso assoluto restituito da Write, non con `$TMPDIR`.
+
 ## 2026-10-08 (limatura, fase 1, passo 5)
 - `bin/claude-mimir.ps1`, launcher per Windows nativo, **non ancora provato su Windows**.
   - Stessi argomenti e sottocomando `agents` di `bin/claude-mimir`; in PowerShell 5.1 gli argomenti vuoti si perdono e i doppi apici interni non arrivano.
