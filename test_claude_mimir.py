@@ -19,6 +19,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 PYTHON = Path(sys.executable).resolve()
 PWSH = os.environ.get("MIMIR_TEST_PWSH") or shutil.which("pwsh") or shutil.which("powershell")
+# Verso un .cmd (il claude finto su Windows, e lo shim di npm) gli argomenti passano in modo Legacy:
+# nella 5.1 sempre, in pwsh 7.3+ per .bat e .cmd ($PSNativeCommandArgumentPassing = 'Windows')
+expected_failure_on_windows = unittest.expectedFailure if os.name == "nt" else (lambda test: test)
 GENERATED = Path("sandbox", "windows.settings.json")
 WARNING = "Windows nativo: comandi senza sandbox"
 
@@ -63,7 +66,7 @@ class ClaudeMimirPs1(unittest.TestCase):
     def env(self, **extra):
         env = {"PATH": str(self.bin), "HOME": str(self.root), "USERPROFILE": str(self.root),
                "LANG": "C.UTF-8", "FAKE_CLAUDE_LOG": str(self.log)}
-        for name in ("SystemRoot", "WINDIR", "TEMP", "TMP"):  # senza, powershell.exe non parte
+        for name in ("SystemRoot", "WINDIR", "TEMP", "TMP", "ComSpec", "PATHEXT"):  # senza, powershell.exe non parte
             if name in os.environ:
                 env[name] = os.environ[name]
         env.update(extra)
@@ -72,8 +75,9 @@ class ClaudeMimirPs1(unittest.TestCase):
     def run_ps1(self, *args, **env):
         command = [PWSH, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                    "-File", str(self.mimir / "bin" / "claude-mimir.ps1")] + list(args)
+        # su Windows l'output rediretto è nella code page OEM: le asserzioni usano testo ASCII
         return subprocess.run(command, env=self.env(**env), capture_output=True, text=True, encoding="utf-8",
-                              stdin=subprocess.DEVNULL)
+                              errors="replace", stdin=subprocess.DEVNULL)
 
     def received(self):
         return json.loads(self.log.read_text(encoding="utf-8"))
@@ -129,6 +133,42 @@ class ClaudeMimirPs1(unittest.TestCase):
         result = self.run_ps1()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(json.loads(self.generated.read_text(encoding="utf-8")), self.expected_settings())
+
+    def test_cultura_italiana_conserva_il_punto_decimale(self):
+        script = self.mimir / "bin" / "claude-mimir.ps1"
+        command = ("[Threading.Thread]::CurrentThread.CurrentCulture = 'it-IT'; "
+                   "Write-Output \"cultura=$([CultureInfo]::CurrentCulture.Name) $((0.5).ToString())\"; "
+                   f"& '{script}'; exit $LASTEXITCODE")
+        result = subprocess.run([PWSH, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                                 "-Command", command], env=self.env(), capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("cultura=it-IT 0,5", result.stdout, "la cultura it-IT non è attiva: il test non prova nulla")
+        # la 5.1 scrive due spazi dopo i due punti, pwsh 7 uno
+        self.assertRegex(self.generated.read_text(encoding="utf-8"), r'"skillListingBudgetFraction":\s+0\.03\b')
+        self.assertEqual(json.loads(self.generated.read_text(encoding="utf-8")), self.expected_settings())
+
+    def test_doppio_trattino_passato_a_claude(self):
+        result = self.run_ps1("-p", "--", "--non-un-flag")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.received()["args"], self.mimir_args() + ["-p", "--", "--non-un-flag"])
+
+    @expected_failure_on_windows
+    def test_argomento_vuoto_e_con_doppi_apici(self):
+        # limite documentato nel launcher: verso claude.cmd si perdono
+        result = self.run_ps1("-p", "", 'di "ciao"')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.received()["args"], self.mimir_args() + ["-p", "", 'di "ciao"'])
+
+    def test_shim_ps1_di_npm(self):
+        # npm installa claude.ps1 accanto a claude.cmd; senza claude.cmd vale lo shim PowerShell
+        for path in self.bin.iterdir():
+            path.unlink()
+        write(self.bin / "claude.ps1",
+              f"& '{PYTHON}' -I '{self.root / 'fake_claude.py'}' $args\nexit $LASTEXITCODE\n")
+        result = self.run_ps1("-p", "a b", FAKE_CLAUDE_EXIT="4")
+        self.assertEqual(result.returncode, 4, result.stdout + result.stderr)
+        self.assertEqual(self.received()["args"], self.mimir_args() + ["-p", "a b"])
 
     def test_codice_di_uscita_di_claude(self):
         result = self.run_ps1(FAKE_CLAUDE_EXIT="3")
