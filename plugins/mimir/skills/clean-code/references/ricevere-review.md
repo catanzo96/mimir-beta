@@ -19,5 +19,8 @@ Vale per le osservazioni di un collega, di un reviewer sulla MR o dell'agent `co
 - *Preferenza*: si segue la convenzione del progetto. Se non c'è, si segnala e decide l'utente.
 - *Non applicabile*: si risponde con la motivazione tecnica e l'evidenza (`file:riga`, test, documentazione). Non si accetta per cortesia.
 
+## Review di un controllo di sicurezza
+Per un hook, una validazione o un filtro, ogni giro di review trova nuove forme di aggiramento. Correggi subito solo ciò che una prova sullo script dimostra che passa in silenzio, oltre l'obiettivo del controllo. Le ipotesi, i casi che danno solo un esito più prudente e quelli fuori dai limiti dichiarati si annotano per dopo. Se lo stesso approccio mostra buchi a ogni giro, cambia approccio invece di aggiungere casi.
+
 ## Resoconto
 Per ogni osservazione: esito (applicata, proposta, respinta) e motivo. Le risposte da pubblicare sulla MR si propongono all'utente, non si inviano.

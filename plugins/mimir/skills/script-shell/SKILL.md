@@ -107,6 +107,9 @@ Stesse regole di sicurezza e struttura, ma: niente array (usa `"$@"` con `set --
 
 ## PowerShell (nota breve)
 Per Windows: `Set-StrictMode -Version Latest` e `$ErrorActionPreference = 'Stop'` sono l'analogo di `set -eu`. Passa gli argomenti come array, non concatenare stringhe, usa `try/finally` per la pulizia, `[CmdletBinding()]` e `param()` per gli argomenti. Attenzione: gli errori dei programmi esterni si controllano con `$LASTEXITCODE`. Analisi statica: `PSScriptAnalyzer`, se già presente.
+- PowerShell 5.1 altera le virgolette negli argomenti passati ai programmi nativi: niente JSON inline come argomento, scrivi un file e passa il percorso.
+- Dopo un'installazione con winget il PATH della sessione è vecchio: rileggilo dal registro (`Machine` e `User`) o chiedi di riaprire il terminale.
+- File scritti per altri programmi: UTF-8 senza BOM (`[IO.File]::WriteAllText(path, text, [Text.UTF8Encoding]::new($false))`), perché `Set-Content` e `Out-File` di PowerShell 5.1 aggiungono il BOM o usano un'altra codifica.
 
 ## Verifica
 - `bash -n script.sh` controlla la sintassi (`dash -n` per gli script sh).

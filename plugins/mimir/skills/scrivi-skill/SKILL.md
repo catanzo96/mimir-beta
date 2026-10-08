@@ -74,6 +74,13 @@ Servono quando occorre un contesto isolato (molta lettura che non va tenuta nell
 - Prima di affidarti all'hook, provalo su un caso che deve bloccare e su uno che deve passare.
 - Eventi, exit code, output JSON, matcher, variabili e trappole (falsi positivi): `references/hook.md`, da leggere prima di scrivere o cambiare un hook.
 
+## File protetti
+La sandbox, il classificatore della modalità auto e le regole di Mímir proteggono settings, hook, plugin e regole: una modifica può essere bloccata. Non aggirare il blocco (niente uscita dalla sandbox, niente strade alternative). Prepara invece la modifica nello scratchpad:
+- uno script che cerca il testo atteso (una sola occorrenza) e si rifiuta senza toccare nulla se non lo trova, valida il risultato (per esempio il JSON), scrive in modo atomico e al secondo lancio non fa niente; oppure una patch da applicare con `git apply --check` e poi `git apply`;
+- provalo su una copia dei file o su un clone, compreso il caso di rifiuto, e confronta il risultato con i file attesi;
+- dai all'utente il comando `!` su una sola riga, usando un glob per i percorsi lunghi: incollata, una riga lunga si spezza e il comando fallisce a metà;
+- dopo il lancio controlla lo stato reale (confronto con la copia provata, test).
+
 ## Prima di consegnare
 1. **Prova di attivazione.** Scrivi 2-3 richieste che devono attivare la skill e una che non deve. Per le skill di comportamento, aggiungi uno scenario che senza la skill porta all'errore. Quando conviene, prova con un subagent con e senza la skill. Come provare in headless, leggere skill e modelli dai log, usare `claude plugin eval`, controllare il YAML e il budget della lista: `references/prova-skill.md`.
 2. **Validazione.** Lancia `claude plugin validate plugins/<plugin>` e controlla che i file citati in `references/` e `templates/` esistano.

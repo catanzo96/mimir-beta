@@ -33,6 +33,7 @@ Lo script riceve un oggetto JSON su stdin. Campi comuni: `session_id`, `transcri
 ## Matcher e filtri
 - `matcher` è una stringa unica sul nome del tool (`PreToolUse`, `PostToolUse`): `Bash`, oppure `Edit|Write` per più tool. Usa una stringa, non un array. Con caratteri diversi da lettere, cifre, `_`, `-`, spazi, `|`, `,` è una regex (non ancorata): `^Bash$`, `mcp__.*`.
 - Il nome del tool è sensibile alle maiuscole: `Bash`, non `bash`.
+- Su Windows senza Git Bash i comandi passano dal tool `PowerShell`: le regole `Bash(...)` non lo coprono. Servono regole `PowerShell(...)` e il matcher `Bash|PowerShell`.
 - Altri eventi filtrano su altro (per `SessionStart` la sorgente: `startup`, `resume`, `clear`, `compact`); `UserPromptSubmit` e `Stop` non hanno matcher.
 - Il campo `if` (permission rule syntax, per esempio `Bash(git *)`) restringe ancora, ma solo sugli eventi dei tool. Non sostituisce il controllo nello script: i pattern complessi girano comunque.
 
@@ -46,12 +47,13 @@ Il campo `timeout` è in secondi: default 600 per i comandi, 30 per `UserPromptS
 - Verifica con `/hooks` che l'hook compaia; con `claude --debug-file <file>` leggi quali matcher sono stati valutati, il codice di uscita e l'output. Le modifiche a `settings.json` si applicano in sessione senza riavvio.
 
 ## Percorsi e variabili
-Dentro `command` Claude Code sostituisce `${CLAUDE_PLUGIN_ROOT}` (cartella di installazione del plugin), `${CLAUDE_PROJECT_DIR}` (radice del progetto) e `${CLAUDE_PLUGIN_DATA}` (dati persistenti del plugin). Il percorso può contenere spazi: nella forma shell mettilo tra virgolette (`"\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/x.py\""` in JSON). Nella forma exec (`command` con `args`) non passa dalla shell e il problema non c'è. Gli script Python di Mímir non si affidano allo shebang, che su Windows non è affidabile (lì `python3` spesso non esiste): passano da `hooks/scripts/run-python.sh` con `"shell": "bash"`, che prova `python3`, `python` e `py -3`. Con `--fail-closed`, se Python manca, il wrapper blocca i comandi che lo script doveva controllare.
+Dentro `command` Claude Code sostituisce `${CLAUDE_PLUGIN_ROOT}` (cartella di installazione del plugin), `${CLAUDE_PROJECT_DIR}` (radice del progetto) e `${CLAUDE_PLUGIN_DATA}` (dati persistenti del plugin). Il percorso può contenere spazi: nella forma shell mettilo tra virgolette (`"\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/x.py\""` in JSON). Nella forma exec (`command` con `args`) non passa dalla shell e il problema non c'è. Gli script Python di Mímir non si affidano allo shebang, che su Windows non è affidabile (python.org e winget creano `python.exe` e `py.exe`, non `python3.exe`, e lo stub dello Store nel PATH esce con 9009): passano da `hooks/scripts/run-python.sh` con `"shell": "bash"`, che prova `python3`, `python` e `py -3`. Con `--fail-closed`, se Python manca, il wrapper blocca i comandi che lo script doveva controllare.
 
 ## Scrivere lo script di controllo
-- **Riconosci il comando, non la stringa.** Un controllo su `git commit` che cerca la parola nel testo scatta anche su `echo "git commit"`, su un messaggio che parla di commit, su un percorso. Individua il comando in posizione di comando (inizio riga o dopo `;`, `&`, `|`, `(`), scomponi gli argomenti con un vero tokenizer (`shlex.split`) e controlla il contenuto dove conta (il messaggio, non l'intero comando). Pattern come `CLAUDE.md` o `Claude` da soli sono falsi positivi: blocca la forma dell'abuso (un trailer, una frase), non la parola.
+- **Riconosci il comando, non la stringa.** Una ricerca della parola scatta su `echo "git commit"`, su un messaggio o su un percorso. Dividi il comando in token con un vero tokenizer (`shlex` con `punctuation_chars`, a capo come separatore, commenti disattivati), separa i comandi semplici su `; & | ( )` e cerca il programma tra i token: anche dopo `FOO=1`, `env`, `sudo`, come percorso, dentro `sh -c` ed `eval`. Controlla il contenuto dove conta (il messaggio, non l'intero comando). Blocca la forma dell'abuso (un trailer, una frase), non la parola.
 - **Gestisci le forme alternative**: `-m` ripetuto, `--message=`, `-F file`, `-F -` con heredoc, `--trailer`. Se non riesci a ricostruire l'input, scegli esplicitamente se lasciar passare o bloccare, e dichiaralo nel commento in testa allo script.
 - **Fallisci in modo esplicito**: input non JSON o campo mancante non devono produrre un blocco involontario né un crash silenzioso.
+- **Fail-closed mirato**: un controllo di sicurezza che non riesce a decidere (errore interno, Python assente) blocca, ma solo il caso che protegge (per esempio un comando che contiene git e commit), perché l'hook gira su ogni comando.
 - Il messaggio su stderr dice cosa non va e come correggere.
 - Uno script che modifica il comando (`updatedInput`) o decide permessi richiede ancora più prudenza: provalo con casi ostili.
 
@@ -69,3 +71,5 @@ Prima di affidarti a un hook provalo su casi che devono bloccare e casi che devo
 - Script non eseguibile o percorso senza virgolette con spazi: l'hook fallisce in modo non bloccante.
 - Hook di `PostToolUse` usato per vietare: il tool è già stato eseguito.
 - Controlli lenti o con rete: il timeout predefinito è lungo e ogni azione ne paga il costo.
+- Hook in timeout: è un errore non bloccante, il comando passa. Niente regex con quantificatori sovrapposti sull'input (backtracking esponenziale), niente scansioni ripetute per ogni token; nei test, un caso di tempo per ogni input costruito, con il timeout di `hooks.json`.
+- Un `ask` restituito dall'hook può essere ignorato (vedi sopra): per un controllo che deve valere, blocca.
