@@ -45,7 +45,7 @@ PERSONAL_FILES = [("profile/profile.example.md", "profile/profile.md"), ("inbox.
 # creare alla sandbox un file vuoto nel repo.
 PROTECTED_DIRS = ["plugins", "bin", ".claude-plugin", ".claude", "sandbox", "rules", "profile"]
 PROTECTED_FILES = ["sandbox.settings.json", "settings.template.json", "inbox.example.md", "install.sh", "install.py",
-                   "install.ps1", "test_install.py", "CLAUDE.md"]
+                   "install.ps1", "test_install.py", "test_claude_mimir.py", "CLAUDE.md"]
 
 # Testo dalla doc di Claude Code, pagina sandboxing (08/10/2026)
 APPARMOR_PROFILE_PATH = "/etc/apparmor.d/bwrap"
@@ -502,6 +502,14 @@ def write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, wr
         print("✓ .git/info/exclude: aggiunti i file che la sandbox crea vuoti")
 
 
+def launcher_command(system, mimir_path):
+    # su Windows nativo il launcher bash non parte: sandbox abilitata con failIfUnavailable
+    if system == "windows":
+        script = mimir_path / "bin" / "claude-mimir.ps1"
+        return f'powershell -NoProfile -ExecutionPolicy Bypass -File "{script}" (senza sandbox: per la protezione completa usa WSL2)'
+    return f"{mimir_path.as_posix()}/bin/claude-mimir"
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Collega Mímir a Claude Code su questa macchina.")
     parser.add_argument("--yes", action="store_true", help="risponde sì alle conferme")
@@ -544,7 +552,7 @@ def main(argv=None):
     problems = [] if args.skip_system else install_sandbox_requirements(system, args.yes)
 
     print(f"""
-Sessioni con Mímir: {mimir_dir}/bin/claude-mimir (carica i plugin dalla cartella, niente da installare).
+Sessioni con Mímir: {launcher_command(system, mimir_path)} (carica i plugin dalla cartella, niente da installare).
 Per averli anche nelle sessioni normali, dentro Claude Code:
   /plugin install mimir@mimir
   /plugin install brokkr@mimir   (solo dove si lavora)

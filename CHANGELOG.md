@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-08 (limatura, fase 1, passo 5)
+- `bin/claude-mimir.ps1`, launcher per Windows nativo, **non ancora provato su Windows**.
+  - Stessi argomenti e sottocomando `agents` di `bin/claude-mimir`; in PowerShell 5.1 gli argomenti vuoti si perdono e i doppi apici interni non arrivano.
+  - Non esporta `MIMIR_MAVEN_SETTINGS`: l'hook di Maven farebbe lanciare le build offline come nella sandbox.
+  - Senza sandbox: a ogni avvio un avviso su stderr dice cosa si perde (rete e file liberi per la shell) e cosa resta attivo (regole ask/deny degli strumenti e hook).
+  - Passa `sandbox\windows.settings.json` (ignorato da git, nella cartella protetta `sandbox`): `sandbox.settings.json` con `sandbox` = `{"enabled": false}`, così non vale nemmeno un blocco `sandbox` dei settings personali. Si confronta a ogni avvio con il contenuto calcolato e si riscrive se è diverso, anche se è stato manomesso.
+  - Se `sandbox.settings.json` manca o non è valido, `claude` non parte.
+  - Test in `test_claude_mimir.py`, con un `claude` finto; controllato con PSScriptAnalyzer sul profilo 5.1.
+- `install.py`: su Windows nativo il messaggio finale indica `bin\claude-mimir.ps1`; `test_claude_mimir.py` entra tra i file protetti.
+
 ## 2026-10-08 (limatura, fase 1, passo 4)
 - `install.ps1` per Windows nativo, **non ancora provato su Windows**: la prova è prevista nella CI (passo 6) e nella prova manuale.
   - Trova Python 3.8+ scartando lo stub dello Store e controlla Git for Windows; se mancano propone winget e rilegge il PATH.

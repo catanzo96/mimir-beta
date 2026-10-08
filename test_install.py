@@ -167,6 +167,13 @@ class PureFunctions(unittest.TestCase):
         for system, osrelease, expected in cases:
             self.assertEqual(install.detect_system(system, osrelease), expected, osrelease)
 
+    def test_launcher_per_sistema(self):
+        mimir = Path("/opt/mimir")
+        self.assertEqual(install.launcher_command("linux", mimir), "/opt/mimir/bin/claude-mimir")
+        windows = install.launcher_command("windows", mimir)
+        self.assertIn(f'-File "{mimir / "bin" / "claude-mimir.ps1"}"', windows)
+        self.assertIn("senza sandbox", windows)
+
     def test_comando_del_gestore_dei_pacchetti(self):
         def which(*present):
             return lambda name: f"/usr/bin/{name}" if name in present else None
@@ -208,7 +215,7 @@ class Installer(unittest.TestCase):
         claude_md = (self.box.home / ".claude" / "CLAUDE.md").read_text(encoding="utf-8")
         self.assertEqual(claude_md, f"{install.MARKER}\n@{mimir.as_posix()}/CLAUDE.md\n")
         settings = self.box.settings()
-        for name in ("install.py", "install.ps1", "test_install.py", "inbox.example.md"):
+        for name in ("install.py", "install.ps1", "test_install.py", "test_claude_mimir.py", "inbox.example.md"):
             self.assertIn(f"Edit(/{mimir}/{name})", settings["permissions"]["ask"])
             self.assertIn(f"{mimir}/{name}", settings["sandbox"]["filesystem"]["denyWrite"])
         self.assertEqual(settings["permissions"]["ask"], sorted(settings["permissions"]["ask"]))

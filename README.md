@@ -42,7 +42,7 @@ Si può rilanciare senza danni. Prima legge e valida i file; se uno non è valid
 
 Dalla cartella di Mímir l'installer non segue i symlink: rifiuta esempi, template ed `exclude` che sono symlink e non crea un file personale al posto di un symlink. La cartella è scrivibile dalla sandbox, e un symlink porterebbe un segreto in un file leggibile o una scrittura fuori. In `~/.claude`, che la sandbox non scrive, i symlink (per esempio verso un repo di dotfiles) si seguono.
 
-Test: `python3 -I test_install.py`, che usa copie di Mímir in una cartella temporanea e non tocca `~/.claude`. I test di `install.ps1` girano se trova PowerShell (`MIMIR_TEST_PWSH`, `pwsh` o `powershell`); altrimenti vengono saltati.
+Test: `python3 -I test_install.py`, che usa copie di Mímir in una cartella temporanea e non tocca `~/.claude`. I test di `install.ps1`, e quelli di `bin/claude-mimir.ps1` in `test_claude_mimir.py`, girano se trovano PowerShell (`MIMIR_TEST_PWSH`, `pwsh` o `powershell`); altrimenti vengono saltati.
 
 La cartella può stare ovunque: launcher e script ricavano il percorso dalla propria posizione. Fuori dal repo Claude Code vuole percorsi assoluti (marketplace, import in `~/.claude/CLAUDE.md`): se sposti la cartella, rilancia `install.sh` e li riallinea.
 
@@ -57,6 +57,11 @@ Le regole in `rules/` e le skill sono il metodo condiviso: se vuoi cambiarle, fa
 
 ## Uso
 - `bin/claude-mimir`: avvia Claude Code con Mímir attivo (regole, plugin caricati dalla cartella, sandbox). Accetta gli argomenti di `claude`, per esempio `--add-dir <cartella>`.
+- `bin\claude-mimir.ps1` (Windows nativo): `powershell -NoProfile -ExecutionPolicy Bypass -File <cartella>\bin\claude-mimir.ps1`, con gli argomenti di `claude`. Gira **senza sandbox** e lo ricorda a ogni avvio: rete e file, credenziali comprese, sono liberi per la shell; restano attivi le regole ask/deny degli strumenti di Claude e gli hook. Per la protezione completa usa WSL2.
+  - Passa a Claude Code `sandbox\windows.settings.json`: una copia di `sandbox.settings.json` con la sandbox spenta, ignorata da git, rigenerata a ogni avvio se è diversa.
+  - Rispetto a `bin/claude-mimir` non esporta `MIMIR_MAVEN_SETTINGS`: senza sandbox Maven usa i settings personali e la rete.
+  - Limite di Windows PowerShell 5.1: gli argomenti vuoti si perdono e i doppi apici dentro un argomento non arrivano a `claude`.
+  - Non ancora provato su Windows vero.
 - In alternativa, nelle sessioni normali: `/plugin install mimir@mimir` e, dove si lavora, `/plugin install brokkr@mimir`.
 
 ## Il tema: la mitologia norrena
