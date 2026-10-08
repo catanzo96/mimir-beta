@@ -44,6 +44,35 @@ def make_executable(path, body):
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
 
+def shim_files(folder, name, command):
+    """I file di un comando che lancia command (già quotato) con i suoi argomenti: name.cmd su
+    Windows, name eseguibile su POSIX. Su Windows PowerShell non lancia uno script #!/bin/sh."""
+    if os.name == "nt":
+        return {folder / f"{name}.cmd": f"@{command} %*\n"}
+    return {folder / name: f'#!/bin/sh\nexec {command} "$@"\n'}
+
+
+def write_shim(folder, name, command):
+    for path, text in shim_files(folder, name, command).items():
+        write(path, text)
+        path.chmod(path.stat().st_mode | stat.S_IXUSR)
+
+
+def make_fake(folder, name, code):
+    """Un comando finto scritto in Python, così gira uguale su Windows e su POSIX."""
+    script = folder / f"{name}_finto.py"
+    write(script, "import os, subprocess, sys\n" + code + "\n")
+    write_shim(folder, name, f'"{PYTHON}" -I "{script}"')
+
+
+def fake_logging(log, exit_code=0, label=""):
+    """Codice di un finto che aggiunge al log i suoi argomenti, come echo label "$@" >> log."""
+    words = f"[{label!r}] + sys.argv[1:]" if label else "sys.argv[1:]"
+    return (f"with open({str(log)!r}, 'a', encoding='utf-8') as log:\n"
+            f"    log.write(' '.join({words}) + '\\n')\n"
+            f"sys.exit({exit_code})")
+
+
 class Sandbox:
     """Una cartella temporanea con HOME, copie di Mímir e un PATH con claude finto."""
 
@@ -52,9 +81,10 @@ class Sandbox:
         self.home = self.root / "home"
         self.home.mkdir()
         self.bin = self.root / "bin"
-        make_executable(self.bin / "claude", f'echo "$@" >> "{self.root}/claude.log"')
-        for tool in ("dirname", "cat"):
-            (self.bin / tool).symlink_to(shutil.which(tool))
+        make_fake(self.bin, "claude", fake_logging(self.root / "claude.log"))
+        if os.name != "nt":  # per install.sh
+            for tool in ("dirname", "cat"):
+                (self.bin / tool).symlink_to(shutil.which(tool))
 
     def mimir(self, name="mimir"):
         copy = self.root / name
@@ -71,6 +101,9 @@ class Sandbox:
 
     def env(self, with_python=False):
         env = {"HOME": str(self.home), "USERPROFILE": str(self.home), "PATH": str(self.bin), "LANG": "C.UTF-8"}
+        for name in ("SystemRoot", "WINDIR", "TEMP", "TMP", "ComSpec", "PATHEXT"):  # senza, su Windows non parte nulla
+            if name in os.environ:
+                env[name] = os.environ[name]
         if with_python:
             link = self.bin / "python3"
             if not link.exists():
@@ -203,6 +236,7 @@ class PureFunctions(unittest.TestCase):
         self.assertEqual(len(calls), 1)
 
 
+@unittest.skipIf(os.name == "nt", "asserzioni nel formato POSIX: su Windows install.py lo provano InstallPs1 e la CI")
 class Installer(unittest.TestCase):
     def setUp(self):
         self.box = Sandbox()
@@ -372,8 +406,7 @@ class Installer(unittest.TestCase):
 PWSH = os.environ.get("MIMIR_TEST_PWSH") or shutil.which("pwsh") or shutil.which("powershell")
 
 
-@unittest.skipUnless(PWSH, "PowerShell non trovato (MIMIR_TEST_PWSH, pwsh o powershell)")
-class InstallPs1(unittest.TestCase):
+class Ps1Case(unittest.TestCase):
     """install.ps1 con python, git e winget finti nel PATH. Su Linux gira con pwsh 7: la
     compatibilità con Windows PowerShell 5.1 la controlla PSScriptAnalyzer, il resto la CI."""
 
@@ -382,42 +415,55 @@ class InstallPs1(unittest.TestCase):
         self.addCleanup(shutil.rmtree, str(self.box.root), ignore_errors=True)
         self.mimir = self.box.mimir()
         self.log = self.box.root / "comandi.log"
-        make_executable(self.box.bin / "git", "exit 0")
+        make_fake(self.box.bin, "git", "sys.exit(0)")
 
     def link_python(self):
-        (self.box.bin / "python").symlink_to(PYTHON)
+        write_shim(self.box.bin, "python", f'"{PYTHON}"')
+
+    def fake_winget_installing_python(self):
+        """Un winget finto che registra gli argomenti e "installa" python nel PATH del test."""
+        files = {str(path): text for path, text in shim_files(self.box.bin, "python", f'"{PYTHON}"').items()}
+        make_fake(self.box.bin, "winget",
+                  f"for path, text in {files!r}.items():\n"
+                  "    with open(path, 'w', encoding='utf-8', newline='\\n') as file:\n"
+                  "        file.write(text)\n"
+                  "    os.chmod(path, 0o755)\n" + fake_logging(self.log))
 
     def fake_linux_requirements(self):
         """Senza -SkipSystem, su Linux install.py controlla bwrap e socat (finti qui) e può usare sudo
         per il profilo AppArmor: nel PATH del test c'è solo un sudo finto che fallisce. I test si
         lanciano anche fuori dalla sandbox: il vero sudo non deve mai essere raggiungibile."""
         for tool in ("bwrap", "socat"):
-            make_executable(self.box.bin / tool, "exit 0")
-        make_executable(self.box.bin / "sudo", f'echo sudo "$@" >> "{self.log}"\nexit 1')
-        self.assertEqual(shutil.which("sudo", path=self.box.env()["PATH"]), str(self.box.bin / "sudo"),
+            make_fake(self.box.bin, tool, "sys.exit(0)")
+        make_fake(self.box.bin, "sudo", fake_logging(self.log, exit_code=1, label="sudo"))
+        self.assertEqual(Path(shutil.which("sudo", path=self.box.env()["PATH"])).parent, self.box.bin,
                          "nel PATH del test deve esserci solo il sudo finto")
 
     def run_ps1(self, *args, stdin_text=None):
         command = [PWSH, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                    "-File", str(self.mimir / "install.ps1")] + list(args)
         stdin = {"input": stdin_text} if stdin_text is not None else {"stdin": subprocess.DEVNULL}
-        return subprocess.run(command, env=self.box.env(), capture_output=True, text=True, encoding="utf-8",
-                              **stdin)
+        # su Windows l'output rediretto è nella code page OEM: le asserzioni usano testo ASCII
+        return subprocess.run(command, env=self.box.env(), capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", **stdin)
 
+
+@unittest.skipUnless(PWSH, "PowerShell non trovato (MIMIR_TEST_PWSH, pwsh o powershell)")
+class InstallPs1(Ps1Case):
     def test_file_in_utf8_con_bom(self):
         # Windows PowerShell 5.1 legge un .ps1 senza BOM come ANSI e rompe gli accenti
         self.assertEqual((HERE / "install.ps1").read_bytes()[:3], b"\xef\xbb\xbf")
 
     def test_candidato_py_con_prefisso(self):
-        make_executable(self.box.bin / "py", f'[ "$1" = "-3" ] || exit 2\nshift\nexec "{PYTHON}" "$@"')
+        make_fake(self.box.bin, "py", "if sys.argv[1:2] != ['-3']:\n    sys.exit(2)\n"
+                                      f"sys.exit(subprocess.run([{str(PYTHON)!r}] + sys.argv[2:]).returncode)")
         result = self.run_ps1("-Yes", "-SkipSystem")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue((self.box.home / ".claude" / "settings.json").exists())
 
     def test_risposta_si_da_input(self):
         self.fake_linux_requirements()
-        make_executable(self.box.bin / "winget",
-                        f'echo "$@" >> "{self.log}"\n"{shutil.which("ln")}" -s "{PYTHON}" "{self.box.bin}/python"')
+        self.fake_winget_installing_python()
         result = self.run_ps1(stdin_text="s\n")
         self.assertIn("install --id Python.Python.3.13 -e --source winget", self.log.read_text(),
                       result.stdout + result.stderr)
@@ -425,7 +471,7 @@ class InstallPs1(unittest.TestCase):
         self.assertTrue((self.box.home / ".claude" / "settings.json").exists())
 
     def test_output_di_winget_visibile_e_fallimento_riconosciuto(self):
-        make_executable(self.box.bin / "winget", 'echo "RIGA-DI-WINGET"\nexit 1')
+        make_fake(self.box.bin, "winget", "print('RIGA-DI-WINGET')\nsys.exit(1)")
         result = self.run_ps1("-Yes")
         self.assertIn("RIGA-DI-WINGET", result.stdout, "l'output di winget è stato catturato")
         self.assertIn("installazione di Python 3 non riuscita", result.stdout)
@@ -441,7 +487,7 @@ class InstallPs1(unittest.TestCase):
         self.assertTrue((self.box.home / ".claude" / "settings.json").exists())
 
     def test_stub_dello_store_scartato(self):
-        make_executable(self.box.bin / "python", "exit 49")  # 9009 come codice di uscita vale 49
+        make_fake(self.box.bin, "python", "sys.exit(9009)")  # su POSIX il codice di uscita vale 49
         result = self.run_ps1("-Yes", "-SkipSystem")
         self.assertEqual(result.returncode, 1)
         self.assertIn("Python 3.8+ non trovato", result.stdout)
@@ -449,21 +495,21 @@ class InstallPs1(unittest.TestCase):
 
     def test_python_da_winget_poi_trovato(self):
         self.fake_linux_requirements()
-        make_executable(self.box.bin / "winget",
-                        f'echo "$@" >> "{self.log}"\n"{shutil.which("ln")}" -s "{PYTHON}" "{self.box.bin}/python"')
+        self.fake_winget_installing_python()
         result = self.run_ps1("-Yes")
         self.assertIn("install --id Python.Python.3.13 -e --source winget", self.log.read_text())
         self.assertTrue((self.box.home / ".claude" / "settings.json").exists(), result.stdout + result.stderr)
 
     def test_conferma_con_input_chiuso_vale_no(self):
-        make_executable(self.box.bin / "winget", f'echo "$@" >> "{self.log}"')
+        make_fake(self.box.bin, "winget", fake_logging(self.log))
         result = self.run_ps1()
         self.assertFalse(self.log.exists(), "winget lanciato senza conferma")
         self.assertEqual(result.returncode, 1)
 
     def test_senza_git_si_prosegue_e_si_esce_con_1(self):
         self.link_python()
-        (self.box.bin / "git").unlink()
+        for path in self.box.bin.glob("git*"):
+            path.unlink()
         result = self.run_ps1("-Yes", "-SkipSystem")
         self.assertEqual(result.returncode, 1)
         self.assertIn("Git for Windows", result.stdout)
@@ -474,7 +520,7 @@ class InstallPs1(unittest.TestCase):
         # finto): conta che wsl non parta e che lo script non si rompa
         self.link_python()
         self.fake_linux_requirements()
-        make_executable(self.box.bin / "wsl.exe", f'echo wsl >> "{self.log}"')
+        make_fake(self.box.bin, "wsl.exe", fake_logging(self.log, label="wsl"))
         result = self.run_ps1("-Yes")
         self.assertNotIn("wsl", self.log.read_text() if self.log.exists() else "", "wsl lanciato con -Yes")
         self.assertNotIn("install.ps1:", result.stderr, "errore di PowerShell")
