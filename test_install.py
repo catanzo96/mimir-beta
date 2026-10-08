@@ -73,6 +73,18 @@ def fake_logging(log, exit_code=0, label=""):
             f"sys.exit({exit_code})")
 
 
+def is_elevated():
+    if os.name != "nt":
+        return False
+    import ctypes
+    return bool(ctypes.windll.shell32.IsUserAnAdmin())
+
+
+# Sui runner Windows di GitHub i processi girano come amministratore: install.ps1 lì si ferma.
+# La CI dichiara l'elevazione, così un test che non gira lo fa per un motivo controllato.
+ELEVATED = os.environ.get("MIMIR_TEST_ELEVATED", "0")
+
+
 class Sandbox:
     """Una cartella temporanea con HOME, copie di Mímir e un PATH con claude finto."""
 
@@ -406,6 +418,12 @@ class Installer(unittest.TestCase):
 PWSH = os.environ.get("MIMIR_TEST_PWSH") or shutil.which("pwsh") or shutil.which("powershell")
 
 
+class ElevazioneDichiarata(unittest.TestCase):
+    def test_coincide_con_quella_reale(self):
+        self.assertIn(ELEVATED, ("0", "1"), "MIMIR_TEST_ELEVATED vale 0 o 1")
+        self.assertEqual(ELEVATED == "1", is_elevated(), "MIMIR_TEST_ELEVATED non corrisponde all'elevazione reale")
+
+
 class Ps1Case(unittest.TestCase):
     """install.ps1 con python, git e winget finti nel PATH. Su Linux gira con pwsh 7: la
     compatibilità con Windows PowerShell 5.1 la controlla PSScriptAnalyzer, il resto la CI."""
@@ -439,16 +457,29 @@ class Ps1Case(unittest.TestCase):
         self.assertEqual(Path(shutil.which("sudo", path=self.box.env()["PATH"])).parent, self.box.bin,
                          "nel PATH del test deve esserci solo il sudo finto")
 
-    def run_ps1(self, *args, stdin_text=None):
+    def run_ps1(self, *args, stdin_text=None, env=None):
         command = [PWSH, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                    "-File", str(self.mimir / "install.ps1")] + list(args)
         stdin = {"input": stdin_text} if stdin_text is not None else {"stdin": subprocess.DEVNULL}
         # su Windows l'output rediretto è nella code page OEM: le asserzioni usano testo ASCII
-        return subprocess.run(command, env=self.box.env(), capture_output=True, text=True,
+        return subprocess.run(command, env=env or self.box.env(), capture_output=True, text=True,
                               encoding="utf-8", errors="replace", **stdin)
 
 
+@unittest.skipUnless(PWSH and ELEVATED == "1", "solo come amministratore (MIMIR_TEST_ELEVATED=1)")
+class InstallPs1Amministratore(Ps1Case):
+    def test_amministratore_si_ferma(self):
+        self.link_python()
+        # install.ps1 controlla l'elevazione solo con OS=Windows_NT. Gli altri test non lo passano:
+        # con OS, Update-SessionPath rileggerebbe il PATH vero dal registro
+        result = self.run_ps1("-Yes", "-SkipSystem", env=dict(self.box.env(), OS=os.environ["OS"]))
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("in esecuzione come amministratore", result.stdout)
+        self.assertFalse((self.box.home / ".claude").exists(), "install.py è partito da amministratore")
+
+
 @unittest.skipUnless(PWSH, "PowerShell non trovato (MIMIR_TEST_PWSH, pwsh o powershell)")
+@unittest.skipIf(ELEVATED == "1", "da amministratore install.ps1 si ferma: lo prova InstallPs1Amministratore")
 class InstallPs1(Ps1Case):
     def test_file_in_utf8_con_bom(self):
         # Windows PowerShell 5.1 legge un .ps1 senza BOM come ANSI e rompe gli accenti
