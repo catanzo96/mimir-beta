@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-08 (limatura, fase 1, passo 4)
+- `install.ps1` per Windows nativo, **non ancora provato su Windows**: la prova è prevista nella CI (passo 6) e nella prova manuale.
+  - Trova Python 3.8+ scartando lo stub dello Store e controlla Git for Windows; se mancano propone winget e rilegge il PATH.
+  - Lancia `install.py` con `-I`.
+  - Propone WSL2 solo con un sì o con `-InstallWsl`, ed eleva solo `wsl --install`.
+  - Da amministratore si ferma e dice come rilanciarlo da utente normale.
+  - Scritto per PowerShell 5.1: controllato con PSScriptAnalyzer (`PSUseCompatibleSyntax` e `PSUseCompatibleCommands` sul profilo 5.1) e provato con pwsh 7 su Linux, con comandi finti.
+- `install.ps1` entra tra i file protetti.
+
 ## 2026-10-08 (limatura, fase 1)
 - Installer in Python, solo libreria standard: `install.sh` cerca Python 3.8+ e lancia `install.py` con `-I`. Non serve più `jq`. L'installer legge e valida tutti i file prima di scrivere e scrive solo ciò che cambia, con un backup.
 - `install.py` protegge i file di Mímir: `sandbox.filesystem.denyWrite` e `ask` su `Edit(//…)`, con le voci tolte se la cartella si sposta. Prima lo faceva uno script a mano.

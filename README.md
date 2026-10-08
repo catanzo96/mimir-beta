@@ -11,7 +11,22 @@ Prerequisiti: Claude Code e Python 3.8+. Su Linux e WSL2 l'installer installa i 
 ```bash
 git clone <url del repo> <cartella> && <cartella>/install.sh
 ```
-Lancia sempre `install.sh` (opzioni: `--yes` risponde sì alle conferme, `--skip-system` salta i passi con sudo). Lo script avvia `install.py` con `python -I`: la cartella di Mímir è scrivibile dalla sandbox e l'installer gira fuori, quindi non deve importare moduli piantati accanto a sé.
+Su Windows nativo, da PowerShell:
+```powershell
+git clone <url del repo> <cartella>
+powershell -ExecutionPolicy Bypass -File <cartella>\install.ps1
+```
+`-ExecutionPolicy Bypass` vale solo per questo lancio e non cambia la policy di sistema. `install.ps1` cerca Python 3.8+ (`py -3`, poi `python`, scartando lo stub dello Store) e Git for Windows, il cui bash fa girare gli hook. Se mancano, propone di installarli con winget, dopo una conferma. Poi lancia `install.py`.
+
+Su Windows nativo la sandbox non esiste: alla fine `install.ps1` propone WSL2 e stampa i passi per installare Mímir dentro WSL. Lo fa solo con una risposta sì o con `-InstallWsl`, mai con `-Yes`. Serve un riavvio.
+
+Lancia `install.ps1` da utente normale: da amministratore si ferma, perché `install.py` e i programmi del PATH girerebbero elevati. Su Windows nativo, senza sandbox, una sessione di Claude può modificare quei file. Per WSL lo script eleva solo `wsl --install`, con la richiesta UAC.
+
+**Non ancora provato su Windows vero**: la prova è prevista nella CI (passo 6) e nella prova manuale.
+
+Lancia sempre `install.sh` o `install.ps1`. Le opzioni sono le stesse, scritte in modo diverso:
+- `--yes` e `-Yes` rispondono sì alle conferme (con `install.ps1`, non a WSL);
+- `--skip-system` e `-SkipSystem` saltano i passi di sistema: sudo su Linux, winget e WSL su Windows. Lo script avvia `install.py` con `python -I`: la cartella di Mímir è scrivibile dalla sandbox e l'installer gira fuori, quindi non deve importare moduli piantati accanto a sé.
 
 Si può rilanciare senza danni. Prima legge e valida i file; se uno non è valido si ferma senza modificare nulla. Poi scrive, con un backup, solo ciò che cambia:
 - crea `profile/profile.md` e `inbox.md` dagli esempi, se mancano;
@@ -27,7 +42,7 @@ Si può rilanciare senza danni. Prima legge e valida i file; se uno non è valid
 
 Dalla cartella di Mímir l'installer non segue i symlink: rifiuta esempi, template ed `exclude` che sono symlink e non crea un file personale al posto di un symlink. La cartella è scrivibile dalla sandbox, e un symlink porterebbe un segreto in un file leggibile o una scrittura fuori. In `~/.claude`, che la sandbox non scrive, i symlink (per esempio verso un repo di dotfiles) si seguono.
 
-Test: `python3 -I test_install.py`, che usa copie di Mímir in una cartella temporanea e non tocca `~/.claude`.
+Test: `python3 -I test_install.py`, che usa copie di Mímir in una cartella temporanea e non tocca `~/.claude`. I test di `install.ps1` girano se trova PowerShell (`MIMIR_TEST_PWSH`, `pwsh` o `powershell`); altrimenti vengono saltati.
 
 La cartella può stare ovunque: launcher e script ricavano il percorso dalla propria posizione. Fuori dal repo Claude Code vuole percorsi assoluti (marketplace, import in `~/.claude/CLAUDE.md`): se sposti la cartella, rilancia `install.sh` e li riallinea.
 

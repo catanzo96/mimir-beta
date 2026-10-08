@@ -41,11 +41,11 @@ EXCLUDE_ENTRIES = [
 ]
 PERSONAL_FILES = [("profile/profile.example.md", "profile/profile.md"), ("inbox.example.md", "inbox.md")]
 # Girano fuori dalla sandbox o entrano in ogni sessione: la shell nella sandbox non li deve scrivere,
-# Edit e Write chiedono conferma. install.ps1 si aggiunge quando esiste: un denyWrite su un percorso
-# che non c'è fa creare alla sandbox un file vuoto nel repo.
+# Edit e Write chiedono conferma. Solo file versionati: un denyWrite su un percorso che non c'è fa
+# creare alla sandbox un file vuoto nel repo.
 PROTECTED_DIRS = ["plugins", "bin", ".claude-plugin", ".claude", "sandbox", "rules", "profile"]
 PROTECTED_FILES = ["sandbox.settings.json", "settings.template.json", "inbox.example.md", "install.sh", "install.py",
-                   "test_install.py", "CLAUDE.md"]
+                   "install.ps1", "test_install.py", "CLAUDE.md"]
 
 # Testo dalla doc di Claude Code, pagina sandboxing (08/10/2026)
 APPARMOR_PROFILE_PATH = "/etc/apparmor.d/bwrap"
