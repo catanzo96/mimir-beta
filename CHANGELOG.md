@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-08 (limatura, fase 1)
+- Installer in Python, solo libreria standard: `install.sh` cerca Python 3.8+ e lancia `install.py` con `-I`. Non serve più `jq`. L'installer legge e valida tutti i file prima di scrivere e scrive solo ciò che cambia, con un backup.
+- `install.py` protegge i file di Mímir: `sandbox.filesystem.denyWrite` e `ask` su `Edit(//…)`, con le voci tolte se la cartella si sposta. Prima lo faceva uno script a mano.
+- `install.py` aggiunge a `.git/info/exclude` i file vuoti creati dalla sandbox.
+- Su Linux e WSL2, `install.py` installa con conferma `bubblewrap`, `socat` e il profilo AppArmor. Test in `test_install.py`, da lanciare con `python3 -I`.
+- `install.py` non segue i symlink nella cartella di Mímir (`O_NOFOLLOW` e controllo del file regolare in lettura, `O_EXCL` in creazione). Un `settings.template.json` che punta alle credenziali le avrebbe unite in `settings.json`; un `inbox.md` pendente avrebbe fatto scrivere fuori dalla sandbox. I symlink in `~/.claude` si seguono.
+
 ## 2026-10-08 (retro)
 - Regola: se una protezione blocca una modifica, non aggirarla; `scrivi-skill` descrive come prepararla nello scratchpad (controllo del testo atteso, prova su copia, comando `!` su una riga).
 - `ricevere-review`: nella review di un controllo di sicurezza si correggono subito solo i passaggi in silenzio dimostrati; il resto si annota.

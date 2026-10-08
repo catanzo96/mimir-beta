@@ -6,16 +6,28 @@ Parte dalla sfera lavorativa (sviluppo, analisi, manutenzione, gestione); più a
 Il repo contiene solo il metodo. Ciò che riguarda te (chi sei, le tue note, gli host della tua azienda) sta in file locali che git ignora o nelle tue impostazioni utente di Claude Code.
 
 ## Installazione
-Prerequisiti: Claude Code, `jq` (per unire le impostazioni), su Linux i requisiti della sandbox (vedi [Sandbox](#sandbox)).
+Prerequisiti: Claude Code e Python 3.8+. Su Linux e WSL2 l'installer installa i requisiti della sandbox, dopo una conferma (vedi [Sandbox](#sandbox)).
 
 ```bash
 git clone <url del repo> <cartella> && <cartella>/install.sh
 ```
-`install.sh` si può rilanciare senza danni:
+Lancia sempre `install.sh` (opzioni: `--yes` risponde sì alle conferme, `--skip-system` salta i passi con sudo). Lo script avvia `install.py` con `python -I`: la cartella di Mímir è scrivibile dalla sandbox e l'installer gira fuori, quindi non deve importare moduli piantati accanto a sé.
+
+Si può rilanciare senza danni. Prima legge e valida i file; se uno non è valido si ferma senza modificare nulla. Poi scrive, con un backup, solo ciò che cambia:
 - crea `profile/profile.md` e `inbox.md` dagli esempi, se mancano;
 - importa le regole di Mímir in `~/.claude/CLAUDE.md`;
-- unisce `settings.template.json` a `~/.claude/settings.json`, con un backup;
-- registra il marketplace `mimir`.
+- unisce `settings.template.json` a `~/.claude/settings.json`;
+- protegge i file di Mímir che girano fuori dalla sandbox o entrano in ogni sessione (`plugins`, `bin`, `rules`, `profile`, `CLAUDE.md`, gli installer…):
+  - con `sandbox.filesystem.denyWrite`, la shell nella sandbox non li scrive;
+  - con le regole `ask` su `Edit(//…)`, Edit e Write chiedono conferma;
+  - se Mímir si sposta, toglie le voci del percorso vecchio;
+- aggiunge a `.git/info/exclude` i file vuoti che la sandbox crea nel repo;
+- registra il marketplace `mimir`;
+- su Linux e WSL2 installa `bubblewrap` e `socat` (apt-get, dnf, pacman o zypper) e, se AppArmor lo richiede, il profilo per `bwrap`. Lo fa con sudo e dopo una conferma. Se qualcosa non riesce, continua con il resto ma esce con un errore.
+
+Dalla cartella di Mímir l'installer non segue i symlink: rifiuta esempi, template ed `exclude` che sono symlink e non crea un file personale al posto di un symlink. La cartella è scrivibile dalla sandbox, e un symlink porterebbe un segreto in un file leggibile o una scrittura fuori. In `~/.claude`, che la sandbox non scrive, i symlink (per esempio verso un repo di dotfiles) si seguono.
+
+Test: `python3 -I test_install.py`, che usa copie di Mímir in una cartella temporanea e non tocca `~/.claude`.
 
 La cartella può stare ovunque: launcher e script ricavano il percorso dalla propria posizione. Fuori dal repo Claude Code vuole percorsi assoluti (marketplace, import in `~/.claude/CLAUDE.md`): se sposti la cartella, rilancia `install.sh` e li riallinea.
 
@@ -61,7 +73,7 @@ I nomi vengono dalla mitologia norrena; nei nomi tecnici (cartelle, plugin, vari
 - Disattiva anche il sondaggio di feedback.
 - **Lista delle skill**: `skillListingBudgetFraction` al 3% (anche in `settings.template.json`). Con il default dell'1%, su un modello da 200k token Claude Code scartava 33 descrizioni su 38; al 3% le vede tutte (provato in headless il 03/10).
 
-Prerequisiti su Ubuntu 24.04: `socat` e il profilo AppArmor per `bwrap` (vedi la [documentazione](https://code.claude.com/docs/en/sandboxing#set-up-linux-and-wsl2)).
+Prerequisiti su Linux e WSL2: `bubblewrap`, `socat` e, su Ubuntu 24.04+, il profilo AppArmor per `bwrap`. Li installa `install.sh` (vedi la [documentazione](https://code.claude.com/docs/en/sandboxing#set-up-linux-and-wsl2)).
 
 - **Java/Maven**: non usa il proxy della sandbox, quindi dentro la sandbox non ha rete. Le build si lanciano offline; per scaricare dipendenze si esce dalla sandbox, con conferma.
   - `~/.m2/settings.xml` non è leggibile (credenziali) e Maven si ferma se non può leggerlo. Il launcher esporta `MIMIR_MAVEN_SETTINGS`, che punta a `sandbox/maven-settings.xml` (offline, senza credenziali); la skill `java` e l'hook `maven-sandbox.py` fanno usare `mvn -llr -s "$MIMIR_MAVEN_SETTINGS"`. `-llr` serve perché gli artefatti in cache sono stati scaricati da repository definiti nel settings personale. Provato il 07/10 su un progetto Spring Boot 3.4 con Maven 3.8.7: senza le opzioni la build fallisce, con le opzioni `compile` e `package` riescono.
