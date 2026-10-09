@@ -70,7 +70,9 @@ class ClaudeMimirPs1(unittest.TestCase):
     def env(self, **extra):
         env = {"PATH": str(self.bin), "HOME": str(self.root), "USERPROFILE": str(self.root),
                "LANG": "C.UTF-8", "FAKE_CLAUDE_LOG": str(self.log)}
-        for name in ("SystemRoot", "WINDIR", "TEMP", "TMP", "ComSpec", "PATHEXT"):  # senza, powershell.exe non parte
+        # senza le prime, powershell.exe non parte; senza la cache dei moduli del runner (ipotesi dai run
+        # 37932870634 e 37939365792) ogni avvio di Windows PowerShell 5.1 rianalizza i moduli: ~20 s
+        for name in ("SystemRoot", "WINDIR", "TEMP", "TMP", "ComSpec", "PATHEXT", "PSModuleAnalysisCachePath"):
             if name in os.environ:
                 env[name] = os.environ[name]
         env.update(extra)

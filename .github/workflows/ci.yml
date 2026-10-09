@@ -82,7 +82,8 @@ jobs:
         run: >-
           & .\.github\scripts\run-as-user.ps1 -UserName mimirci
           -Command 'python -I .github/scripts/run_tests.py'
-          -PassEnv PATH, GITHUB_ACTIONS, MIMIR_TEST_PWSH, MIMIR_TEST_ELEVATED, MIMIR_TEST_BASH
+          -PassEnv PATH, GITHUB_ACTIONS, MIMIR_TEST_PWSH, MIMIR_TEST_ELEVATED, MIMIR_TEST_BASH,
+          PSModuleAnalysisCachePath
 
   install:
     name: install (${{ matrix.os }}${{ matrix.powershell && format(', {0}', matrix.powershell) || '' }})

@@ -114,7 +114,9 @@ class Sandbox:
 
     def env(self, with_python=False):
         env = {"HOME": str(self.home), "USERPROFILE": str(self.home), "PATH": str(self.bin), "LANG": "C.UTF-8"}
-        for name in ("SystemRoot", "WINDIR", "TEMP", "TMP", "ComSpec", "PATHEXT"):  # senza, su Windows non parte nulla
+        # senza le prime, su Windows non parte nulla; senza la cache dei moduli del runner (ipotesi dai run
+        # 37932870634 e 37939365792) ogni avvio di Windows PowerShell 5.1 rianalizza i moduli: ~20 s
+        for name in ("SystemRoot", "WINDIR", "TEMP", "TMP", "ComSpec", "PATHEXT", "PSModuleAnalysisCachePath"):
             if name in os.environ:
                 env[name] = os.environ[name]
         if with_python:
