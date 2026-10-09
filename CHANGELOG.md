@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-10-10 (Ratatoskr: chiave del passaggio)
+- Il passaggio è legato alla cartella di avvio della sessione (`CLAUDE_PROJECT_DIR`), con la `cwd` come ripiego. Prima la chiave veniva dalla `cwd` dell'evento, che segue i `cd` di Claude: nella prova del 09/10, dopo un `cd` nella cartella di Mímir l'avviso proponeva di scrivere il passaggio sotto la chiave di Mímir, e la ripresa nel progetto non l'avrebbe trovato.
+
 ## 2026-10-10 (retro di Ratatoskr)
 - Regole: un ok condizionato o ambiguo non vale come approvazione; prima di terminare processi si propone il comando con il pattern o i PID; il controllo visto fallire vale anche per i test delle correzioni nate da una review.
 - Skill `python`: FIFO e socket nei test vanno tolti con `os.remove` e la suite va lanciata con un timeout esterno; un errore di I/O su un file si simula sostituendo la funzione, non con i permessi.

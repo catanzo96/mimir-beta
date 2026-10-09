@@ -23,6 +23,7 @@ PENDING = os.path.join(HANDOFF, "pending")
 ARCHIVE = os.path.join(HANDOFF, "consumati")
 ENV = dict(os.environ, MIMIR_HANDOFF_DIR=HANDOFF, MIMIR_HANDOFF_TOKENS=str(LIMIT),
            CLAUDE_PLUGIN_DATA=os.path.join(ROOT, "data"))
+ENV.pop("CLAUDE_PROJECT_DIR", None)  # i test la impostano solo dove serve
 CWD = "/progetti/app"
 
 
@@ -351,6 +352,20 @@ try:
     res = context(run(event("SessionStart", session="enorme")))
     check("passaggio enorme: chiede prima di leggerlo", res and "chiedigli se leggerlo" in res[1]
           and "yyyy" not in res[1], repr(res and res[1][:80]))
+
+    # la cwd segue i cd di Claude: la chiave viene dalla cartella di avvio (CLAUDE_PROJECT_DIR)
+    discard(target)
+    started_here = dict(ENV, CLAUDE_PROJECT_DIR=CWD)
+    res = context(run(event("UserPromptSubmit", session="dopo-cd", path=over, cwd="/altrove/mimir"), started_here))
+    check("dopo un cd l'avviso usa la cartella di avvio", res and target in res[1], repr(res and res[1][:200]))
+    with open(target, "w", encoding="utf-8") as fh:
+        fh.write("scritto dopo un cd")
+    res = context(run(event("SessionStart", session="dopo-cd-2", source="clear", cwd="/altrove/mimir"), started_here))
+    check("dopo un cd la ripresa trova il passaggio della cartella di avvio",
+          res is not None and pending_files() == [], repr((res, pending_files())))
+    res = context(run(event("UserPromptSubmit", session="relativa", path=over),
+                      dict(ENV, CLAUDE_PROJECT_DIR="relativa")))
+    check("CLAUDE_PROJECT_DIR relativa: si usa la cwd", res and target in res[1], repr(res and res[1][:200]))
 
     # errore inatteso (qui int() di Infinity nel transcript): exit 0, niente stdout, una riga su stderr
     infinite = os.path.join(ROOT, "infinito.jsonl")

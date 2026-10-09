@@ -6,7 +6,7 @@
   a Claude di scrivere il passaggio di consegne in pending/ e di proporre /clear, o di ricordare
   /clear se il passaggio c'è già: su UserPromptSubmit a ogni prompt, su PostToolUse una volta per
   sessione, per non ripetersi a ogni tool.
-- SessionStart (startup e clear, scelti dal matcher): se c'è un passaggio per la cwd lo sposta in
+- SessionStart (startup e clear, scelti dal matcher): se c'è un passaggio per il progetto lo sposta in
   consumati/, lo segnala (all'utente percorso, età e dimensione; a Claude l'istruzione di
   annunciarlo nella prima risposta, perché il systemMessage di SessionStart dopo /clear non si vede,
   e di leggerlo solo se l'utente chiede di riprendere, come dati) e cancella i consumati più vecchi di
@@ -16,6 +16,10 @@
   la ripresa lo archiviano con il suffisso -scaduto e lo dicono all'utente (messaggio e, tramite
   Claude, prima risposta), senza proporre di riprenderlo.
   pending/ non ha altre scadenze: cancellare un passaggio non ripreso ne perderebbe il lavoro.
+
+Il passaggio è legato alla cartella di avvio della sessione (CLAUDE_PROJECT_DIR), non alla cwd
+dell'evento, che segue i cd di Claude: dopo un cd l'avviso lo farebbe scrivere sotto un'altra chiave
+e la ripresa nel progetto non lo troverebbe.
 
 La soglia è in token perché la dimensione della finestra non arriva agli hook. La cartella la
 esporta il launcher in MIMIR_HANDOFF_DIR, fuori da Mímir e da ciò che la shell nella sandbox può
@@ -63,7 +67,7 @@ def threshold():
 
 
 def project_key(cwd):
-    """Nome di file leggibile per la cwd; l'hash evita le collisioni tra a-b e a_b."""
+    """Nome di file leggibile per la cartella; l'hash evita le collisioni tra a-b e a_b."""
     readable = re.sub(r"[^A-Za-z0-9]+", "-", cwd).strip("-")[-80:]
     digest = hashlib.sha256(cwd.encode("utf-8")).hexdigest()[:8]
     return f"{readable}-{digest}"
@@ -71,6 +75,15 @@ def project_key(cwd):
 
 def subdir(name):
     return os.path.join(handoff_dir(), name)
+
+
+def project_dir(data):
+    """La cartella di avvio della sessione: cwd segue i cd di Claude, CLAUDE_PROJECT_DIR no.
+
+    Senza la variabile, o se non è assoluta, si ricade sulla cwd dell'evento.
+    """
+    path = os.environ.get("CLAUDE_PROJECT_DIR", "")
+    return path if os.path.isabs(path) else data["cwd"]
 
 
 def pending_path(cwd):
@@ -207,11 +220,11 @@ def nudge(data, event):
         return None
     if event == "PostToolUse" and not first_nudge(session_id):
         return None
-    target = pending_path(data["cwd"])
+    target = pending_path(project_dir(data))
     notice = expired = None
     stale = stale_pending(target)
     if stale:
-        archived = archive_pending(target, data["cwd"], "-scaduto")
+        archived = archive_pending(target, project_dir(data), "-scaduto")
         if archived is None:
             return None
         notice = expired_notice(*stale, archived)
@@ -231,7 +244,7 @@ def nudge(data, event):
 
 def resume(data):
     """(contesto per Claude, messaggio per l'utente), oppure None."""
-    source = pending_path(data["cwd"])
+    source = pending_path(project_dir(data))
     if not real_dir(handoff_dir()) or not real_dir(subdir("pending")):
         return None
     try:
@@ -243,7 +256,7 @@ def resume(data):
         return None
     age_seconds = time.time() - info.st_mtime
     stale = age_seconds > MAX_PENDING_HOURS * 3600
-    target = archive_pending(source, data["cwd"], "-scaduto" if stale else "")
+    target = archive_pending(source, project_dir(data), "-scaduto" if stale else "")
     if target is None:
         return None
     if stale:
