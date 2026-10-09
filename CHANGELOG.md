@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-09 (Ratatoskr: correzioni dalla review)
+- La ripresa non inietta più il passaggio: SessionStart lo archivia, mostra all'utente percorso, età e dimensione e dice a Claude di leggerlo solo se l'utente chiede di riprendere, come dati e con l'ok prima di azioni con effetti; oltre 9.000 byte Claude chiede prima di leggerlo. Prima il testo entrava in `additionalContext`, che l'utente non vede, e un contesto compromesso sopravviveva a `/clear`.
+- Un passaggio di oltre 48 ore non si perde più in silenzio: avviso e ripresa lo archiviano con il suffisso `-scaduto` e lo dicono all'utente; l'avviso chiede un passaggio nuovo. `pending/` resta senza altre scadenze, documentato.
+- Archivio con nomi univoci (prima un passaggio dello stesso secondo veniva sovrascritto) e i 7 giorni contati dall'archiviazione.
+- `MIMIR_HANDOFF_DIR` relativa ignorata; una FIFO o un file non UTF-8 in `pending/` non bloccano più l'hook.
+- Skill `passaggio-consegne`: description e testi per la ripresa su richiesta. README: uso, permessi di lettura fuori dalle cartelle di lavoro, indice degli hook. Test senza soglie di 1 s.
+
 ## 2026-10-09 (retro della fase 1)
 - Skill `git-workflow`: merge sul branch base solo con la CI del branch verde; il lavoro di più sessioni o di un worktree passa da un branch, il commit diretto su main solo per modifiche piccole di una sessione. Prima di `switch` o `checkout` controllare se cambiano file protetti e, se sì, far lanciare il comando all'utente.
 - Regola e skill `scrivi-skill`: i comandi da lanciare a mano vanno per il terminale dell'utente, senza `!`, in righe brevi con `S=` per i percorsi lunghi; `!` solo per un comando breve e autonomo, perché ogni `!` parte in una shell nuova.
