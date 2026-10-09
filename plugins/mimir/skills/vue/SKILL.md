@@ -5,7 +5,7 @@ description: Best practice Vue 3 moderno. Usala quando scrivi, modifichi o rived
 
 # Vue
 
-Si applica insieme a `typescript` e `clean-code`. Prevalgono le convenzioni del progetto: stile dei componenti, store, libreria di UI, framework (Nuxt…) e versione di Vue.
+Si applica insieme a `typescript` e `clean-code`; per l'aspetto visivo e le animazioni, `design-ui` e `animazioni-ui`. Prevalgono le convenzioni del progetto: stile dei componenti, store, libreria di UI, framework (Nuxt…) e versione di Vue.
 
 ## Prima di tutto: la versione
 Leggi la versione di `vue` in `package.json` e usa solo le API disponibili lì. **Vue 2 è a fine vita dal 31/12/2023: per i progetti Vue 2 o senza test vale `manutenzione-legacy`** (se disponibile): non migrare pattern esistenti (Options API, mixin, Vuex) se non è richiesto, segnala l'opportunità.

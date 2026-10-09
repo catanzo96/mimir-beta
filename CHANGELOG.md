@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-09 (design delle interfacce)
+- Skill `design-ui`: lettura della richiesta in una riga con tre assi (varietà, movimento, densità), superfici (lavorare, leggere, convincere), design system ufficiali e token, default da rifiutare, checklist sul risultato; in `references/` anti-pattern, pagine marketing, rifacimento, mobile web.
+- Skill `animazioni-ui`: frequenza e scopo prima di animare, strumento più semplice, curve e durate, interruzione, movimento ridotto, revisione dal correttivo più forte; in `references/` ricette, gesti e spring, vocabolario.
+- Skill `ui-casi-limite`: dati peggiori plausibili e limiti dello schema, stati vuoto/uno/tanti, firme dei guasti, resoconto prima delle correzioni; catalogo con dati italiani.
+- Skill `prototipi-ui`, solo manuale: varianti divergenti dietro un selettore, poi promozione della scelta.
+- Agent `design-reviewer` (sonnet, sola lettura): revisione dell'esperienza e della qualità visiva.
+- `architettura-frontend`, `react`, `vue`, `angular` rimandano alle skill di design.
+- Idee da impeccable, skills di Emil Kowalski e taste-skill, riscritte da zero.
+
 ## 2026-10-09 (retro della CI)
 - Skill `ci-cd`: esito letto job per job (annullato o in timeout ≠ fallito), pipeline vista fallire su un branch di prova, misura prima di alzare un timeout; in `references/piattaforme.md` runner Windows da amministratore, `pwsh` prima di `powershell`, `persist-credentials: false`.
 - Skill `script-shell`: tre trappole di PowerShell 5.1 (code page OEM, formato di `ConvertTo-Json`, variabili mancanti in un ambiente da zero).

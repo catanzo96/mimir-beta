@@ -173,6 +173,10 @@ Come si scrivono skill, agent, regole e hook: skill `scrivi-skill`.
 | `quarkus` | mimir | framework | Quarkus per chi viene da Spring: CDI, REST, Panache, Dev Services, build nativa |
 | `react` | mimir | framework | React moderno: hook, quando non usare useEffect, stato, Actions, Server Components, Testing Library |
 | `vue` | mimir | framework | Vue 3: Composition API, reattività, defineModel, Pinia, Router, test |
+| `design-ui` | mimir | design | Qualità visiva delle UI web: lettura della richiesta con tre assi, superfici (lavorare, leggere, convincere), design system e token, default da rifiutare, checklist finale; pagine marketing, rifacimento, mobile web |
+| `animazioni-ui` | mimir | design | Se animare (frequenza e scopo), strumento più semplice, proprietà, curve e durate, interruzione, movimento ridotto; revisione; ricette, gesti e spring, vocabolario |
+| `ui-casi-limite` | mimir | design | Dati peggiori plausibili dai limiti di schema e DB, stati vuoto/uno/tanti, firme dei guasti, scelta tra a capo e troncamento; resoconto prima delle correzioni |
+| `prototipi-ui` | mimir | design | Varianti divergenti su un asse dichiarato dietro un selettore, promozione della scelta. Solo manuale: `/prototipi-ui` |
 | `decisioni` | mimir | management | Decisioni non solo tecniche: domanda, reversibilità, criteri, opzioni, raccomandazione, registro; brief 1-3-1 da inoltrare e questionario per chi ha le informazioni |
 | `stime` | mimir | management | Stime a intervallo o a tre punti, assunzioni, costi nascosti, dati storici, come comunicarle |
 | `riunioni` | mimir | management | Agenda, verbale con decisioni e azioni (anche da appunti e trascrizioni, senza inventare responsabili o date), follow-up; riunioni ricorrenti (standup, retrospettiva, SAL) |
@@ -199,6 +203,7 @@ Come si scrivono skill, agent, regole e hook: skill `scrivi-skill`.
 | `code-reviewer` | mimir | sonnet | Review in sola lettura di un diff con le skill di codice: aderenza alla richiesta, correttezza (anche fallimenti silenziosi), sicurezza, design, test, perimetro del diff. Segnalazioni verificate, ordinate per gravità, con il costo di lasciarle; passate separate sui diff grandi, cautela sul codice da togliere |
 | `security-reviewer` | mimir | sonnet | Review di sicurezza in sola lettura: autorizzazione sulla risorsa, injection, sessioni, segreti, file, SSRF, parsing, configurazione. Scenario, evidenza e correzione per ogni segnalazione |
 | `architetto` | mimir | opus | Decisioni di design con opzioni e raccomandazione, piani a passi verificabili per i compiti grandi. Sola lettura |
+| `design-reviewer` | mimir | sonnet | Review in sola lettura dell'esperienza e della qualità visiva di una UI: aderenza, bloccanti d'uso, euristiche di Nielsen con punteggio, carico cognitivo, due utenti, checklist di `design-ui`; separa il visto dal dedotto |
 | `Explore` | `.claude/agents/` | haiku | Sostituisce l'Explore integrato di Claude Code (che userebbe il modello della sessione) per le ricerche nel codice. Attivo nelle sessioni avviate con `bin/claude-mimir` |
 
 ## Indice hook

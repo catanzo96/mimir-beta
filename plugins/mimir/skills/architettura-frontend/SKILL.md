@@ -5,7 +5,7 @@ description: Architettura frontend indipendente dal framework. Usala quando stru
 
 # Architettura frontend
 
-Si applica insieme a `clean-code`, a `typescript` e alla skill del framework: `angular`, `react` o `vue`. Qui ci sono i principi che valgono ovunque; l'implementazione nel framework sta nella sua skill. Prevalgono struttura, librerie (es. NgRx, TanStack Query, Pinia) e convenzioni del progetto: non cambiare approccio a metà.
+Si applica insieme a `clean-code`, a `typescript` e alla skill del framework: `angular`, `react` o `vue`. Qui ci sono i principi che valgono ovunque; l'implementazione nel framework sta nella sua skill. L'aspetto visivo è in `design-ui`, le animazioni in `animazioni-ui`, la prova con dati estremi in `ui-casi-limite`. Prevalgono struttura, librerie (es. NgRx, TanStack Query, Pinia) e convenzioni del progetto: non cambiare approccio a metà.
 
 ## Organizzazione per feature
 - Struttura per **feature** (dominio: `ordini`, `fatture`), non per tipo tecnico globale (`components/`, `services/`). Dentro una feature trovi tutto ciò che la riguarda: schermate, componenti, stato, accesso ai dati, test.
