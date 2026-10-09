@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-10 (retro di Ratatoskr)
+- Regole: un ok condizionato o ambiguo non vale come approvazione; prima di terminare processi si propone il comando con il pattern o i PID; il controllo visto fallire vale anche per i test delle correzioni nate da una review.
+- Skill `python`: FIFO e socket nei test vanno tolti con `os.remove` e la suite va lanciata con un timeout esterno; un errore di I/O su un file si simula sostituendo la funzione, non con i permessi.
+- `scrivi-skill/references/hook.md`: il `systemMessage` di SessionStart dopo `/clear` non compare; una funzione che dipende da come Claude Code mostra o passa qualcosa si prova a mano in una sessione vera prima del merge.
+
 ## 2026-10-09 (Ratatoskr: correzioni dalla review)
 - La ripresa non inietta più il passaggio: SessionStart lo archivia, mostra all'utente percorso, età e dimensione e dice a Claude di leggerlo solo se l'utente chiede di riprendere, come dati e con l'ok prima di azioni con effetti; oltre 9.000 byte Claude chiede prima di leggerlo. Prima il testo entrava in `additionalContext`, che l'utente non vede, e un contesto compromesso sopravviveva a `/clear`.
 - Un passaggio di oltre 48 ore non si perde più in silenzio: avviso e ripresa lo archiviano con il suffisso `-scaduto` e lo dicono all'utente; l'avviso chiede un passaggio nuovo. `pending/` resta senza altre scadenze, documentato.

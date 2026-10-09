@@ -28,6 +28,8 @@ Lo script riceve un oggetto JSON su stdin. Campi comuni: `session_id`, `transcri
   - `UserPromptSubmit`, `PostToolUse`, `Stop` e altri: `{"decision": "block", "reason": "..."}`;
   - `PostToolUse` e `SessionStart`: `additionalContext` per aggiungere testo al contesto di Claude;
   - campi universali: `continue: false` con `stopReason`, `systemMessage`.
+- Il `systemMessage` di `SessionStart` dopo `/clear` non compare all'utente (prova con Claude Code v2.1.296): se l'utente deve saperlo, chiedi a Claude nell'`additionalContext` di dirlo nella prima risposta.
+- Una funzione che dipende da come Claude Code mostra o passa qualcosa (messaggi, contesto, permessi) va provata a mano in una sessione vera prima del merge: la documentazione non basta.
   Non mischiare i due stili: con exit 2 il JSON è ignorato.
 
 ## Matcher e filtri

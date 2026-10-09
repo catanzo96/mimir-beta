@@ -75,6 +75,8 @@ Segui il progetto. In mancanza:
 - **`monkeypatch`** per variabili d'ambiente, attributi e dict; `tmp_path` per i file. Sostituisci il confine (rete, orologio, DB), non la logica interna. `unittest.mock.patch` va applicato dove il nome è *usato*, non dove è definito.
 - `pytest.raises(Errore, match=...)` per le eccezioni attese; `pytest.approx` per i float.
 - Niente `sleep` nei test: orologio iniettabile o `freezegun`/`time-machine` se già nel progetto.
+- File speciali nei test (FIFO, socket): toglili con `os.remove`, perché `os.path.isfile` è falso su una FIFO, e lancia la suite con un timeout esterno: una FIFO rimasta, aperta in scrittura, blocca il test per sempre.
+- Per simulare un errore di I/O su un solo file non usare i permessi: su POSIX la cancellazione dipende dalla cartella e bloccherebbe anche le altre operazioni. Sostituisci la funzione al confine (`monkeypatch`, oppure in un sottoprocesso con `runpy` e la funzione rimpiazzata).
 - Per i principi generali (cosa testare, nomi, isolamento) vedi `clean-code/references/test.md`.
 
 ## Stile e strumenti

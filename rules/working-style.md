@@ -19,4 +19,4 @@
   - Un'ipotesi non diventa un fatto senza una verifica.
   - Per affermare un'assenza serve una ricerca che non salti file (encoding diversi, binari).
   - I documenti prodotti con l'AI, compresi i tuoi, sono un indice, non una fonte.
-  - Un controllo improvvisato (compilazione parziale, classpath ricostruito, script o query di verifica) vale solo dopo averlo visto fallire: prima fallo girare su un caso con un errore noto e verifica che lo segnali. Se non lo segnala, è rotto e i suoi esiti precedenti si ritirano. Quando riporti un esito, dichiara con quale controllo l'hai ottenuto e quali limiti ha.
+  - Un controllo improvvisato (compilazione parziale, classpath ricostruito, script o query di verifica) vale solo dopo averlo visto fallire: prima fallo girare su un caso con un errore noto e verifica che lo segnali. Se non lo segnala, è rotto e i suoi esiti precedenti si ritirano. Vale anche per i test delle correzioni che nascono da una review: prima rossi, poi verdi. Quando riporti un esito, dichiara con quale controllo l'hai ottenuto e quali limiti ha.

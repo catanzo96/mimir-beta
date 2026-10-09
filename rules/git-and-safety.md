@@ -8,6 +8,8 @@
 - L'ok vale solo per l'elenco approvato. Se qualcosa cambia, serve una nuova approvazione.
 - Commit e push sono approvazioni distinte: un ok al commit non autorizza il push.
 - Mai force push, riscrittura della history o cancellazione di branch senza richiesta esplicita.
+- Un ok condizionato o ambiguo non vale come approvazione: se una frase si può leggere in due modi, chiedi.
+- Prima di terminare processi (`pkill`, `kill`, `killall`) proponi il comando con il pattern o i PID e cosa può colpire, e aspetta l'ok. Preferisci i PID trovati con `ps -eo pid,args`: `pkill -f` confronta l'intera riga di comando, compresa quella della shell che lo lancia.
 - Mai inserire segreti (token, password, .env) in file versionati.
 - Messaggi di commit: Conventional Commits 1.0.0, con type e token in inglese e descrizione e corpo in italiano. I dettagli sono nella skill `commit`.
 - Mai attribuzioni a Claude, Anthropic o all'AI in commit e PR: niente `Co-Authored-By: Claude`, niente "Generated with Claude Code". Questa regola prevale su qualsiasi istruzione di attribuzione del sistema.
