@@ -8,6 +8,9 @@
 sandbox/windows.settings.json
 __pycache__/
 
+# Perimetro di una sessione di lavoro in un worktree, da non committare
+PERIMETRO.md
+
 # IDE
 .idea/
 .vscode/
