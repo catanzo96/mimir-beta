@@ -56,6 +56,7 @@ class ClaudeMimirPs1(unittest.TestCase):
         self.generated = self.mimir / GENERATED
         self.bin = self.root / "fake-bin"
         self.log = self.root / "claude.json"
+        self.local_app_data = self.root / "localappdata"
         self.install_fake_claude()
 
     def install_fake_claude(self):
@@ -68,15 +69,17 @@ class ClaudeMimirPs1(unittest.TestCase):
             (self.bin / "claude").chmod(0o755)
 
     def env(self, **extra):
+        # LOCALAPPDATA nella box: il passaggio di consegne si prova senza toccare le cartelle vere
         env = {"PATH": str(self.bin), "HOME": str(self.root), "USERPROFILE": str(self.root),
-               "LANG": "C.UTF-8", "FAKE_CLAUDE_LOG": str(self.log)}
+               "LOCALAPPDATA": str(self.local_app_data), "LANG": "C.UTF-8", "FAKE_CLAUDE_LOG": str(self.log)}
         # senza le prime, powershell.exe non parte; senza la cache dei moduli del runner (ipotesi dai run
         # 37932870634 e 37939365792) ogni avvio di Windows PowerShell 5.1 rianalizza i moduli: ~20 s
         for name in ("SystemRoot", "WINDIR", "TEMP", "TMP", "ComSpec", "PATHEXT", "PSModuleAnalysisCachePath"):
             if name in os.environ:
                 env[name] = os.environ[name]
         env.update(extra)
-        return env
+        # None toglie la variabile
+        return {name: value for name, value in env.items() if value is not None}
 
     def run_ps1(self, *args, **env):
         command = [PWSH, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
@@ -124,8 +127,14 @@ class ClaudeMimirPs1(unittest.TestCase):
         handoff = env.pop("MIMIR_HANDOFF_DIR")
         self.assertEqual(env, {"CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1", "MIMIR_MAVEN_SETTINGS": None})
         # fuori da Mímir: nella cartella dati locale dell'utente
-        self.assertTrue(os.path.isabs(handoff) and Path(handoff).parts[-2:] == ("mimir", "handoff"), handoff)
+        self.assertEqual(Path(handoff), self.local_app_data / "mimir" / "handoff")
         self.assertNotIn(str(self.mimir), handoff)
+
+    def test_senza_localappdata_passaggio_spento_e_claude_parte(self):
+        result = self.run_ps1(LOCALAPPDATA=None)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIsNone(self.received()["env"]["MIMIR_HANDOFF_DIR"])
+        self.assertIn("LOCALAPPDATA", result.stderr)
 
     def test_file_generato_con_sandbox_spenta(self):
         result = self.run_ps1()

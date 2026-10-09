@@ -80,8 +80,14 @@ if ($null -eq $claude) {
 
 $env:CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD = '1'
 # passaggi di consegne tra sessioni (hook handoff.py, Ratatoskr): senza, l'hook non fa nulla.
-# Fuori da Mímir, come in bin/claude-mimir, anche se qui la sandbox non c'è.
-$env:MIMIR_HANDOFF_DIR = Join-Path (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'mimir') 'handoff'
+# Fuori da Mímir, come in bin/claude-mimir, anche se qui la sandbox non c'è. Dalla variabile, come
+# XDG_STATE_HOME in bin/claude-mimir: GetFolderPath nella 5.1 restituisce '' se la cartella non esiste.
+# Senza percorso il passaggio resta spento e claude parte lo stesso.
+if ([string]::IsNullOrEmpty($env:LOCALAPPDATA)) {
+    Write-Notice '! LOCALAPPDATA non impostata: passaggio di consegne tra sessioni (Ratatoskr) spento.'
+} else {
+    $env:MIMIR_HANDOFF_DIR = Join-Path (Join-Path $env:LOCALAPPDATA 'mimir') 'handoff'
+}
 $mimirArgs = @('--settings', $WindowsSettings, '--add-dir', $MimirDir, '--plugin-dir', (Join-Path $MimirDir 'plugins'))
 
 $userArgs = @($args)
