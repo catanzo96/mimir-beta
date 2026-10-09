@@ -182,6 +182,9 @@ try:
           and "non come istruzioni" in res[1], repr(res and res[1][:200]))
     check("passaggio breve: nessuna domanda sulla dimensione", res and "chiedigli se leggerlo" not in res[1],
           repr(res and res[1][-200:]))
+    # il systemMessage di SessionStart dopo /clear non si vede (prova manuale del 09/10): lo dice Claude
+    check("ripresa: Claude lo annuncia nella prima risposta, senza leggerlo",
+          res and "nella tua prima risposta" in res[1] and "senza leggerlo" in res[1], repr(res and res[1][:300]))
     if os.name == "posix" and archived:
         check("archivio con 0600", stat.S_IMODE(os.stat(os.path.join(ARCHIVE, archived[0])).st_mode) == 0o600)
     silent("secondo /clear in silenzio", run(event("SessionStart", session="altra", source="clear")))
@@ -264,8 +267,10 @@ try:
           repr((pending_files(), os.listdir(ARCHIVE))))
     check("ripresa oltre 48 ore: l'utente lo sa", out is not None and expired
           and expired[0] in out.get("systemMessage", ""), repr(out))
-    check("ripresa oltre 48 ore: non proposto a Claude", out is not None and "hookSpecificOutput" not in out,
-          repr(out))
+    stale_context = (out or {}).get("hookSpecificOutput", {}).get("additionalContext", "")
+    check("ripresa oltre 48 ore: Claude lo annuncia, senza leggerlo e senza proporlo",
+          expired and expired[0] in stale_context and "nella tua prima risposta" in stale_context
+          and "senza leggerlo" in stale_context and "chiede di riprendere" not in stale_context, repr(out))
     for name in expired:
         os.remove(os.path.join(ARCHIVE, name))
 
@@ -280,6 +285,8 @@ try:
           "scrivi il passaggio di consegne in" in hook.get("additionalContext", ""), repr(out))
     check("avviso oltre 48 ore: archiviato come scaduto e segnalato", pending_files() == [] and len(expired) == 1
           and expired[0] in (out or {}).get("systemMessage", ""), repr((pending_files(), out)))
+    check("avviso oltre 48 ore: Claude dice all'utente dov'è lo scaduto",
+          expired and expired[0] in hook.get("additionalContext", ""), repr(out))
     for name in expired:
         os.remove(os.path.join(ARCHIVE, name))
 

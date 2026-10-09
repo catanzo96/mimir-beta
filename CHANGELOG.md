@@ -6,6 +6,7 @@
 - Archivio con nomi univoci (prima un passaggio dello stesso secondo veniva sovrascritto) e i 7 giorni contati dall'archiviazione.
 - `MIMIR_HANDOFF_DIR` relativa ignorata; una FIFO o un file non UTF-8 in `pending/` non bloccano più l'hook.
 - Dopo la security review: un errore inatteso dà exit 0 e una riga su stderr invece di un traceback con exit 1; un consumato non cancellabile non ferma l'archiviazione; permessi e mtime si fissano prima dello spostamento. README: Write, a differenza della shell, può scrivere un passaggio.
+- Dopo la prova manuale (modalità auto, Claude Code v2.1.296): il systemMessage di SessionStart dopo `/clear` non compare, quindi è Claude ad annunciare il passaggio (anche scaduto) nella prima risposta, senza leggerlo. README: esiti della prova e soglia minima di circa 50.000 token.
 - Skill `passaggio-consegne`: description e testi per la ripresa su richiesta. README: uso, permessi di lettura fuori dalle cartelle di lavoro, indice degli hook. Test senza soglie di 1 s.
 
 ## 2026-10-09 (retro della fase 1)
