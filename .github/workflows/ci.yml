@@ -106,9 +106,12 @@ jobs:
 
       - name: Preparazione di apt (Ubuntu)
         if: runner.os == 'Linux'
-        # install.py non lancia apt-get update (voce aperta in inbox): qui si prepara l'ambiente
+        # install.py non lancia apt-get update (voce aperta in inbox): qui si prepara l'ambiente.
+        # Un mirror che non risponde ha tenuto fermo apt per 14 minuti (run 37809319638):
+        # timeout e tentativi espliciti, e lo step fallisce da solo invece di consumare il job
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
           for tool in bwrap socat; do
             if command -v "$tool" >/dev/null; then
               echo "::warning::$tool già presente nell'immagine: l'installazione da zero non è provata"
