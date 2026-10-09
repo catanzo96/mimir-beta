@@ -79,6 +79,9 @@ if ($null -eq $claude) {
 }
 
 $env:CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD = '1'
+# passaggi di consegne tra sessioni (hook handoff.py, Ratatoskr): senza, l'hook non fa nulla.
+# Fuori da Mímir, come in bin/claude-mimir, anche se qui la sandbox non c'è.
+$env:MIMIR_HANDOFF_DIR = Join-Path (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'mimir') 'handoff'
 $mimirArgs = @('--settings', $WindowsSettings, '--add-dir', $MimirDir, '--plugin-dir', (Join-Path $MimirDir 'plugins'))
 
 $userArgs = @($args)

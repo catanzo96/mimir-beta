@@ -50,6 +50,8 @@ Ordini di grandezza dalla documentazione, da leggere come indicazioni e non come
 
 L'auto-compattazione scatta da sola vicino al limite del modello (circa 967.000 token sui modelli con finestra da 1M, 200.000 sugli altri); `/autocompact <token>` la anticipa. Preferisci comunque la compattazione manuale a un confine naturale: quella automatica può scattare a metà compito.
 
+Nelle sessioni avviate dal launcher, l'hook `handoff.py` (Ratatoskr) interviene molto prima: oltre 200.000 token (`MIMIR_HANDOFF_TOKENS`) chiede il passaggio di consegne e `/clear`, e la sessione successiva riparte dal documento con il contesto pulito. Dettagli nel README di Mímir.
+
 ## Triage di Mímir
 `rules/working-style.md` classifica il compito prima di agire:
 - **piccolo**: procedi direttamente, senza esplorare oltre il necessario;

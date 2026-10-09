@@ -12,6 +12,9 @@ MIMIR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1
 # settings di Maven senza credenziali: quello personale non è leggibile nella sandbox
 export MIMIR_MAVEN_SETTINGS="$MIMIR_DIR/sandbox/maven-settings.xml"
+# passaggi di consegne tra sessioni (hook handoff.py, Ratatoskr): senza, l'hook non fa nulla.
+# Fuori da Mímir perché la shell nella sandbox non ci deve scrivere: Claude li scrive con Write.
+export MIMIR_HANDOFF_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mimir/handoff"
 MIMIR_ARGS=(--settings "$MIMIR_DIR/sandbox.settings.json" --add-dir "$MIMIR_DIR" --plugin-dir "$MIMIR_DIR/plugins")
 
 if [[ "${1:-}" == "agents" ]]; then

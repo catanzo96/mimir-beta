@@ -9,10 +9,18 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/handoff.py\"", "timeout": 5 }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/retro-nudge.py\"", "timeout": 5 }
+          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/retro-nudge.py\"", "timeout": 5 },
+          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/handoff.py\"", "timeout": 5 }
         ]
       }
     ],
@@ -21,6 +29,12 @@
         "matcher": "startup|resume|clear|compact",
         "hooks": [
           { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/maven-sandbox.py\"", "timeout": 5 }
+        ]
+      },
+      {
+        "matcher": "startup|clear",
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/handoff.py\"", "timeout": 5 }
         ]
       }
     ]

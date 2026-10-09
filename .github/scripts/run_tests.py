@@ -11,6 +11,7 @@ from pathlib import Path
 
 SUITES = [
     "plugins/mimir/hooks/scripts/test_git_guard.py",
+    "plugins/mimir/hooks/scripts/test_handoff.py",
     "plugins/mimir/hooks/scripts/test_maven_sandbox.py",
     "plugins/mimir/hooks/scripts/test_retro_nudge.py",
     "plugins/mimir/hooks/scripts/test_run_python.py",

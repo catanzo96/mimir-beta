@@ -31,7 +31,8 @@ FAKE_CLAUDE = """import json, os, sys
 with open(os.environ["FAKE_CLAUDE_LOG"], "w", encoding="utf-8") as log:
     json.dump({"args": sys.argv[1:],
                "env": {name: os.environ.get(name) for name in
-                       ("CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD", "MIMIR_MAVEN_SETTINGS")}}, log)
+                       ("CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD", "MIMIR_MAVEN_SETTINGS",
+                        "MIMIR_HANDOFF_DIR")}}, log)
 sys.exit(int(os.environ.get("FAKE_CLAUDE_EXIT", "0")))
 """
 
@@ -117,8 +118,12 @@ class ClaudeMimirPs1(unittest.TestCase):
     def test_variabili_d_ambiente(self):
         # senza MIMIR_MAVEN_SETTINGS: l'hook di Maven farebbe lanciare le build offline come nella sandbox
         self.run_ps1()
-        self.assertEqual(self.received()["env"], {
-            "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1", "MIMIR_MAVEN_SETTINGS": None})
+        env = self.received()["env"]
+        handoff = env.pop("MIMIR_HANDOFF_DIR")
+        self.assertEqual(env, {"CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1", "MIMIR_MAVEN_SETTINGS": None})
+        # fuori da Mímir: nella cartella dati locale dell'utente
+        self.assertTrue(os.path.isabs(handoff) and Path(handoff).parts[-2:] == ("mimir", "handoff"), handoff)
+        self.assertNotIn(str(self.mimir), handoff)
 
     def test_file_generato_con_sandbox_spenta(self):
         result = self.run_ps1()

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-09 (Ratatoskr: passaggio tra sessioni)
+- Hook `handoff.py` (Ratatoskr) su UserPromptSubmit, PostToolUse e SessionStart: oltre `MIMIR_HANDOFF_TOKENS` token di contesto (default 200000, il 20% di 1M) chiede a Claude di scrivere il passaggio di consegne e di proporre `/clear`; all'avvio e dopo `/clear` lo inietta nella nuova sessione come dati da verificare, con un messaggio per l'utente, e lo archivia in `consumati/`, cancellato dopo 7 giorni. Un passaggio di oltre 48 ore si archivia senza iniettarlo. Test in `test_handoff.py`, anche nella CI.
+- Dopo la review di sicurezza: l'hook non segue i symlink, legge al massimo 9.001 caratteri, crea cartelle 0700 e archivia con 0600, e senza `CLAUDE_PLUGIN_DATA` non scrive stato in `/tmp`.
+- I launcher esportano `MIMIR_HANDOFF_DIR` fuori da Mímir (`~/.local/state/mimir/handoff`, su Windows `%LOCALAPPDATA%\mimir\handoff`): la shell nella sandbox non ci scrive, quindi un passaggio si crea solo con Write.
+- Skill `passaggio-consegne` (destinazione e limite di 9.000 caratteri su richiesta dell'hook) e `contesto-e-costi` (rimando a Ratatoskr); README: uso, indice hook, tema.
+
 ## 2026-10-09 (design delle interfacce)
 - Skill `design-ui`: lettura della richiesta in una riga con tre assi (varietà, movimento, densità), superfici (lavorare, leggere, convincere), design system ufficiali e token, default da rifiutare, checklist sul risultato; in `references/` anti-pattern, pagine marketing, rifacimento, mobile web.
 - Skill `animazioni-ui`: frequenza e scopo prima di animare, strumento più semplice, curve e durate, interruzione, movimento ridotto, revisione dal correttivo più forte; in `references/` ricette, gesti e spring, vocabolario.

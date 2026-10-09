@@ -15,7 +15,7 @@ Scopo: chi riparte, senza la conversazione, deve capire in pochi minuti dove si 
 - `/clear`: il compito è chiuso o cambia argomento, e il contesto già prodotto non serve. Ciò che conta è già nel repo (commit, file) o in un piano salvato.
 - Passaggio di consegne: la sessione si interrompe con lavoro a metà, riprende un'altra persona, o la nuova sessione deve partire da uno stato pulito ma sapere decisioni e punti aperti.
 
-Se `/compact` o `/clear` bastano, dillo all'utente invece di scrivere il documento.
+Se `/compact` o `/clear` bastano, dillo all'utente invece di scrivere il documento. Fa eccezione la richiesta dell'hook `handoff.py` (Ratatoskr): la soglia di contesto è superata e il passaggio a una sessione nuova è già deciso.
 
 ## Raccogli prima di scrivere
 Non ricostruire a memoria: controlla lo stato reale.
@@ -41,10 +41,11 @@ Oscura con `<OMESSO>` password, token, chiavi, stringhe di connessione, dati per
 
 ## Dove salvarlo
 - Nel percorso indicato dall'utente.
+- Su richiesta di Ratatoskr, nel percorso che indica l'hook, sotto i 9.000 caratteri: oltre, la nuova sessione riceve solo il percorso e deve leggerlo.
 - Altrimenti nello scratchpad della sessione o nella cartella temporanea del sistema, fuori dal repo.
 - Mai nei repo dei clienti senza l'ok dell'utente, e mai committato senza approvazione esplicita.
 
-Alla fine indica all'utente il percorso e, in una riga, come avviare la nuova sessione ("leggi <percorso> e riprendi dal punto 'Per riprendere'").
+Alla fine indica all'utente il percorso e, in una riga, come avviare la nuova sessione ("leggi <percorso> e riprendi dal punto 'Per riprendere'"). Con Ratatoskr basta `/clear`: la nuova sessione riceve il documento da sola.
 
 ## Verifica
 Rileggi il documento come se non conoscessi il lavoro: obiettivo e prossimo passo devono essere chiari senza altro contesto. Controlla che i percorsi e i comandi citati esistano e che non ci siano segreti (cerca token, password, chiavi). Non inventare stati che non hai verificato.
