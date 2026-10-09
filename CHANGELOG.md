@@ -48,7 +48,7 @@
 - Skill `prototipi-ui`, solo manuale: varianti divergenti dietro un selettore, poi promozione della scelta.
 - Agent `design-reviewer` (sonnet, sola lettura): revisione dell'esperienza e della qualità visiva.
 - `architettura-frontend`, `react`, `vue`, `angular` rimandano alle skill di design.
-- Idee da impeccable, skills di Emil Kowalski e taste-skill, riscritte da zero.
+- Fonti: impeccable, skills di Emil Kowalski e taste-skill. Correzione del 10/10: la nota diceva "riscritte da zero", ma diversi file sono traduzioni o adattamenti stretti; l'elenco è in `THIRD_PARTY.md`.
 
 ## 2026-10-09 (retro della CI)
 - Skill `ci-cd`: esito letto job per job (annullato o in timeout ≠ fallito), pipeline vista fallire su un branch di prova, misura prima di alzare un timeout; in `references/piattaforme.md` runner Windows da amministratore, `pwsh` prima di `powershell`, `persist-credentials: false`.
