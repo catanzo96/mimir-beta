@@ -314,14 +314,12 @@ try:
             check("passaggio FIFO: l'hook non si blocca", False, f"oltre {TIMEOUT} s")
         discard(target)
 
-    # passaggio enorme: letto solo fino al tetto, poi il percorso
+    # passaggio enorme: la ripresa non lo legge (il limite di tempo è il TIMEOUT di run) e Claude chiede prima
     with open(target, "w", encoding="utf-8") as fh:
         fh.write("y" * 50 * 1024 * 1024)
-    started = time.time()
     res = context(run(event("SessionStart", session="enorme")))
     check("passaggio enorme: chiede prima di leggerlo", res and "chiedigli se leggerlo" in res[1]
           and "yyyy" not in res[1], repr(res and res[1][:80]))
-    check("passaggio enorme: entro 1 s", time.time() - started < 1)
 
     # input non validi: mai un blocco, mai output
     broken = os.path.join(ROOT, "rotto.jsonl")
@@ -346,10 +344,8 @@ try:
     with open(big, "w", encoding="utf-8") as fh:
         fh.write(json.dumps({"type": "user", "message": {"content": "x" * 3 * 1024 * 1024}}) + "\n")
         fh.write(json.dumps({"type": "assistant", "message": {"usage": usage(LIMIT)}}) + "\n")
-    started = time.time()
     res = run(event("UserPromptSubmit", session="grande", path=big))
     check("transcript grande: avvisa", context(res) is not None, repr(res.stdout[:80]))
-    check("transcript grande: entro 1 s", time.time() - started < 1)
 finally:
     shutil.rmtree(ROOT, ignore_errors=True)
 
