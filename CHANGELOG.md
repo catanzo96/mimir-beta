@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09 (limatura, fase 1, passi 6 e 7: CI)
+- CI GitHub Actions (`.github/workflows/ci.yml`) a ogni push e pull request, senza API key, `permissions: contents: read`, azioni fissate a SHA e `persist-credentials: false`.
+  - Job `test`: tutte le suite (`.github/scripts/run_tests.py`) su Ubuntu, macOS e Windows, Python 3.8 e 3.14; su Windows con Windows PowerShell 5.1 (`MIMIR_TEST_PWSH=powershell`, perché sui runner `pwsh` viene prima) e con pwsh. I test girano con un utente locale non amministratore (`.github/scripts/run-as-user.ps1`), lo stop di `install.ps1` da amministratore.
+  - Job `install`: installer due volte in una HOME pulita e controllo dei file prodotti (`.github/scripts/check_install.py`); su Ubuntu `bubblewrap` e `socat` installati davvero, `apt-get update` con timeout e tentativi.
+  - Su Windows la classe `Installer` di `test_install.py` è saltata, dichiarato; i casi del launcher con argomenti vuoti o con `"` sono `expectedFailure`.
+  - `.github` entra tra le cartelle protette da `install.py`.
+  - Verde 12/12 (run 37952642178 su `cd3eebc`), vista fallire su un branch di prova (run 37907359520).
+- Test su Windows: i job con PowerShell 5.1 passano da circa 17 a 2 minuti. Misurato su un branch di prova (run 37932870634 e 37939365792): l'avvio della 5.1 è veloce, l'autoload dei moduli costava 13-22 s a ogni avvio con l'ambiente ridotto dei test. I test passano `PSModuleAnalysisCachePath` del runner, che da sola basta (confermato dalla CI); il prodotto non cambia. Resta aperto perché `LOCALAPPDATA` riusata non bastava.
+- `bin/claude-mimir.ps1` legge la cartella di Ratatoskr da `LOCALAPPDATA` invece che da `GetFolderPath`, che nella 5.1 restituiva una stringa vuota e fermava il launcher (CI rossa su `d2152cf`). Senza `LOCALAPPDATA` avvisa e parte senza passaggio tra sessioni.
+- README: sezione CI, stato della prova su Windows, comando per tutte le suite.
+
 ## 2026-10-09 (Ratatoskr: passaggio tra sessioni)
 - Hook `handoff.py` (Ratatoskr) su UserPromptSubmit, PostToolUse e SessionStart: oltre `MIMIR_HANDOFF_TOKENS` token di contesto (default 200000, il 20% di 1M) chiede a Claude di scrivere il passaggio di consegne e di proporre `/clear`; all'avvio e dopo `/clear` lo inietta nella nuova sessione come dati da verificare, con un messaggio per l'utente, e lo archivia in `consumati/`, cancellato dopo 7 giorni. Un passaggio di oltre 48 ore si archivia senza iniettarlo. Test in `test_handoff.py`, anche nella CI.
 - Dopo la review di sicurezza: l'hook non segue i symlink, legge al massimo 9.001 caratteri, crea cartelle 0700 e archivia con 0600, e senza `CLAUDE_PLUGIN_DATA` non scrive stato in `/tmp`.

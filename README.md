@@ -22,7 +22,7 @@ Su Windows nativo la sandbox non esiste: alla fine `install.ps1` propone WSL2 e 
 
 Lancia `install.ps1` da utente normale: da amministratore si ferma, perché `install.py` e i programmi del PATH girerebbero elevati. Su Windows nativo, senza sandbox, una sessione di Claude può modificare quei file. Per WSL lo script eleva solo `wsl --install`, con la richiesta UAC.
 
-**Non ancora provato su Windows vero**: la prova è prevista nella CI (passo 6) e nella prova manuale.
+Provato nella CI su `windows-latest`, con Windows PowerShell 5.1 e PowerShell 7, da utente non amministratore (vedi [CI](#ci)). Manca ancora la prova manuale su un Windows vero.
 
 Lancia sempre `install.sh` o `install.ps1`. Le opzioni sono le stesse, scritte in modo diverso:
 - `--yes` e `-Yes` rispondono sì alle conferme (con `install.ps1`, non a WSL);
@@ -42,9 +42,16 @@ Si può rilanciare senza danni. Prima legge e valida i file; se uno non è valid
 
 Dalla cartella di Mímir l'installer non segue i symlink: rifiuta esempi, template ed `exclude` che sono symlink e non crea un file personale al posto di un symlink. La cartella è scrivibile dalla sandbox, e un symlink porterebbe un segreto in un file leggibile o una scrittura fuori. In `~/.claude`, che la sandbox non scrive, i symlink (per esempio verso un repo di dotfiles) si seguono.
 
-Test: `python3 -I test_install.py`, che usa copie di Mímir in una cartella temporanea e non tocca `~/.claude`. I test di `install.ps1`, e quelli di `bin/claude-mimir.ps1` in `test_claude_mimir.py`, girano se trovano PowerShell (`MIMIR_TEST_PWSH`, `pwsh` o `powershell`); altrimenti vengono saltati.
+Test: `python3 -I test_install.py`, che usa copie di Mímir in una cartella temporanea e non tocca `~/.claude`. I test di `install.ps1`, e quelli di `bin/claude-mimir.ps1` in `test_claude_mimir.py`, girano se trovano PowerShell (`MIMIR_TEST_PWSH`, `pwsh` o `powershell`); altrimenti vengono saltati. Tutte le suite insieme, compresi i test degli hook: `python3 -I .github/scripts/run_tests.py`.
 
 La cartella può stare ovunque: launcher e script ricavano il percorso dalla propria posizione. Fuori dal repo Claude Code vuole percorsi assoluti (marketplace, import in `~/.claude/CLAUDE.md`): se sposti la cartella, rilancia `install.sh` e li riallinea.
+
+### CI
+`.github/workflows/ci.yml` gira a ogni push e pull request, senza API key, con permessi in sola lettura e azioni fissate a uno SHA:
+- job `test`: tutte le suite su Ubuntu, macOS e Windows, con Python 3.8 (il minimo) e 3.14; su Windows sia con Windows PowerShell 5.1 sia con PowerShell 7, da utente non amministratore. Lo stop da amministratore di `install.ps1` si prova come amministratore;
+- job `install`: l'installer due volte in una HOME pulita, poi `.github/scripts/check_install.py` controlla i file prodotti e che il secondo lancio non cambi nulla. Su Ubuntu installa davvero `bubblewrap` e `socat`; su Windows passa da `install.ps1`.
+
+Su Windows la classe `Installer` di `test_install.py` è saltata: lì `install.py` lo provano i test di `install.ps1` e il job `install`.
 
 ## Personalizzazione
 | File | Cosa contiene | In git |
@@ -61,7 +68,8 @@ Le regole in `rules/` e le skill sono il metodo condiviso: se vuoi cambiarle, fa
   - Passa a Claude Code `sandbox\windows.settings.json`: una copia di `sandbox.settings.json` con la sandbox spenta, ignorata da git, rigenerata a ogni avvio se è diversa.
   - Rispetto a `bin/claude-mimir` non esporta `MIMIR_MAVEN_SETTINGS`: senza sandbox Maven usa i settings personali e la rete.
   - Limite di Windows PowerShell 5.1: gli argomenti vuoti si perdono e i doppi apici dentro un argomento non arrivano a `claude`.
-  - Non ancora provato su Windows vero.
+  - Se `LOCALAPPDATA` non è impostata, avvisa e parte senza il passaggio tra sessioni (Ratatoskr).
+  - Provato nella CI (5.1 e 7) con un `claude` finto; non ancora con Claude Code su un Windows vero.
 - **Passaggio tra sessioni (Ratatoskr)**: con le sessioni avviate dal launcher, quando il contesto supera i 200.000 token (il 20% di una finestra da 1M) Claude chiude il passo in corso, scrive il passaggio di consegne e ti chiede `/clear`. La sessione che parte dopo `/clear`, o una nuova avviata nella stessa cartella, lo riceve nel contesto (lo vedi in un messaggio) e riprende da lì.
   - I passaggi stanno fuori da Mímir, in `~/.local/state/mimir/handoff/` (`$XDG_STATE_HOME` se c'è; su Windows nativo `%LOCALAPPDATA%\mimir\handoff\`): `pending/` per quelli da riprendere, `consumati/` per quelli ripresi, cancellati dopo 7 giorni. Un passaggio non ripreso entro 48 ore si archivia senza iniettarlo.
   - Fuori da Mímir perché la shell nella sandbox non ci può scrivere: un passaggio si crea solo con Write, che segue i permessi della sessione (in modalità auto lo approva il classificatore, come nella prova del 09/10). Così un comando della shell non può preparare un passaggio per un altro progetto né piazzare symlink, che l'hook comunque non segue.
