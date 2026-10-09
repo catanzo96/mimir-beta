@@ -219,7 +219,7 @@ Come si scrivono skill, agent, regole e hook: skill `scrivi-skill`.
 | `code-reviewer` | mimir | sonnet | Review in sola lettura di un diff con le skill di codice: aderenza alla richiesta, correttezza (anche fallimenti silenziosi), sicurezza, design, test, perimetro del diff. Segnalazioni verificate, ordinate per gravità, con il costo di lasciarle; passate separate sui diff grandi, cautela sul codice da togliere |
 | `security-reviewer` | mimir | sonnet | Review di sicurezza in sola lettura: autorizzazione sulla risorsa, injection, sessioni, segreti, file, SSRF, parsing, configurazione. Scenario, evidenza e correzione per ogni segnalazione |
 | `architetto` | mimir | opus | Decisioni di design con opzioni e raccomandazione, piani a passi verificabili per i compiti grandi. Sola lettura |
-| `design-reviewer` | mimir | sonnet | Review in sola lettura dell'esperienza e della qualità visiva di una UI: aderenza, bloccanti d'uso, euristiche di Nielsen con punteggio, carico cognitivo, due utenti, checklist di `design-ui`; separa il visto dal dedotto |
+| `design-reviewer` | mimir | sonnet | Review in sola lettura dell'esperienza e della qualità visiva di una UI: aderenza, bloccanti d'uso, euristiche di Nielsen con la gravità del problema peggiore, carico cognitivo, due utenti, checklist di `design-ui`; separa il visto dal dedotto |
 | `Explore` | `.claude/agents/` | haiku | Sostituisce l'Explore integrato di Claude Code (che userebbe il modello della sessione) per le ricerche nel codice. Attivo nelle sessioni avviate con `bin/claude-mimir` |
 
 ## Indice hook

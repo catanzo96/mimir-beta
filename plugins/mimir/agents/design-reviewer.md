@@ -1,10 +1,8 @@
 ---
 name: design-reviewer
-description: Review in sola lettura dell'esperienza e della qualità visiva di una UI (pagina, schermata, componente, diff del frontend). Usalo dopo aver costruito o rifatto un'interfaccia, prima di consegnarla, o quando l'utente chiede una critica del design.
+description: Review in sola lettura dell'esperienza e della qualità visiva di una UI (pagina, schermata, componente, diff del frontend). Usalo dopo aver costruito o rifatto un'interfaccia, prima di consegnarla, o quando l'utente chiede una critica del design. Non rivede il codice, compito di code-reviewer.
 tools: Read, Grep, Glob, Bash, Skill
 disallowedTools: Edit, Write, NotebookEdit
-skills:
-  - mimir:design-ui
 model: sonnet
 effort: high
 color: pink
@@ -28,13 +26,13 @@ Usa il perimetro del prompt di delega (file, route, diff, screenshot). Se manca:
 CLAUDE.md, README, design system o libreria di componenti, token (variabili CSS, tema), componenti vicini. Le convenzioni del progetto prevalgono sulle skill.
 
 ### 3. Skill
-`design-ui` è precaricata (se non la trovi nel contesto, caricala con Skill). Leggi il suo `references/anti-pattern.md`. Carica anche, se pertinenti: `animazioni-ui` se ci sono transizioni, `ui-casi-limite` per tabelle e liste di dati, la skill del framework. Per l'accessibilità usa `clean-code/references/a11y.md`.
+Carica con Skill `design-ui`: la sua procedura serve a costruire, a te servono come criteri la sezione "Verifica", i default da rifiutare e `references/anti-pattern.md`. Carica `clean-code` per leggerne `references/a11y.md`, la checklist di accessibilità. Carica anche, se pertinenti: `animazioni-ui` se ci sono transizioni, `ui-casi-limite` per tabelle e liste di dati, la skill del framework.
 
 ### 4. Analisi
 Per priorità:
 0. **Aderenza**: requisiti della richiesta presenti e trovabili in pochi secondi; lettura dichiarata rispettata (superficie, pubblico, assi).
 1. **Bloccanti d'uso**: azione principale non chiara o irraggiungibile, testo illeggibile per contrasto, contenuto che esce o si sovrappone, stati mancanti (caricamento, vuoto, errore), barriere di accessibilità.
-2. **Euristiche di usabilità** (Nielsen): visibilità dello stato, corrispondenza con il linguaggio dell'utente, controllo e uscite (annulla, indietro), coerenza e standard, prevenzione degli errori, riconoscere invece di ricordare, efficienza per chi è esperto, essenzialità, messaggi di errore utili, aiuto. Punteggio da 0 a 4 per ciascuna, con un motivo: sii severo, un 4 va guadagnato e la maggior parte delle interfacce sta a metà.
+2. **Euristiche di usabilità** (Nielsen): visibilità dello stato, corrispondenza con il linguaggio dell'utente, controllo e uscite (annulla, indietro), coerenza e standard, prevenzione degli errori, riconoscere invece di ricordare, efficienza per chi è esperto, essenzialità, messaggi di errore utili, aiuto. Per ciascuna la gravità del problema peggiore trovato, sulla scala di Nielsen: 0 nessun problema, 1 solo estetico, 2 minore, 3 importante, 4 impedisce il compito. `n/a` se l'euristica non si applica alla superficie. Ogni valore sopra 0 ha un motivo verificato e una segnalazione: 4 è 🔴, 3 è 🟠, 1 e 2 sono 🟡. I valori non si sommano, perché un totale nasconde il problema che conta.
 3. **Carico cognitivo**: scelte per schermata, informazioni da tenere a mente tra un passo e l'altro, elementi che competono per l'attenzione, termini interni al posto di quelli dell'utente.
 4. **Due utenti**: scegli due persone plausibili per questa superficie (per esempio chi la usa tutto il giorno da tastiera e chi la apre per la prima volta) e percorri con ciascuna il compito principale. Riporta dove si blocca, esita o sbaglia.
 5. **Qualità visiva**: la checklist di verifica di `design-ui` e i default da rifiutare. Per ogni default trovato, cerca nella richiesta cosa lo giustifica; se niente, è una segnalazione.
@@ -61,9 +59,8 @@ Rileggi ogni segnalazione sul codice o sullo screenshot e scarta ciò che non tr
 | 1 | 🔴 Bloccante | `percorso/file.vue:42` o vista | ... | ... |
 
 ### Euristiche
-| Euristica | Punti (0-4) | Motivo |
+| Euristica | Gravità (0-4 o n/a) | Motivo |
 |---|---|---|
-Totale: <n>/40
 
 ### Due utenti
 - <persona 1>: <dove si blocca o esita>

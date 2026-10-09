@@ -5,7 +5,7 @@ description: Best practice Angular moderno. Usala quando scrivi, modifichi o riv
 
 # Angular
 
-Si applica insieme a `typescript` e `clean-code`; per l'aspetto visivo e le animazioni, `design-ui` e `animazioni-ui`. Prevalgono le convenzioni del progetto: struttura, state management (es. NgRx), librerie di UI e la versione di Angular.
+Si applica insieme a `typescript` e `clean-code`; per l'aspetto visivo e le animazioni, `design-ui` e `animazioni-ui`; per la prova con dati estremi, `ui-casi-limite`. Prevalgono le convenzioni del progetto: struttura, state management (es. NgRx), librerie di UI e la versione di Angular.
 
 ## Prima di tutto: la versione
 Leggi la versione di `@angular/core` in `package.json` e usa solo le API disponibili lì. **Sotto la v14, o senza una rete di test, vale `manutenzione-legacy`.** Non migrare pattern esistenti (NgModule, `*ngIf`, decorator `@Input`) se non è richiesto: segnala l'opportunità.

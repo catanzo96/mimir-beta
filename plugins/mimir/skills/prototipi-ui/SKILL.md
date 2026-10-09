@@ -11,7 +11,7 @@ Si applica insieme a `design-ui` e, se le varianti si muovono, ad `animazioni-ui
 Il valore sta nella **divergenza**: tre sfumature della stessa idea sprecano il confronto, perché passando dall'una all'altra non si impara nulla. Divergere non autorizza però a scendere di qualità.
 
 ## Regole
-- Il codice di produzione non si tocca durante l'esplorazione: tutto sta in una superficie di prova isolata. L'integrazione avviene solo alla fine, per la variante scelta.
+- Il codice di produzione non si tocca durante l'esplorazione, salvo la registrazione della route di prova solo in sviluppo: tutto sta in una superficie di prova isolata. L'integrazione avviene solo alla fine, per la variante scelta.
 - Ogni variante diverge su un **asse dichiarato**: disposizione, densità, personalità, movimento, modello di interazione. Due varianti che differiscono solo per colore o testo sono una variante sola.
 - Ogni variante funziona davvero: interazioni reali, testi e dati plausibili del prodotto, niente bottoni morti né lorem ipsum.
 - Il selettore è un'impalcatura, non un concorrente: neutro, uguale in ogni giro, non segue lo stile del progetto.
@@ -22,7 +22,7 @@ Il valore sta nella **divergenza**: tre sfumature della stessa idea sprecano il 
 2. **Ricognizione.** Stack, sistema di stili, libreria di animazione, token, personalità del prodotto (strumento quotidiano o sito di marca: limita quanto può spingersi la variante più audace), contesto in cui il pezzo appare (sfondo, vicini, dimensioni).
 3. **Direzioni.** Tre varianti di base, fino a cinque se l'utente lo chiede o lo spazio è davvero ampio. Prima del codice elenca nome e asse di ciascuna. Nomi che descrivono la direzione ("Sobria", "Editoriale", "Densa"), mai "A, B, C". Nessuna coppia nella stessa posizione dello stesso asse.
 4. **Superficie di prova.**
-   - In un progetto con server di sviluppo: una route o pagina isolata (es. `/prototipi/<nome>`), un file per variante e un file di raccolta. Niente import dalla superficie di prova verso il codice di produzione.
+   - In un progetto con server di sviluppo: una route o pagina isolata (es. `/prototipi/<nome>`), un file per variante e un file di raccolta. Niente import dalla superficie di prova verso il codice di produzione. La route si registra solo in sviluppo, con il meccanismo del progetto (modalità di sviluppo del bundler o del framework, file escluso dalla build): se resta fino al merge, una build di produzione non deve contenerla.
    - Senza progetto: un unico file HTML autonomo.
    - Una variante per volta, a grandezza reale, nel contesto in cui vivrà.
 5. **Selettore.** Una barra fissa in basso al centro, scura e neutra, che non copre il pezzo in prova:
@@ -44,5 +44,5 @@ Il valore sta nella **divergenza**: tre sfumature della stessa idea sprecano il 
 ## Verifica
 - Ogni variante ha nome e asse dichiarati, e nessuna coppia coincide.
 - Ogni variante si raggiunge dal selettore e funziona; console pulita.
-- Il codice di produzione non è stato toccato prima della scelta.
+- Il codice di produzione non è stato toccato prima della scelta, a parte la registrazione della route di prova.
 - Dopo l'integrazione: test e lint del progetto, controllo nel browser della variante integrata, superficie di prova rimossa (salvo richiesta).

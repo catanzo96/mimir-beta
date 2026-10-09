@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-10 (design delle interfacce: correzioni dalla review)
+- Provenienza: `THIRD_PARTY.md` elenca i file tradotti o adattati da skills di Emil Kowalski (MIT), taste-skill (MIT) e impeccable (Apache-2.0, testo in `LICENSES/`); la nota del 09/10 "riscritte da zero" è corretta. La riscrittura o l'eliminazione di quei file è prevista prima della pubblicazione.
+- `animazioni-ui/references/ricette.md`: menu, modale, sfondo e drawer chiusi diventano `visibility: hidden` alla fine della chiusura, così escono dal focus e non catturano i clic (provato in Chromium headless); drawer laterali con `translateX` (destra di default), dal basso con `translateY`; l'altezza della fisarmonica è l'eccezione dichiarata al divieto di animare il layout.
+- Agent `design-reviewer`: euristiche di Nielsen con la gravità del problema peggiore (0 nessun problema, 4 impedisce il compito, `n/a` se non si applica), senza totale e con la corrispondenza alle gravità delle segnalazioni; non precarica più `design-ui` ma ne carica i criteri di verifica, e carica `clean-code` per `a11y.md`; la description dice che non rivede il codice. `clean-code`, "Quale review": riga per `design-reviewer`.
+- Minori: in `animazioni-ui` non si animano scorciatoie e azioni ripetute da tastiera, mentre aprire con Invio segue la regola del clic; `design-ui` controlla a 320px come `ui-casi-limite`; `anti-pattern.md` allineato a `mobile-web.md` (`svh` per il primo schermo, `dvh` per il guscio); `prototipi-ui` registra la route di prova solo in sviluppo; `react`, `vue` e `angular` rimandano a `ui-casi-limite`.
+
 ## 2026-10-10 (Ratatoskr: chiave del passaggio)
 - Il passaggio è legato alla cartella di avvio della sessione (`CLAUDE_PROJECT_DIR`), con la `cwd` come ripiego. Prima la chiave veniva dalla `cwd` dell'evento, che segue i `cd` di Claude: nella prova del 09/10, dopo un `cd` nella cartella di Mímir l'avviso proponeva di scrivere il passaggio sotto la chiave di Mímir, e la ripresa nel progetto non l'avrebbe trovato.
 

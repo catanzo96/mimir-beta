@@ -18,13 +18,19 @@ Token usati negli esempi:
 ```
 `:active` funziona anche al tocco, quindi non va condizionato. Scala anche etichetta e icona: è questo che lo fa sembrare un tasto fisico.
 
+## Elementi chiusi: invisibili anche a tastiera e clic
+Un elemento chiuso con la sola opacità resta nell'ordine del focus, viene letto dagli screen reader e, se copre la pagina (sfondo di una modale), cattura i clic. Le ricette di menu, modale e drawer lo nascondono con `visibility: hidden`, che toglie focus, lettura e clic, e ne ritardano il cambio fino alla fine della chiusura: all'apertura vale subito, alla chiusura scatta quando la dissolvenza è finita. Se l'elemento è un `<dialog>` nativo o usa l'attributo `popover`, focus e clic li gestisce il browser: anima quelli invece di ricostruirli.
+
 ## Dropdown, popover, menu
 ```css
 .menu {
   transform-origin: var(--origine-attivatore, top left);
-  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s;
 }
-.menu:not([data-open]) { opacity: 0; transform: scale(0.96); pointer-events: none; }
+.menu:not([data-open]) {
+  opacity: 0; transform: scale(0.96); visibility: hidden;
+  transition-delay: 0s, 0s, 180ms;
+}
 ```
 L'origine è il punto: il pannello deve sembrare uscito da ciò che hai cliccato.
 
@@ -33,19 +39,26 @@ Come il popover, più rapido (circa 125 ms) e meno scalato (0.97). Il ritardo in
 
 ## Modale
 ```css
-.modal, .modal-backdrop { transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out); }
+.modal, .modal-backdrop {
+  transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out), visibility 0s;
+}
 .modal { transform-origin: center; }
-.modal:not([data-open]) { opacity: 0; transform: scale(0.96); }
-.modal-backdrop:not([data-open]) { opacity: 0; }
+.modal:not([data-open]), .modal-backdrop:not([data-open]) {
+  opacity: 0; visibility: hidden;
+  transition-delay: 0s, 0s, 220ms;
+}
+.modal:not([data-open]) { transform: scale(0.96); }
 ```
-Sfondo e finestra si animano insieme, così si leggono come un'unica superficie. La modale non è ancorata a un attivatore: resta centrata.
+Sfondo e finestra si animano insieme, così si leggono come un'unica superficie. La modale non è ancorata a un attivatore: resta centrata. Aperta, tiene il focus al suo interno e alla chiusura lo restituisce all'attivatore: un `<dialog>` aperto con `showModal()` lo fa da solo.
 
 ## Drawer e pannelli laterali
 ```css
-.drawer { transition: transform 400ms var(--ease-drawer); }
-.drawer:not([data-open]) { transform: translateY(100%); }
+.drawer { transition: transform 400ms var(--ease-drawer), visibility 0s; }
+.drawer:not([data-open]) { visibility: hidden; transition-delay: 0s, 400ms; transform: translateX(100%); }
+.drawer.sinistra:not([data-open]) { transform: translateX(-100%); }
+.drawer.basso:not([data-open]) { transform: translateY(100%); }
 ```
-La percentuale in `translate` è relativa all'elemento: funziona qualunque sia l'altezza del contenuto. Se si può trascinare, diventa un gesto: `gesti-e-spring.md`.
+Il pannello esce dal bordo a cui è attaccato, di default quello destro: `translateX` per quelli laterali, `translateY` per quello dal basso. La percentuale in `translate` è relativa all'elemento: funziona qualunque sia la sua larghezza o altezza. Lo sfondo, se c'è, segue la ricetta della modale. Se si può trascinare, diventa un gesto: `gesti-e-spring.md`.
 
 ## Notifica
 ```css
@@ -101,11 +114,11 @@ Interrompibile, senza dipendenze, con le prestazioni del CSS.
 | `transition: all` | Le proprietà, una per una |
 | Comparsa da `scale(0)` | `scale(0.95)` con opacità zero |
 | `ease-in` su un elemento dell'interfaccia | ease-out deciso |
-| Animazione su un'azione da tastiera o ripetuta centinaia di volte | Nessuna animazione |
+| Animazione su una scorciatoia da tastiera o su un'azione ripetuta centinaia di volte | Nessuna animazione |
 | Durata oltre 300 ms senza motivo | 150-250 ms |
 | Popover ancorato con origine al centro | Origine sull'attivatore (le modali sono l'eccezione) |
 | Keyframe su notifiche, interruttori, elementi riattivati in fretta | Transizioni |
-| Animare `width`, `height`, `margin`, `padding`, `top`, `left` | `transform` e `opacity` |
+| Animare `width`, `height`, `margin`, `padding`, `top`, `left` | `transform` e `opacity`; unica eccezione l'altezza della fisarmonica, breve |
 | Hover animato senza condizione sul puntatore | `@media (hover: hover) and (pointer: fine)` |
 | Nessuna variante per il movimento ridotto | Variante più gentile, non assente |
 | Tutto che entra insieme | Sfasamento di 30-80 ms |

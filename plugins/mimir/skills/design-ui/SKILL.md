@@ -93,7 +93,7 @@ Sul risultato costruito, non sulle intenzioni:
 4. Con il testo reale a ogni breakpoint: niente overflow, bottoni su una riga, righe di testo nella misura, titoli bilanciati.
 5. Stati presenti; tastiera e focus secondo `a11y.md`.
 6. Copy riletto per intero, etichette comprese.
-7. Controllo nel browser almeno a 360px e alla larghezza desktop, in entrambi i temi se previsti. Se non puoi aprirlo, dichiaralo.
+7. Controllo nel browser almeno a 320px (la larghezza minima di WCAG per il reflow) e alla larghezza desktop, in entrambi i temi se previsti. Se non puoi aprirlo, dichiaralo.
 8. Alla fine i default del punto 5: per ciascuno usato, la richiesta che lo giustifica.
 
 Una passata di controllo e una di correzioni, al massimo un secondo giro; oltre, riporta ciò che resta aperto. Per una revisione con contesto pulito c'è l'agent `design-reviewer`; per i dati estremi, `ui-casi-limite`.

@@ -21,7 +21,7 @@ Segui l'ordine: i primi due passi possono chiudere il lavoro senza codice, ed è
 | Ogni tanto: modali, drawer, notifiche | Animazione standard |
 | Raramente: primo accesso, completamento, onboarding | Qui c'è spazio per qualcosa di espressivo |
 
-Le azioni avviate da tastiera non si animano: chi usa la tastiera vuole l'esito immediato. Se la richiesta non passa, dillo e proponi l'alternativa statica.
+Le scorciatoie e le azioni ripetute da tastiera (navigazione in una lista, palette dei comandi) non si animano: chi le usa vuole l'esito immediato. Aprire un menu o una modale con Invio o Spazio segue invece la stessa regola del clic. Se la richiesta non passa, dillo e proponi l'alternativa statica.
 
 ### 2. A cosa serve?
 Dagli un nome prima di continuare: **feedback** (l'interfaccia ha sentito l'azione), **continuità spaziale** (da dove viene, dove va), **cambio di stato** reso leggibile, **evitare un salto** di contenuto, **spiegazione** (solo onboarding e marketing), **piacere** (solo per ciò che si vede raramente). Senza un nome non si fa.

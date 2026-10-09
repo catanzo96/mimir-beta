@@ -79,6 +79,6 @@ Usalo in due modi: mentre costruisci, per accorgerti di un riflesso; in revision
 | `div` cliccabili, zuppa di `div` | Elementi semantici (vedi `clean-code/references/a11y.md`) |
 | Colori e misure scritti a mano nei componenti | Token |
 | `z-index: 9999` | Una scala di livelli dichiarata |
-| `height: 100vh` per sezioni a schermo intero | `min-height: 100dvh` (vedi `mobile-web.md`) |
+| `height: 100vh` per sezioni a schermo intero | `min-height: 100svh` per il primo schermo, `100dvh` per il guscio dell'app (vedi `mobile-web.md`) |
 | Link a `#` e bottoni che non fanno nulla | Destinazione vera o elemento disabilitato in modo visibile |
 | Import di pacchetti non presenti nel progetto | Controllo del manifest prima di importare |

@@ -5,7 +5,7 @@ description: Best practice React moderno. Usala quando scrivi, modifichi o rived
 
 # React
 
-Si applica insieme a `typescript` e `clean-code`; per l'aspetto visivo e le animazioni, `design-ui` e `animazioni-ui`. Prevalgono le convenzioni del progetto: framework (Vite, Next.js, Remix…), libreria dati (TanStack Query…), store, libreria di UI e versione di React.
+Si applica insieme a `typescript` e `clean-code`; per l'aspetto visivo e le animazioni, `design-ui` e `animazioni-ui`; per la prova con dati estremi, `ui-casi-limite`. Prevalgono le convenzioni del progetto: framework (Vite, Next.js, Remix…), libreria dati (TanStack Query…), store, libreria di UI e versione di React.
 
 ## Prima di tutto: la versione
 Leggi la versione di `react` in `package.json` e usa solo le API disponibili lì. **Sotto la 16.8 (senza hook) o senza una rete di test vale `manutenzione-legacy`** (se disponibile). Non convertire i class component esistenti se non è richiesto: segnalalo.
