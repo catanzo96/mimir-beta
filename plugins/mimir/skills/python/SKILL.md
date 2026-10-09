@@ -77,6 +77,7 @@ Segui il progetto. In mancanza:
 - Niente `sleep` nei test: orologio iniettabile o `freezegun`/`time-machine` se già nel progetto.
 - File speciali nei test (FIFO, socket): toglili con `os.remove`, perché `os.path.isfile` è falso su una FIFO, e lancia la suite con un timeout esterno: una FIFO rimasta, aperta in scrittura, blocca il test per sempre.
 - Per simulare un errore di I/O su un solo file non usare i permessi: su POSIX la cancellazione dipende dalla cartella e bloccherebbe anche le altre operazioni. Sostituisci la funzione al confine (`monkeypatch`, oppure in un sottoprocesso con `runpy` e la funzione rimpiazzata).
+- Test che girano anche su Windows: percorsi assoluti con `tmp_path`, `tempfile` o `os.path.abspath`, mai scritti come `/x/y`. Da Python 3.13, su Windows un percorso senza lettera di unità non è assoluto per `os.path.isabs`.
 - Per i principi generali (cosa testare, nomi, isolamento) vedi `clean-code/references/test.md`.
 
 ## Stile e strumenti

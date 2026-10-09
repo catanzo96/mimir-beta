@@ -94,6 +94,7 @@ Per cercare dove *mancano* animazioni utili (stati che saltano, feedback assente
 - Nessun elemento della tabella "mai" in `references/ricette.md`.
 - Riduzione del movimento e hover condizionato presenti.
 - La resa si giudica guardandola, non dal codice: rallentala di 2-5 volte o usa l'ispettore delle animazioni del browser, scorrila fotogramma per fotogramma, prova i gesti su un dispositivo vero. Se non puoi guardarla, dichiaralo e indica cosa deve controllare l'utente.
+- In una prova automatica nel browser headless la timeline del documento può restare ferma, e timer e attese non misurano le transizioni: porta `currentTime` delle animazioni di `el.getAnimations()` ai tempi da controllare e leggi `getComputedStyle`. Prima vedila fallire su una versione rotta.
 
 ## File di supporto
 - `references/ricette.md`: pressione, dropdown, tooltip, modale, drawer, notifica, fisarmonica, sfasamento, tenere premuto, indicatore di scheda, comparsa allo scorrimento, dissolvenza incrociata; tabella "mai" e prestazioni. Parti da qui quando la richiesta è uno di questi casi.

@@ -69,6 +69,8 @@ Repo: ~/percorso/repo  (branch: feature/x)
 Push: nessuno  |  oppure: origin feature/x
 ```
 
+Elenca i file uno per uno, con il percorso completo: graffe, caratteri jolly o "gli N file del diff" nascondono cosa entra e rendono il conteggio non verificabile.
+
 ## Esempi
 ```
 feat(auth): aggiungi il login con SSO aziendale

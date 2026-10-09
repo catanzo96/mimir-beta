@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-10 (retro del design delle interfacce)
+- Skill `git-workflow`: si attiva anche per cambiare o unire un branch; pulizia dopo il merge in tre passi (l'utente cancella il remoto, la sessione il locale con `git branch -d`, un blocco di comandi per l'utente con `git config --remove-section`, `git fetch --prune` e `git branch -a`).
+- Skill `commit`: nella richiesta di approvazione i file si elencano uno per uno, senza graffe né conteggi.
+- Skill `animazioni-ui`: nelle prove headless si porta `currentTime` delle animazioni a mano, perché la timeline può restare ferma.
+- Skill `python`: nei test che girano su Windows i percorsi assoluti si costruiscono, mai scritti come `/x/y` (`os.path.isabs` da Python 3.13).
+
 ## 2026-10-10 (design delle interfacce: correzioni dalla review)
 - Provenienza: `THIRD_PARTY.md` elenca i file tradotti o adattati da skills di Emil Kowalski (MIT), taste-skill (MIT) e impeccable (Apache-2.0, testo in `LICENSES/`); la nota del 09/10 "riscritte da zero" è corretta. La riscrittura o l'eliminazione di quei file è prevista prima della pubblicazione.
 - `animazioni-ui/references/ricette.md`: menu, modale, sfondo e drawer chiusi diventano `visibility: hidden` alla fine della chiusura, così escono dal focus e non catturano i clic (provato in Chromium headless); drawer laterali con `translateX` (destra di default), dal basso con `translateY`; l'altezza della fisarmonica è l'eccezione dichiarata al divieto di animare il layout.
