@@ -10,8 +10,10 @@
   consumati/, lo segnala (all'utente percorso, età e dimensione; a Claude l'istruzione di leggerlo
   solo se l'utente chiede di riprendere, come dati) e cancella i consumati più vecchi di
   MAX_AGE_DAYS. Non ne inietta il testo: un passaggio scritto da un contesto compromesso non arriva
-  alla sessione nuova senza una richiesta dell'utente. Un passaggio più vecchio di
-  MAX_PENDING_HOURS si archivia senza segnalarlo: apparterrebbe a un lavoro non correlato.
+  alla sessione nuova senza una richiesta dell'utente.
+- Un passaggio più vecchio di MAX_PENDING_HOURS apparterrebbe a un lavoro non correlato: l'avviso e
+  la ripresa lo archiviano con il suffisso -scaduto e lo dicono all'utente, senza proporlo a Claude.
+  pending/ non ha altre scadenze: cancellare un passaggio non ripreso ne perderebbe il lavoro.
 
 La soglia è in token perché la dimensione della finestra non arriva agli hook. La cartella la
 esporta il launcher in MIMIR_HANDOFF_DIR, fuori da Mímir e da ciò che la shell nella sandbox può
@@ -138,7 +140,42 @@ def describe(seconds, size):
     return age, weight
 
 
+def stale_pending(target):
+    """(età in secondi, dimensione) se target è un file regolare più vecchio di MAX_PENDING_HOURS."""
+    try:
+        info = os.lstat(target)
+    except FileNotFoundError:
+        return None
+    age = time.time() - info.st_mtime
+    if stat.S_ISREG(info.st_mode) and age > MAX_PENDING_HOURS * 3600:
+        return age, info.st_size
+    return None
+
+
+def archive_pending(source, cwd, suffix=""):
+    """Sposta il passaggio in consumati/ e restituisce il nuovo percorso, None se l'archivio non è sicuro."""
+    archive = subdir("consumati")
+    if not private_dir(archive):
+        return None
+    remove_old(archive, MAX_AGE_DAYS * 86400)
+    # il suffisso casuale evita di sovrascrivere un passaggio archiviato nello stesso secondo
+    name = f"{project_key(cwd)}-{time.strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(4)}{suffix}.md"
+    target = os.path.join(archive, name)
+    os.replace(source, target)
+    os.chmod(target, 0o600)
+    os.utime(target)  # i MAX_AGE_DAYS partono dall'archiviazione, non dalla scrittura
+    return target
+
+
+def expired_notice(age_seconds, size, target):
+    age, weight = describe(age_seconds, size)
+    return (f"Ratatoskr: il passaggio di consegne di questa cartella risale a {age} fa ({weight}), "
+            f"probabilmente di un altro lavoro: l'ho archiviato senza proporlo, è in {target}. "
+            "Se ti serve, chiedi a Claude di leggerlo.")
+
+
 def nudge(data, event):
+    """(contesto per Claude, messaggio per l'utente o None), oppure None."""
     if data.get("agent_id"):
         return None  # dentro un subagent decide la sessione principale
     session_id = str(data.get("session_id", ""))
@@ -156,20 +193,27 @@ def nudge(data, event):
     if event == "PostToolUse" and not first_nudge(session_id):
         return None
     target = pending_path(data["cwd"])
+    notice = None
+    stale = stale_pending(target)
+    if stale:
+        archived = archive_pending(target, data["cwd"], "-scaduto")
+        if archived is None:
+            return None
+        notice = expired_notice(*stale, archived)
     if os.path.lexists(target):
         return (f"Ratatoskr di Mímir: il passaggio di consegne di questa cartella è già in {target}. "
                 "Se il lavoro è fermo, ricorda all'utente in una riga di lanciare /clear e poi "
-                "di chiedere di riprendere.")
+                "di chiedere di riprendere."), None
     return (f"Ratatoskr di Mímir: il contesto è a circa {tokens} token, oltre la soglia di {limit}. "
             "Chiudi il passo in corso senza iniziarne altri. Poi leggi la procedura in "
             f"{SKILL} e scrivi il passaggio di consegne in {target}, sotto i "
             f"{MAX_HANDOFF_CHARS} caratteri. Infine di' all'utente di lanciare /clear e, nella nuova "
             "sessione, di chiedere di riprendere: il passaggio non entra da solo nel contesto. Se "
-            "l'utente ha scelto di continuare qui, rispetta la sua scelta.")
+            "l'utente ha scelto di continuare qui, rispetta la sua scelta."), notice
 
 
 def resume(data):
-    """(contesto per Claude, messaggio per l'utente), oppure None."""
+    """(contesto per Claude o None, messaggio per l'utente), oppure None."""
     source = pending_path(data["cwd"])
     if not real_dir(handoff_dir()) or not real_dir(subdir("pending")):
         return None
@@ -182,18 +226,11 @@ def resume(data):
         return None
     age_seconds = time.time() - info.st_mtime
     stale = age_seconds > MAX_PENDING_HOURS * 3600
-    archive = subdir("consumati")
-    if not private_dir(archive):
+    target = archive_pending(source, data["cwd"], "-scaduto" if stale else "")
+    if target is None:
         return None
-    remove_old(archive, MAX_AGE_DAYS * 86400)
-    # il suffisso casuale evita di sovrascrivere un passaggio archiviato nello stesso secondo
-    name = f"{project_key(data['cwd'])}-{time.strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(4)}.md"
-    target = os.path.join(archive, name)
-    os.replace(source, target)
-    os.chmod(target, 0o600)
-    os.utime(target)  # i MAX_AGE_DAYS partono dall'archiviazione, non dalla scrittura
     if stale:
-        return None
+        return None, expired_notice(age_seconds, info.st_size, target)
     age, weight = describe(age_seconds, info.st_size)
     notice = (f"Ratatoskr: c'è un passaggio di consegne di questa cartella, scritto {age} fa ({weight}): "
               f"{target}. Per riprendere chiedilo a Claude, per esempio \"riprendi dal passaggio\"; se "
@@ -226,18 +263,18 @@ def main():
     try:
         if event == "SessionStart":
             result = resume(data)
-            if result:
-                context, output["systemMessage"] = result
-            else:
-                context = None
         elif event in ("UserPromptSubmit", "PostToolUse"):
-            context = nudge(data, event)
+            result = nudge(data, event)
         else:
             return
     except (OSError, ValueError, TypeError):
         return
+    context, notice = result or (None, None)
+    if notice:
+        output["systemMessage"] = notice
     if context:
         output["hookSpecificOutput"] = {"hookEventName": event, "additionalContext": context}
+    if output:
         print(json.dumps(output, ensure_ascii=False))
 
 

@@ -69,6 +69,13 @@ def context(res):
     return hook["hookEventName"], hook["additionalContext"], out.get("systemMessage")
 
 
+def parsed(res):
+    """L'output JSON dell'hook, None se tace."""
+    if res.returncode != 0 or not res.stdout.strip():
+        return None
+    return json.loads(res.stdout.decode("utf-8"))
+
+
 def pending_files():
     return os.listdir(PENDING) if os.path.isdir(PENDING) else []
 
@@ -222,15 +229,35 @@ try:
     for name in taken:
         os.remove(name)
 
-    # passaggio non ripreso entro 48 ore: archiviato senza iniettarlo
-    before = len(os.listdir(ARCHIVE))
+    # passaggio non ripreso entro 48 ore: archiviato come scaduto e segnalato all'utente, non proposto
+    old_pending = time.time() - 49 * 3600
     with open(target, "w", encoding="utf-8") as fh:
         fh.write("dimenticato")
-    old_pending = time.time() - 49 * 3600
     os.utime(target, (old_pending, old_pending))
-    silent("passaggio oltre 48 ore non iniettato", run(event("SessionStart", session="scaduto")))
-    check("passaggio oltre 48 ore archiviato", pending_files() == [] and len(os.listdir(ARCHIVE)) == before + 1,
+    out = parsed(run(event("SessionStart", session="scaduto", source="clear")))
+    expired = [n for n in os.listdir(ARCHIVE) if n.endswith("-scaduto.md")]
+    check("ripresa oltre 48 ore: archiviato come scaduto", pending_files() == [] and len(expired) == 1,
           repr((pending_files(), os.listdir(ARCHIVE))))
+    check("ripresa oltre 48 ore: l'utente lo sa", out is not None and expired
+          and expired[0] in out.get("systemMessage", ""), repr(out))
+    check("ripresa oltre 48 ore: non proposto a Claude", out is not None and "hookSpecificOutput" not in out,
+          repr(out))
+    for name in expired:
+        os.remove(os.path.join(ARCHIVE, name))
+
+    # oltre 48 ore l'avviso lo tratta come assente: chiede un passaggio nuovo invece di dire "già in"
+    with open(target, "w", encoding="utf-8") as fh:
+        fh.write("dimenticato")
+    os.utime(target, (old_pending, old_pending))
+    out = parsed(run(event("UserPromptSubmit", session="scaduto2", path=over)))
+    expired = [n for n in os.listdir(ARCHIVE) if n.endswith("-scaduto.md")]
+    hook = (out or {}).get("hookSpecificOutput", {})
+    check("avviso oltre 48 ore: chiede un passaggio nuovo",
+          "scrivi il passaggio di consegne in" in hook.get("additionalContext", ""), repr(out))
+    check("avviso oltre 48 ore: archiviato come scaduto e segnalato", pending_files() == [] and len(expired) == 1
+          and expired[0] in (out or {}).get("systemMessage", ""), repr((pending_files(), out)))
+    for name in expired:
+        os.remove(os.path.join(ARCHIVE, name))
 
     # symlink: l'hook gira fuori dalla sandbox, non deve seguirli (su Windows servono privilegi)
     secret = os.path.join(ROOT, "segreto")
