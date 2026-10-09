@@ -77,6 +77,14 @@ def parsed(res):
     return json.loads(res.stdout.decode("utf-8"))
 
 
+def proposed(res):
+    """Il percorso in cui l'avviso chiede di scrivere il passaggio, None se non c'è."""
+    marker = " e scrivi il passaggio di consegne in "
+    if not res or marker not in res[1]:
+        return None
+    return res[1].split(marker)[1].split(", sotto i")[0]
+
+
 def pending_files():
     return os.listdir(PENDING) if os.path.isdir(PENDING) else []
 
@@ -154,7 +162,7 @@ try:
     # passaggio scritto: l'avviso cambia, la ripresa lo inietta e lo archivia
     if not res:
         raise SystemExit("FALLITO: nessun avviso da cui ricavare il percorso del passaggio")
-    target = res[1].split(" e scrivi il passaggio di consegne in ")[1].split(", sotto i")[0]
+    target = proposed(res)
     if os.name == "posix":
         check("cartelle create con 0700", all(stat.S_IMODE(os.stat(d).st_mode) == 0o700
                                               for d in (HANDOFF, PENDING)))
@@ -353,12 +361,16 @@ try:
     check("passaggio enorme: chiede prima di leggerlo", res and "chiedigli se leggerlo" in res[1]
           and "yyyy" not in res[1], repr(res and res[1][:80]))
 
-    # la cwd segue i cd di Claude: la chiave viene dalla cartella di avvio (CLAUDE_PROJECT_DIR)
+    # la cwd segue i cd di Claude: la chiave viene dalla cartella di avvio (CLAUDE_PROJECT_DIR). La
+    # cartella deve essere assoluta per il sistema: su Windows, da Python 3.13, "/progetti/app" non lo è
     discard(target)
-    started_here = dict(ENV, CLAUDE_PROJECT_DIR=CWD)
+    project = os.path.abspath(CWD)
+    started_here = dict(ENV, CLAUDE_PROJECT_DIR=project)
+    expected = proposed(context(run(event("UserPromptSubmit", session="avvio", path=over, cwd=project))))
     res = context(run(event("UserPromptSubmit", session="dopo-cd", path=over, cwd="/altrove/mimir"), started_here))
-    check("dopo un cd l'avviso usa la cartella di avvio", res and target in res[1], repr(res and res[1][:200]))
-    with open(target, "w", encoding="utf-8") as fh:
+    check("dopo un cd l'avviso usa la cartella di avvio", res and expected and expected in res[1],
+          repr((expected, res and res[1][:200])))
+    with open(expected, "w", encoding="utf-8") as fh:
         fh.write("scritto dopo un cd")
     res = context(run(event("SessionStart", session="dopo-cd-2", source="clear", cwd="/altrove/mimir"), started_here))
     check("dopo un cd la ripresa trova il passaggio della cartella di avvio",
