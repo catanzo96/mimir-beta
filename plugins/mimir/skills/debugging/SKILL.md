@@ -30,7 +30,7 @@ Se non riesci a riprodurre, non indovinare: vai a "Causa non trovata".
 ## 2. Cosa è cambiato e con cosa confrontare
 - **Cosa è cambiato**: rilasci, commit (`git log --since`), configurazione, dati, versioni di librerie, certificati, servizi esterni, ora e fuso. Molti difetti "improvvisi" hanno una data di inizio.
 - **Caso che funziona**: altro record, altro utente, altro ambiente, versione precedente. La differenza minima tra i due casi indica dove guardare. Cambia una variabile per volta.
-- **Bisezione**: con una versione buona e una cattiva, `git bisect` trova il commit in pochi passi. Se il ciclo è automatico usa `git bisect run <script>` (il codice di uscita dice buono/cattivo; 125 salta i commit non compilabili). Se il difetto è nei dati o nella configurazione, dimezza quelli.
+- **Bisezione**: con una versione buona e una cattiva, `git bisect` trova il commit in pochi passi. Se il ciclo è automatico usa `git bisect run <script>` (il codice di uscita dice buono/cattivo; 125 salta i commit non compilabili). Se il difetto è nei dati o nella configurazione, dimezza quelli. Per l'ambiente o la configurazione, dividi in gruppi che coprono tutto, compreso un gruppo "altri", e prova prima il caso con tutti i gruppi: se è buono, la causa è lì. Poi prova ogni gruppo da solo e il tutto meno un gruppo: con l'esclusione da sola, due gruppi che bastano ciascuno non si vedono.
 
 ## 3. Restringere
 - **Risali dal sintomo all'origine**: parti dal punto in cui il dato è sbagliato e torna indietro (chi l'ha scritto, con quale input, da dove veniva) fino al primo punto in cui è già errato. Lì c'è la causa, non dove si manifesta.

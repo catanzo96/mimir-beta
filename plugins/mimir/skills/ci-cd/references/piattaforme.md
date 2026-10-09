@@ -95,6 +95,7 @@ Rilevante se il progetto usa GitHub; la sintassi è vicina a quelle sopra.
 - `actions/checkout` con `persist-credentials: false`, se i passi successivi non fanno push.
 - I runner Windows ospitati girano come amministratore con UAC disabilitato: il codice che si comporta diversamente da amministratore va provato anche con un utente locale non amministratore, creato nel job.
 - Su `windows-latest`, `pwsh` precede `powershell` nel PATH: per provare Windows PowerShell 5.1 sceglilo in modo esplicito e controlla `$PSVersionTable.PSVersion.Major` in un passo.
+- Su `windows-latest`, Windows PowerShell 5.1 lanciata con un ambiente ridotto (i test che passano solo poche variabili) rianalizza i moduli a ogni avvio: 13-22 s invece di 0,3. Passa anche `PSModuleAnalysisCachePath` del runner; prima di cercare la causa per tentativi, misura un caso ridotto e uno completo.
 
 ## Jenkins (`Jenkinsfile`)
 

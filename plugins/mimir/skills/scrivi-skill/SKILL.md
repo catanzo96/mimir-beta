@@ -78,7 +78,7 @@ Servono quando occorre un contesto isolato (molta lettura che non va tenuta nell
 La sandbox, il classificatore della modalità auto e le regole di Mímir proteggono settings, hook, plugin e regole: una modifica può essere bloccata. Non aggirare il blocco (niente uscita dalla sandbox, niente strade alternative). Prepara invece la modifica nello scratchpad:
 - uno script che cerca il testo atteso (una sola occorrenza) e si rifiuta senza toccare nulla se non lo trova, valida il risultato (per esempio il JSON), scrive in modo atomico e al secondo lancio non fa niente; oppure una patch da applicare con `git apply --check` e poi `git apply`;
 - provalo su una copia dei file o su un clone, compreso il caso di rifiuto, e confronta il risultato con i file attesi;
-- dai all'utente il comando `!` su una sola riga, usando un glob per i percorsi lunghi: incollata, una riga lunga si spezza e il comando fallisce a metà;
+- dai all'utente i comandi per il suo terminale, senza `!`, in righe brevi, con `S=` per i percorsi lunghi: incollata, una riga lunga si spezza e il comando fallisce a metà, e ogni `!` parte in una shell nuova (le variabili non restano). `!` solo per un comando breve e autonomo;
 - dopo il lancio controlla lo stato reale (confronto con la copia provata, test).
 
 ## Prima di consegnare

@@ -30,7 +30,7 @@ Si staccano dal branch di integrazione del progetto (es. `develop` o `main`).
    - commit atomici (vedi skill `commit`);
    - riallinea spesso al branch base, di norma con `git fetch` più `rebase` sul branch *non ancora condiviso*;
    - se il branch è condiviso, fai merge.
-3. **MR/PR** verso il branch base: pipeline verde e almeno una review.
+3. **MR/PR** verso il branch base: pipeline verde e almeno una review. Il merge sul branch base, anche locale o in fast-forward, si fa solo con la CI del branch verde, letta job per job: un rosso "estraneo" arriva sul base insieme al merge. Il lavoro di più sessioni o di un worktree si porta su main da un branch, con la CI del branch verde; un commit diretto su main va bene solo per modifiche piccole di una sola sessione.
 4. **Dopo il merge**: elimina il branch locale e remoto.
 
 ## MR piccole
@@ -76,6 +76,6 @@ Anche nelle MR e PR, nessun riferimento a Claude o all'AI.
 
 ## Nella sandbox
 - `.git/config` è protetto: `git config`, `git remote add`/`set-url`, `git branch -m` e il primo `push -u` falliscono con "could not lock config file". Proponili subito fuori dalla sandbox, con conferma, dicendo il perché. Se fallisce solo l'aggiornamento della config, l'operazione sui ref è già avvenuta: verifica con `git branch -vv` e `git config --get-regexp '^branch\.'` prima di ripetere.
-- Un file protetto in scrittura ferma a metà `git switch`, `checkout` e `stash` ("Device or resource busy" o "unable to unlink"): controlla `git status`, riporta il file al contenuto atteso con Edit e ricontrolla. Per lo stesso motivo (`.git/config` in sola lettura) `git branch -D` non toglie la sezione `branch.<nome>`: va tolta fuori dalla sandbox con `git config --remove-section`, insieme a `git branch -dr` per il ref remoto.
+- Prima di `switch` o `checkout` tra branch, controlla con `git diff --name-only <da> <a>` se cambiano file protetti (`.github`, `plugins`, …): in quel caso dai all'utente il comando da lanciare fuori dalla sandbox. Un file protetto in scrittura ferma a metà `git switch`, `checkout` e `stash` ("Device or resource busy" o "unable to unlink"): controlla `git status`, riporta il file al contenuto atteso con Edit e ricontrolla. Per lo stesso motivo (`.git/config` in sola lettura) `git branch -D` non toglie la sezione `branch.<nome>`: va tolta fuori dalla sandbox con `git config --remove-section`, insieme a `git branch -dr` per il ref remoto.
 - `gh` dentro la sandbox non si autentica quando il token è nel keyring (fuori sì): i comandi in sola lettura girano fuori dalla sandbox, con conferma. Salva ciò che scaricano nello scratchpad con un percorso esplicito, perché fuori dalla sandbox `$TMPDIR` non punta lì.
 - Push e fetch autenticati: la sessione non legge le credenziali e non ha un terminale per chiederle. Prepara il comando esatto (remote e branch) e lascialo lanciare all'utente dal suo terminale.

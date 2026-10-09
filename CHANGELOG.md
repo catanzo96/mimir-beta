@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-09 (retro della fase 1)
+- Skill `git-workflow`: merge sul branch base solo con la CI del branch verde; il lavoro di più sessioni o di un worktree passa da un branch, il commit diretto su main solo per modifiche piccole di una sessione. Prima di `switch` o `checkout` controllare se cambiano file protetti e, se sì, far lanciare il comando all'utente.
+- Regola e skill `scrivi-skill`: i comandi da lanciare a mano vanno per il terminale dell'utente, senza `!`, in righe brevi con `S=` per i percorsi lunghi; `!` solo per un comando breve e autonomo, perché ogni `!` parte in una shell nuova.
+- Skill `ci-cd` (`references/piattaforme.md`): sui runner Windows la 5.1 con un ambiente ridotto rianalizza i moduli a ogni avvio; passare `PSModuleAnalysisCachePath`.
+- Skill `script-shell`: `GetFolderPath` della 5.1 può restituire una stringa vuota; leggere `$env:LOCALAPPDATA` e gestire il vuoto.
+- Skill `debugging`: bisezione dell'ambiente con gruppi che coprono tutto, caso con tutti i gruppi, poi per aggiunta e per esclusione.
+
 ## 2026-10-09 (limatura, fase 1, passi 6 e 7: CI)
 - CI GitHub Actions (`.github/workflows/ci.yml`) a ogni push e pull request, senza API key, `permissions: contents: read`, azioni fissate a SHA e `persist-credentials: false`.
   - Job `test`: tutte le suite (`.github/scripts/run_tests.py`) su Ubuntu, macOS e Windows, Python 3.8 e 3.14; su Windows con Windows PowerShell 5.1 (`MIMIR_TEST_PWSH=powershell`, perché sui runner `pwsh` viene prima) e con pwsh. I test girano con un utente locale non amministratore (`.github/scripts/run-as-user.ps1`), lo stop di `install.ps1` da amministratore.
