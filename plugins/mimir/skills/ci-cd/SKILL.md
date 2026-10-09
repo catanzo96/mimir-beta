@@ -50,7 +50,7 @@ Mettere prima i controlli più rapidi e più probabili a fallire: un errore di l
 - **Parallelismo**: dividi i test in più job o in shard, i job indipendenti partono insieme (grafo di dipendenze tra job, non fasi rigide). I test paralleli non condividono database o porte fisse.
 - Esegui solo ciò che serve: filtri per percorso o per tipo di modifica (la documentazione non lancia l'intera suite), ma senza saltare controlli sul ramo principale.
 - Annulla le esecuzioni superate sullo stesso branch; timeout per job così che un blocco non occupi un runner per ore.
-- Misura i tempi per fase: ottimizza la fase più lunga, non quella più comoda.
+- Misura i tempi per fase: ottimizza la fase più lunga, non quella più comoda. Prima di alzare un timeout misura cosa pesa (suite, singoli test, avvio degli strumenti): l'aumento si motiva con la misura.
 - **Fail fast, ma con report completi**: un fallimento dà log leggibili e artefatti (report di test, copertura) conservati, non solo "exit code 1".
 - Le pipeline sono codice: versionate, riviste, con template condivisi invece di copia-incolla fra repository.
 
@@ -70,7 +70,8 @@ Mettere prima i controlli più rapidi e più probabili a fallire: un errore di l
 - Valida la sintassi con lo strumento della piattaforma (lint del CI di GitLab, l'editor delle pipeline di Azure DevOps, che valida il YAML, `actionlint`, `Jenkinsfile` linter) quando disponibile; dichiara cosa non hai potuto provare in locale.
 - Riproduci in locale i comandi dei passi (build, test, analisi) con gli stessi comandi della pipeline e riporta l'esito.
 - Rileggi il diff: nessun segreto, nessun tag mobile, cache con chiave corretta, deploy di produzione ancora protetto da approvazione, artefatto promosso e non ricostruito.
-- Dopo il push (con ok dell'utente), leggi l'esito reale della pipeline: "la configurazione sembra corretta" non è un risultato.
+- Dopo il push (con ok dell'utente), leggi l'esito reale della pipeline: "la configurazione sembra corretta" non è un risultato. Leggilo job per job: conclusione, durata e, per i rossi, i test falliti presi dal riepilogo nel log, non dal nome del job. Un job annullato o in timeout non è un fallimento del codice: segnalalo a parte, e la sua causa resta un'ipotesi finché il log non la mostra.
+- Una pipeline nuova, o un controllo nuovo, vale solo dopo averla vista fallire: su un branch di prova introduci un difetto piccolo e voluto, verifica che fallisca solo il controllo atteso e che il resto resti verde, poi cancella il branch, con ok dell'utente.
 
 ## Riferimenti
 | File | Quando leggerlo |

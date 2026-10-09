@@ -76,4 +76,6 @@ Anche nelle MR e PR, nessun riferimento a Claude o all'AI.
 
 ## Nella sandbox
 - `.git/config` è protetto: `git config`, `git remote add`/`set-url`, `git branch -m` e il primo `push -u` falliscono con "could not lock config file". Proponili subito fuori dalla sandbox, con conferma, dicendo il perché. Se fallisce solo l'aggiornamento della config, l'operazione sui ref è già avvenuta: verifica con `git branch -vv` e `git config --get-regexp '^branch\.'` prima di ripetere.
+- Un file protetto in scrittura ferma a metà `git switch`, `checkout` e `stash` ("Device or resource busy" o "unable to unlink"): controlla `git status`, riporta il file al contenuto atteso con Edit e ricontrolla. Per lo stesso motivo (`.git/config` in sola lettura) `git branch -D` non toglie la sezione `branch.<nome>`: va tolta fuori dalla sandbox con `git config --remove-section`, insieme a `git branch -dr` per il ref remoto.
+- `gh` dentro la sandbox non si autentica quando il token è nel keyring (fuori sì): i comandi in sola lettura girano fuori dalla sandbox, con conferma. Salva ciò che scaricano nello scratchpad con un percorso esplicito, perché fuori dalla sandbox `$TMPDIR` non punta lì.
 - Push e fetch autenticati: la sessione non legge le credenziali e non ha un terminale per chiederle. Prepara il comando esatto (remote e branch) e lascialo lanciare all'utente dal suo terminale.

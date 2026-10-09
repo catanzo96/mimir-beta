@@ -110,6 +110,9 @@ Per Windows: `Set-StrictMode -Version Latest` e `$ErrorActionPreference = 'Stop'
 - PowerShell 5.1 altera le virgolette negli argomenti passati ai programmi nativi: niente JSON inline come argomento, scrivi un file e passa il percorso.
 - Dopo un'installazione con winget il PATH della sessione è vecchio: rileggilo dal registro (`Machine` e `User`) o chiedi di riaprire il terminale.
 - File scritti per altri programmi: UTF-8 senza BOM (`[IO.File]::WriteAllText(path, text, [Text.UTF8Encoding]::new($false))`), perché `Set-Content` e `Out-File` di PowerShell 5.1 aggiungono il BOM o usano un'altra codifica.
+- L'output della 5.1 verso un processo che lo legge usa la code page OEM: chi lo legge decodifica con tolleranza e non confronta i caratteri accentati byte per byte.
+- `ConvertTo-Json` della 5.1 formatta in modo diverso da pwsh (spazi dopo i due punti): confronta il JSON come dato, non come stringa.
+- In un ambiente costruito da zero (`env=` di un test) mancano variabili come `OS`, `SystemRoot` e `ComSpec`: passale esplicitamente.
 
 ## Verifica
 - `bash -n script.sh` controlla la sintassi (`dash -n` per gli script sh).

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-09 (retro della CI)
+- Skill `ci-cd`: esito letto job per job (annullato o in timeout ≠ fallito), pipeline vista fallire su un branch di prova, misura prima di alzare un timeout; in `references/piattaforme.md` runner Windows da amministratore, `pwsh` prima di `powershell`, `persist-credentials: false`.
+- Skill `script-shell`: tre trappole di PowerShell 5.1 (code page OEM, formato di `ConvertTo-Json`, variabili mancanti in un ambiente da zero).
+- Skill `git-workflow`: file protetti che fermano `switch`, `checkout` e `stash`; la sezione `branch.<nome>` che `branch -D` non toglie nella sandbox; `gh` con il token nel keyring, che nella sandbox non si autentica.
+- Skill `python`: `newline=` in `Path.write_text` dalla 3.10.
+
 ## 2026-10-08 (limatura, fase 1, passo 6)
 - `git-guard.py` blocca un commit se non può leggere il file di `-F`/`--file`: file inesistente o non regolare, percorso con variabili, `~` o caratteri jolly (la shell li espande, l'hook leggerebbe un altro file), file oltre 100000 caratteri. Prima il messaggio non veniva controllato e restava solo la conferma `ask`.
 - Skill `commit`: il file del messaggio si passa a `git commit -F` con il percorso assoluto restituito da Write, non con `$TMPDIR`.

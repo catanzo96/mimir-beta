@@ -92,6 +92,9 @@ Rilevante se il progetto usa GitHub; la sintassi è vicina a quelle sopra.
 - **Azioni di terze parti**: fissale a un commit SHA, non a un tag mobile, e valutane l'origine (rischio di supply chain).
 - Iniezione di comandi: non scrivere `${{ github.event.pull_request.title }}` dentro `run:`; passalo come variabile d'ambiente.
 - `concurrency:` per annullare esecuzioni superate o serializzare i deploy. Validazione con `actionlint`.
+- `actions/checkout` con `persist-credentials: false`, se i passi successivi non fanno push.
+- I runner Windows ospitati girano come amministratore con UAC disabilitato: il codice che si comporta diversamente da amministratore va provato anche con un utente locale non amministratore, creato nel job.
+- Su `windows-latest`, `pwsh` precede `powershell` nel PATH: per provare Windows PowerShell 5.1 sceglilo in modo esplicito e controlla `$PSVersionTable.PSVersion.Major` in un passo.
 
 ## Jenkins (`Jenkinsfile`)
 

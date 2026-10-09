@@ -11,7 +11,7 @@ Si applica insieme a `clean-code`. Le convenzioni del progetto prevalgono: versi
 Cerca la versione minima in `pyproject.toml` (`requires-python`), `.python-version`, `tox.ini`, CI o Dockerfile. Non usare feature oltre quella versione. **Su progetti Python 2/3.6-3.9, EOL o senza test, vale `manutenzione-legacy` (se disponibile).**
 
 Feature utili per versione (verificate su docs.python.org/3/whatsnew):
-- **3.10**: `match`, `X | Y` nei tipi, `ParamSpec`, `zip(strict=True)`.
+- **3.10**: `match`, `X | Y` nei tipi, `ParamSpec`, `zip(strict=True)`, `newline=` in `Path.write_text`.
 - **3.11**: `ExceptionGroup` e `except*`, `tomllib`, `Self`, `asyncio.TaskGroup`, `StrEnum`.
 - **3.12**: sintassi generica `def f[T](x: T)` e `type Alias = ...`, `@override`, f-string senza limiti di quote, `itertools.batched`.
 - **3.13**: `warnings.deprecated`, `TypeIs`, `ReadOnly`, default per i type parameter, `copy.replace`. Free-threading e JIT sono sperimentali.
