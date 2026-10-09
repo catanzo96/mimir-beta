@@ -130,8 +130,10 @@ def read_regular(path, limit):
     """Primi limit caratteri di un file regolare, None se è un symlink o altro."""
     if os.path.islink(path):
         return None  # su Windows O_NOFOLLOW non esiste: vale questo controllo
-    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-    with os.fdopen(fd, encoding="utf-8") as fh:
+    # O_NONBLOCK: una FIFO si aprirebbe solo all'arrivo di uno scrittore, oltre il timeout dell'hook.
+    # errors="replace": un file non UTF-8 resterebbe in pending per sempre
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    with os.fdopen(fd, encoding="utf-8", errors="replace") as fh:
         if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
             return None
         return fh.read(limit)

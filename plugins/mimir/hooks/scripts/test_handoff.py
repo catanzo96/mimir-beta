@@ -74,8 +74,8 @@ def pending_files():
 
 
 def discard(path):
-    """Toglie un file o un link: una versione sbagliata dello script può averlo già spostato."""
-    if os.path.islink(path) or os.path.isfile(path):
+    """Toglie un file, un link o una FIFO: una versione sbagliata dello script può averlo già spostato."""
+    if os.path.islink(path) or (os.path.lexists(path) and not os.path.isdir(path)):
         os.remove(path)
     elif os.path.isdir(path):
         shutil.rmtree(path)
@@ -240,6 +240,23 @@ try:
         silent("pending symlink: non riprende", run(event("SessionStart", session="link3")))
         discard(PENDING)
         os.rename(moved, PENDING)
+        discard(target)
+
+    # passaggio non UTF-8: non deve restare in pending per sempre
+    discard(target)
+    with open(target, "wb") as fh:
+        fh.write(b"# Passaggio\n\xff\xfe testo rovinato")
+    run(event("SessionStart", session="latin1"))
+    check("passaggio non UTF-8 esce da pending", pending_files() == [], repr(pending_files()))
+
+    # FIFO al posto del passaggio: aprirla senza O_NONBLOCK aspetterebbe uno scrittore (su Windows non esiste)
+    discard(target)
+    if hasattr(os, "mkfifo"):
+        os.mkfifo(target)
+        try:
+            silent("passaggio FIFO: non lo legge", run(event("SessionStart", session="fifo")))
+        except subprocess.TimeoutExpired:
+            check("passaggio FIFO: l'hook non si blocca", False, f"oltre {TIMEOUT} s")
         discard(target)
 
     # passaggio enorme: letto solo fino al tetto, poi il percorso
