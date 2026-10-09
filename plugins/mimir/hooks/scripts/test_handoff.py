@@ -26,9 +26,9 @@ ENV = dict(os.environ, MIMIR_HANDOFF_DIR=HANDOFF, MIMIR_HANDOFF_TOKENS=str(LIMIT
 CWD = "/progetti/app"
 
 
-def run(stdin, env=None):
+def run(stdin, env=None, cwd=None):
     return subprocess.run([sys.executable, SCRIPT], input=stdin.encode("utf-8"), capture_output=True,
-                          env=env or ENV, timeout=TIMEOUT)
+                          env=env or ENV, timeout=TIMEOUT, cwd=cwd)
 
 
 def transcript(name, *usages, sidechain_usage=None):
@@ -135,6 +135,10 @@ try:
     env = dict(ENV)
     del env["MIMIR_HANDOFF_DIR"]
     silent("senza MIMIR_HANDOFF_DIR non fa nulla", run(event("UserPromptSubmit", path=over), env))
+    # relativa dipenderebbe dalla cwd dell'hook: ignorata come se mancasse
+    silent("MIMIR_HANDOFF_DIR relativa non fa nulla",
+           run(event("UserPromptSubmit", path=over), dict(ENV, MIMIR_HANDOFF_DIR="relativa"), cwd=ROOT))
+    check("MIMIR_HANDOFF_DIR relativa non crea cartelle", not os.path.exists(os.path.join(ROOT, "relativa")))
 
     # SessionStart senza passaggio: tace
     silent("ripresa senza passaggio", run(event("SessionStart", source="startup")))

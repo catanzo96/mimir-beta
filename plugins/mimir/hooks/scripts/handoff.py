@@ -41,7 +41,9 @@ SKILL = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abs
 
 
 def handoff_dir():
-    return os.environ.get("MIMIR_HANDOFF_DIR", "")
+    """La cartella dei passaggi; "" se manca o non è assoluta, perché dipenderebbe dalla cwd dell'hook."""
+    path = os.environ.get("MIMIR_HANDOFF_DIR", "")
+    return path if os.path.isabs(path) else ""
 
 
 def threshold():
