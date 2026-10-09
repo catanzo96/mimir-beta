@@ -204,6 +204,30 @@ try:
     run(event("SessionStart", session="pulizia"))
     check("consumati oltre 7 giorni cancellati", not os.path.exists(old))
 
+    # un consumato che non si riesce a cancellare non deve fermare l'archiviazione. Su POSIX la
+    # cancellazione dipende dai permessi della cartella, che fermerebbero anche lo spostamento:
+    # l'errore si simula sostituendo os.remove nello script, lanciato con runpy
+    stuck = os.path.join(ARCHIVE, "bloccato.md")
+    with open(stuck, "w", encoding="utf-8") as fh:
+        fh.write("non cancellabile")
+    os.utime(stuck, (stale, stale))
+    with open(target, "w", encoding="utf-8") as fh:
+        fh.write("da archiviare")
+    failing_remove = ("import os, runpy, sys\n"
+                      "real = os.remove\n"
+                      "def remove(path, *a, **k):\n"
+                      "    if os.path.basename(path) == 'bloccato.md':\n"
+                      "        raise PermissionError(13, 'simulato', path)\n"
+                      "    return real(path, *a, **k)\n"
+                      "os.remove = remove\n"
+                      "runpy.run_path(sys.argv[1], run_name='__main__')\n")
+    res = subprocess.run([sys.executable, "-c", failing_remove, SCRIPT],
+                         input=event("SessionStart", session="bloccato").encode("utf-8"),
+                         capture_output=True, env=ENV, timeout=TIMEOUT)
+    check("consumato non cancellabile: il passaggio si archivia lo stesso",
+          pending_files() == [] and context(res) is not None, repr((pending_files(), res.stdout[:80], res.stderr[-200:])))
+    os.remove(stuck)
+
     # archivio: un nome già presente non si sovrascrive (i nomi hanno i secondi: li occupo tutti)
     key = os.path.basename(target)[:-len(".md")]
     now = time.time()
@@ -304,7 +328,7 @@ try:
     run(event("SessionStart", session="latin1"))
     check("passaggio non UTF-8 esce da pending", pending_files() == [], repr(pending_files()))
 
-    # FIFO al posto del passaggio: aprirla senza O_NONBLOCK aspetterebbe uno scrittore (su Windows non esiste)
+    # FIFO al posto del passaggio: non è un file regolare, la ripresa la lascia dov'è (su Windows mkfifo non esiste)
     discard(target)
     if hasattr(os, "mkfifo"):
         os.mkfifo(target)
@@ -320,6 +344,17 @@ try:
     res = context(run(event("SessionStart", session="enorme")))
     check("passaggio enorme: chiede prima di leggerlo", res and "chiedigli se leggerlo" in res[1]
           and "yyyy" not in res[1], repr(res and res[1][:80]))
+
+    # errore inatteso (qui int() di Infinity nel transcript): exit 0, niente stdout, una riga su stderr
+    infinite = os.path.join(ROOT, "infinito.jsonl")
+    with open(infinite, "w", encoding="utf-8") as fh:
+        fh.write('{"type": "assistant", "message": {"usage": {"input_tokens": Infinity}}}\n')
+    res = run(event("UserPromptSubmit", session="infinito", path=infinite))
+    lines = res.stderr.decode("utf-8", "replace").strip().splitlines()
+    check("errore inatteso: exit 0 e niente stdout", res.returncode == 0 and res.stdout.strip() == b"",
+          repr((res.returncode, res.stdout[:80])))
+    check("errore inatteso: una riga su stderr con il tipo", len(lines) == 1 and "OverflowError" in lines[0],
+          repr(lines[-3:]))
 
     # input non validi: mai un blocco, mai output
     broken = os.path.join(ROOT, "rotto.jsonl")

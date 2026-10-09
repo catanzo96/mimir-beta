@@ -5,6 +5,7 @@
 - Un passaggio di oltre 48 ore non si perde più in silenzio: avviso e ripresa lo archiviano con il suffisso `-scaduto` e lo dicono all'utente; l'avviso chiede un passaggio nuovo. `pending/` resta senza altre scadenze, documentato.
 - Archivio con nomi univoci (prima un passaggio dello stesso secondo veniva sovrascritto) e i 7 giorni contati dall'archiviazione.
 - `MIMIR_HANDOFF_DIR` relativa ignorata; una FIFO o un file non UTF-8 in `pending/` non bloccano più l'hook.
+- Dopo la security review: un errore inatteso dà exit 0 e una riga su stderr invece di un traceback con exit 1; un consumato non cancellabile non ferma l'archiviazione; permessi e mtime si fissano prima dello spostamento. README: Write, a differenza della shell, può scrivere un passaggio.
 - Skill `passaggio-consegne`: description e testi per la ripresa su richiesta. README: uso, permessi di lettura fuori dalle cartelle di lavoro, indice degli hook. Test senza soglie di 1 s.
 
 ## 2026-10-09 (retro della fase 1)

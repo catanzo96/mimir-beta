@@ -128,8 +128,11 @@ def remove_old(folder, max_age):
         return
     limit = time.time() - max_age
     for entry in os.scandir(folder):
-        if entry.is_file(follow_symlinks=False) and entry.stat(follow_symlinks=False).st_mtime < limit:
-            os.remove(entry.path)
+        try:
+            if entry.is_file(follow_symlinks=False) and entry.stat(follow_symlinks=False).st_mtime < limit:
+                os.remove(entry.path)
+        except OSError:
+            continue  # pulizia: un file sparito o protetto non deve fermare l'archiviazione
 
 
 def describe(seconds, size):
@@ -161,9 +164,11 @@ def archive_pending(source, cwd, suffix=""):
     # il suffisso casuale evita di sovrascrivere un passaggio archiviato nello stesso secondo
     name = f"{project_key(cwd)}-{time.strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(4)}{suffix}.md"
     target = os.path.join(archive, name)
+    # prima dello spostamento, sulla sorgente già controllata con lstat: dopo, un errore lascerebbe il
+    # file archiviato senza messaggio per l'utente
+    os.chmod(source, 0o600)
+    os.utime(source)  # i MAX_AGE_DAYS partono dall'archiviazione, non dalla scrittura
     os.replace(source, target)
-    os.chmod(target, 0o600)
-    os.utime(target)  # i MAX_AGE_DAYS partono dall'archiviazione, non dalla scrittura
     return target
 
 
@@ -250,7 +255,13 @@ def resume(data):
     return context, notice
 
 
-def main():
+def report_error(exc):
+    """Una riga su stderr: l'hook non blocca e non fallisce, ma l'errore non sparisce."""
+    message = " ".join(str(exc).split())
+    sys.stderr.write(f"Ratatoskr: errore inatteso, hook saltato ({type(exc).__name__}: {message})\n")
+
+
+def run_hook():
     try:
         data = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
@@ -278,7 +289,15 @@ def main():
         print(json.dumps(output, ensure_ascii=False))
 
 
+def main():
+    try:
+        run_hook()
+    except Exception as exc:  # qualsiasi errore: mai un prompt fallito, sempre una riga su stderr
+        report_error(exc)
+
+
 if __name__ == "__main__":
     # Su Windows la codifica di default della console non è UTF-8: gli accenti si rovinerebbero.
     sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
     main()
