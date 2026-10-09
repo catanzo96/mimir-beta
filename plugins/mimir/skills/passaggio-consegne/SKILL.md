@@ -1,6 +1,6 @@
 ---
 name: passaggio-consegne
-description: Scrive il documento per riprendere il lavoro in una nuova sessione o passarlo a un collega. Solo su richiesta esplicita.
+description: Scrive il documento per riprendere il lavoro in una nuova sessione o passarlo a un collega. Su richiesta dell'utente (/passaggio-consegne) o dell'hook Ratatoskr, che indica questo file.
 disable-model-invocation: true
 ---
 
@@ -41,11 +41,11 @@ Oscura con `<OMESSO>` password, token, chiavi, stringhe di connessione, dati per
 
 ## Dove salvarlo
 - Nel percorso indicato dall'utente.
-- Su richiesta di Ratatoskr, nel percorso che indica l'hook, sotto i 9.000 caratteri: oltre, la nuova sessione riceve solo il percorso e deve leggerlo.
+- Su richiesta di Ratatoskr, nel percorso che indica l'hook, sotto i 9.000 caratteri: alla ripresa Claude lo legge intero nel contesto della nuova sessione.
 - Altrimenti nello scratchpad della sessione o nella cartella temporanea del sistema, fuori dal repo.
 - Mai nei repo dei clienti senza l'ok dell'utente, e mai committato senza approvazione esplicita.
 
-Alla fine indica all'utente il percorso e, in una riga, come avviare la nuova sessione ("leggi <percorso> e riprendi dal punto 'Per riprendere'"). Con Ratatoskr basta `/clear`: la nuova sessione riceve il documento da sola.
+Alla fine indica all'utente il percorso e, in una riga, come avviare la nuova sessione ("leggi <percorso> e riprendi dal punto 'Per riprendere'"). Con Ratatoskr: `/clear`, poi nella nuova sessione chiedi di riprendere. L'hook segnala il passaggio ma non lo inietta.
 
 ## Verifica
 Rileggi il documento come se non conoscessi il lavoro: obiettivo e prossimo passo devono essere chiari senza altro contesto. Controlla che i percorsi e i comandi citati esistano e che non ci siano segreti (cerca token, password, chiavi). Non inventare stati che non hai verificato.

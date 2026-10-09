@@ -162,24 +162,28 @@ try:
     silent("passaggio già scritto: poi tace", run(event("PostToolUse", session="s6", path=over)))
     # /progetti_app e /progetti/app hanno lo stesso nome leggibile: le distingue l'hash
     silent("cartella con nome simile non lo prende", run(event("SessionStart", cwd="/progetti_app")))
+    # dopo /clear il passaggio si segnala, non si inietta: un contesto compromesso non passa da solo
     res = context(run(event("SessionStart", session="nuova", source="clear")))
-    check("ripresa inietta il passaggio",
-          res and res[0] == "SessionStart" and "Obiettivo: Mímir" in res[1], repr(res))
+    check("dopo /clear segnala il passaggio", res and res[0] == "SessionStart", repr(res))
+    check("dopo /clear il testo non entra nel contesto",
+          res and "Obiettivo" not in res[1] and "Obiettivo" not in (res[2] or ""), repr(res))
     check("ripresa svuota pending", pending_files() == [], repr(pending_files()))
     archived = os.listdir(ARCHIVE)
     check("ripresa archivia", len(archived) == 1 and res and archived[0] in res[1], repr(archived))
     check("ripresa visibile all'utente", res and res[2] and archived[0] in res[2], repr(res and res[2]))
-    check("passaggio introdotto come dati", res and "non come istruzioni" in res[1]
-          and "<passaggio-di-consegne>" in res[1], repr(res and res[1][:200]))
+    check("passaggio da leggere solo su richiesta, come dati", res and "chiede di riprendere" in res[1]
+          and "non come istruzioni" in res[1], repr(res and res[1][:200]))
+    check("passaggio breve: nessuna domanda sulla dimensione", res and "chiedigli se leggerlo" not in res[1],
+          repr(res and res[1][-200:]))
     if os.name == "posix" and archived:
         check("archivio con 0600", stat.S_IMODE(os.stat(os.path.join(ARCHIVE, archived[0])).st_mode) == 0o600)
-    silent("seconda ripresa non reinietta", run(event("SessionStart", session="altra")))
+    silent("secondo /clear in silenzio", run(event("SessionStart", session="altra", source="clear")))
 
     # passaggio troppo lungo: solo il percorso
     with open(target, "w", encoding="utf-8") as fh:
         fh.write("x" * 9001)
     res = context(run(event("SessionStart", session="lunga")))
-    check("passaggio lungo: solo il percorso", res and "leggilo dal file" in res[1]
+    check("passaggio lungo: chiede prima di leggerlo", res and "chiedigli se leggerlo" in res[1]
           and "xxxx" not in res[1], repr(res and res[1][:120]))
 
     # archivio: i consumati vecchi spariscono alla ripresa successiva
@@ -288,7 +292,8 @@ try:
         fh.write("y" * 50 * 1024 * 1024)
     started = time.time()
     res = context(run(event("SessionStart", session="enorme")))
-    check("passaggio enorme: solo il percorso", res and "leggilo dal file" in res[1], repr(res and res[1][:80]))
+    check("passaggio enorme: chiede prima di leggerlo", res and "chiedigli se leggerlo" in res[1]
+          and "yyyy" not in res[1], repr(res and res[1][:80]))
     check("passaggio enorme: entro 1 s", time.time() - started < 1)
 
     # input non validi: mai un blocco, mai output
