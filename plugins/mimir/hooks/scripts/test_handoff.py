@@ -193,13 +193,37 @@ try:
     run(event("SessionStart", session="pulizia"))
     check("consumati oltre 7 giorni cancellati", not os.path.exists(old))
 
+    # archivio: un nome già presente non si sovrascrive (i nomi hanno i secondi: li occupo tutti)
+    key = os.path.basename(target)[:-len(".md")]
+    now = time.time()
+    taken = {}
+    for delta in range(-1, 6):
+        name = os.path.join(ARCHIVE, f"{key}-{time.strftime('%Y%m%d-%H%M%S', time.localtime(now + delta))}.md")
+        with open(name, "w", encoding="utf-8") as fh:
+            fh.write(f"precedente {delta}")
+        taken[name] = f"precedente {delta}"
+    before = len(os.listdir(ARCHIVE))
+    with open(target, "w", encoding="utf-8") as fh:
+        fh.write("successivo")
+    almost_stale = time.time() - 47 * 3600
+    os.utime(target, (almost_stale, almost_stale))
+    run(event("SessionStart", session="omonimo"))
+    intact = all(open(name, encoding="utf-8").read() == text for name, text in taken.items())
+    check("archivio: nessun passaggio sovrascritto", intact and len(os.listdir(ARCHIVE)) == before + 1,
+          repr(sorted(os.listdir(ARCHIVE))))
+    newest = max((os.path.join(ARCHIVE, n) for n in os.listdir(ARCHIVE) if os.path.join(ARCHIVE, n) not in taken),
+                 key=os.path.getmtime, default=None)
+    check("archivio: i 7 giorni partono dall'archiviazione",
+          newest is not None and os.path.getmtime(newest) > time.time() - 600, repr(newest))
+    for name in taken:
+        os.remove(name)
+
     # passaggio non ripreso entro 48 ore: archiviato senza iniettarlo
     before = len(os.listdir(ARCHIVE))
     with open(target, "w", encoding="utf-8") as fh:
         fh.write("dimenticato")
     old_pending = time.time() - 49 * 3600
     os.utime(target, (old_pending, old_pending))
-    time.sleep(1)  # il nome nell'archivio ha i secondi: non deve coincidere con il precedente
     silent("passaggio oltre 48 ore non iniettato", run(event("SessionStart", session="scaduto")))
     check("passaggio oltre 48 ore archiviato", pending_files() == [] and len(os.listdir(ARCHIVE)) == before + 1,
           repr((pending_files(), os.listdir(ARCHIVE))))

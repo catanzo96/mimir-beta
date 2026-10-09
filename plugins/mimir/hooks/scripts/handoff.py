@@ -26,6 +26,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import stat
 import sys
 import time
@@ -182,9 +183,12 @@ def resume(data):
     if not private_dir(archive):
         return None
     remove_old(archive, MAX_AGE_DAYS * 86400)
-    target = os.path.join(archive, f"{project_key(data['cwd'])}-{time.strftime('%Y%m%d-%H%M%S')}.md")
+    # il suffisso casuale evita di sovrascrivere un passaggio archiviato nello stesso secondo
+    name = f"{project_key(data['cwd'])}-{time.strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(4)}.md"
+    target = os.path.join(archive, name)
     os.replace(source, target)
     os.chmod(target, 0o600)
+    os.utime(target)  # i MAX_AGE_DAYS partono dall'archiviazione, non dalla scrittura
     if stale:
         return None
     notice = f"Ratatoskr: ripreso il passaggio di consegne {target}"
