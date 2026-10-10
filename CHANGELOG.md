@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-10-10 (installer-2: rilievi di installer, launcher e CI)
+- `install.py` su Linux e WSL2: con apt-get lancia prima `apt-get update` (3 tentativi, timeout HTTP di 30 s), perché con indici vecchi l'installazione non trova i pacchetti; se l'aggiornamento fallisce avvisa e installa con gli indici presenti. Il profilo AppArmor di `bwrap` si ricarica con `systemctl reload apparmor` e, se systemd manca o il comando fallisce, con `apparmor_parser -r`; la conferma mostra i comandi. La CI non prepara più apt da sé, così il percorso di `install.py` è provato; il timeout di 8 minuti passa allo step dell'installer. Review con `code-reviewer` e `security-reviewer`.
+
 ## 2026-10-10 (git-guard: comandi git distruttivi)
 - Regole `ask` in `settings.template.json` e `sandbox.settings.json` per reset, rebase, merge, cherry-pick, revert, pull, am, clean, restore, checkout, update-ref, filter-branch, prune e per le forme distruttive di branch, switch, stash e reflog (`git branch -D`, `git stash drop`…).
 - Hook `git-guard.py`: `git commit` ammesso solo nelle forme note (`-m`/`--message` ripetuti, un solo `-F`/`--file`, `--amend`, `--amend --no-edit`); le righe con `#` contano nella lunghezza.

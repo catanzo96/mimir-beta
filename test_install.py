@@ -226,29 +226,106 @@ class PureFunctions(unittest.TestCase):
         def which(*present):
             return lambda name: f"/usr/bin/{name}" if name in present else None
         with mock.patch.object(install, "as_root", side_effect=lambda c: ["sudo"] + c):
-            self.assertEqual(install.install_command(["bwrap", "socat"], which("dnf", "zypper")),
-                             ["sudo", "dnf", "install", "-y", "bubblewrap", "socat"])
-            self.assertEqual(install.install_command(["socat"], which("pacman")),
-                             ["sudo", "pacman", "-S", "--needed", "--noconfirm", "socat"])
-            self.assertIsNone(install.install_command(["socat"], which()))
+            # con indici vecchi apt-get install non trova i pacchetti: prima l'aggiornamento
+            self.assertEqual(install.install_commands(["bwrap", "socat"], which("apt-get", "dnf")),
+                             [["sudo", "apt-get", "-o", "Acquire::Retries=3", "-o", "Acquire::http::Timeout=30", "update"],
+                              ["sudo", "apt-get", "install", "-y", "bubblewrap", "socat"]])
+            self.assertEqual(install.install_commands(["bwrap", "socat"], which("dnf", "zypper")),
+                             [["sudo", "dnf", "install", "-y", "bubblewrap", "socat"]])
+            self.assertEqual(install.install_commands(["socat"], which("pacman")),
+                             [["sudo", "pacman", "-S", "--needed", "--noconfirm", "socat"]])
+            self.assertIsNone(install.install_commands(["socat"], which()))
+
+    def test_ricarica_di_apparmor_anche_senza_systemd(self):
+        folder = Path(tempfile.mkdtemp(prefix="mimir-systemd-test-"))
+        self.addCleanup(shutil.rmtree, str(folder), ignore_errors=True)
+        parser = ["sudo", "apparmor_parser", "-r", install.APPARMOR_PROFILE_PATH]
+        with mock.patch.object(install, "as_root", side_effect=lambda c: ["sudo"] + c):
+            # la cartella può esserci anche senza un systemd che risponde (container): poi il parser
+            self.assertEqual(install.apparmor_reload_commands(str(folder)),
+                             [["sudo", "systemctl", "reload", "apparmor"], parser])
+            self.assertEqual(install.apparmor_reload_commands(str(folder / "manca")), [parser])
 
     def test_conferma_con_eof_vale_no(self):
         with mock.patch("builtins.input", side_effect=EOFError), mock.patch("builtins.print"):
             self.assertFalse(install.confirm("procedo?", assume_yes=False))
         self.assertTrue(install.confirm("procedo?", assume_yes=True))
 
-    def test_installazione_fallita_si_segnala(self):
+    def requirements(self, outcomes, apparmor=False):
+        """Lancia install_sandbox_requirements con apt-get e un runner finto: outcomes dice, per il primo
+        elemento di ogni comando, se riesce. Restituisce i problemi e i comandi lanciati."""
         calls = []
 
         def runner(command, **kwargs):
             calls.append(command)
-            return False
-        with mock.patch.object(install, "needs_apparmor_profile", return_value=False), \
+            return outcomes[command[1]]
+        with mock.patch.object(install, "needs_apparmor_profile", return_value=apparmor), \
+                mock.patch.object(install, "as_root", side_effect=lambda c: ["sudo"] + c), \
+                mock.patch.object(install, "apparmor_reload_commands", return_value=[["sudo", "systemctl"],
+                                                                                     ["sudo", "apparmor_parser"]]), \
                 mock.patch("builtins.print"):
+            # con bwrap e socat presenti si arriva subito ad AppArmor
+            tools = {"bwrap", "socat"} if apparmor else {"apt-get"}
+            problems = install.install_sandbox_requirements(
+                "linux", True, which=lambda n: "/usr/bin/" + n if n in tools else None, runner=runner)
+        return problems, [c[1] for c in calls]
+
+    def test_installazione_fallita_si_segnala(self):
+        problems, calls = self.requirements({"apt-get": False})
+        self.assertEqual(problems, ["bubblewrap, socat"])
+        self.assertEqual(calls, ["apt-get", "apt-get"])
+
+    def test_aggiornamento_fallito_non_ferma_l_installazione(self):
+        # un repository di terze parti rotto fa fallire apt-get update, ma i pacchetti ci sono
+        calls = []
+
+        def runner(command, **kwargs):
+            calls.append(command)
+            return "update" not in command
+        with mock.patch.object(install, "needs_apparmor_profile", return_value=False), \
+                mock.patch.object(install, "as_root", side_effect=lambda c: ["sudo"] + c), \
+                mock.patch("builtins.print") as printed:
             problems = install.install_sandbox_requirements(
                 "linux", True, which=lambda n: "/usr/bin/apt-get" if n == "apt-get" else None, runner=runner)
-        self.assertEqual(problems, ["bubblewrap, socat"])
-        self.assertEqual(len(calls), 1)
+        self.assertEqual(problems, [])
+        self.assertEqual(calls, [["sudo", "apt-get", "-o", "Acquire::Retries=3", "-o", "Acquire::http::Timeout=30", "update"],
+                                 ["sudo", "apt-get", "install", "-y", "bubblewrap", "socat"]])
+        self.assertIn("update non riuscito", str(printed.call_args_list))
+
+    def test_profilo_apparmor_ricaricato_con_il_primo_comando_che_riesce(self):
+        problems, calls = self.requirements({"tee": True, "systemctl": False, "apparmor_parser": True},
+                                            apparmor=True)
+        self.assertEqual(problems, [])
+        self.assertEqual(calls, ["tee", "systemctl", "apparmor_parser"])
+        problems, calls = self.requirements({"tee": True, "systemctl": True}, apparmor=True)
+        self.assertEqual((problems, calls), ([], ["tee", "systemctl"]))
+        problems, calls = self.requirements({"tee": True, "systemctl": False, "apparmor_parser": False},
+                                            apparmor=True)
+        self.assertEqual((problems, calls), (["profilo AppArmor"], ["tee", "systemctl", "apparmor_parser"]))
+
+    def test_profilo_apparmor_non_scritto_non_si_ricarica(self):
+        problems, calls = self.requirements({"tee": False}, apparmor=True)
+        self.assertEqual(problems, ["profilo AppArmor"])
+        self.assertEqual(calls, ["tee"])
+
+    def test_conferma_dei_pacchetti_non_promette_lo_stop_dopo_l_aggiornamento(self):
+        asked = []
+        with mock.patch.object(install, "needs_apparmor_profile", return_value=False), \
+                mock.patch.object(install, "as_root", side_effect=lambda c: ["sudo"] + c), \
+                mock.patch.object(install, "confirm", side_effect=lambda q, _: asked.append(q)), \
+                mock.patch("builtins.print"):
+            install.install_sandbox_requirements(
+                "linux", False, which=lambda n: "/usr/bin/apt-get" if n == "apt-get" else None)
+        self.assertIn("update, poi sudo apt-get install -y bubblewrap socat", asked[0])
+
+    def test_conferma_di_apparmor_mostra_i_comandi(self):
+        asked = []
+        with mock.patch.object(install, "needs_apparmor_profile", return_value=True), \
+                mock.patch.object(install, "apparmor_reload_commands", return_value=[["sudo", "a"], ["sudo", "b"]]), \
+                mock.patch.object(install, "confirm", side_effect=lambda q, _: asked.append(q)), \
+                mock.patch("builtins.print"):
+            install.install_sandbox_requirements("linux", False, which=lambda n: "/usr/bin/" + n)
+        self.assertIn("sudo a o sudo b?", asked[0])
 
 
 @unittest.skipIf(os.name == "nt", "asserzioni nel formato POSIX: su Windows install.py lo provano InstallPs1 e la CI")

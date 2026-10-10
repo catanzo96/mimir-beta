@@ -58,12 +58,19 @@ profile bwrap /usr/bin/bwrap flags=(unconfined) {
 }
 """
 APPARMOR_SYSCTL = "/proc/sys/kernel/apparmor_restrict_unprivileged_userns"
+# senza systemd come PID 1 systemctl non funziona: lì si carica il solo profilo con apparmor_parser
+SYSTEMD_RUNTIME_DIR = "/run/systemd/system"
 SANDBOX_PACKAGES = {"bwrap": "bubblewrap", "socat": "socat"}
+# (gestore, aggiornamento degli indici da lanciare prima, comando di installazione). Con indici vecchi
+# apt-get install non trova i pacchetti; dnf e zypper aggiornano i metadati da soli, pacman -Sy
+# aggiornerebbe a metà. Tentativi e timeout: un mirror che non rispondeva ha tenuto fermo apt per
+# 14 minuti in CI (run 37809319638).
 PACKAGE_MANAGERS = [
-    ("apt-get", ["apt-get", "install", "-y"]),
-    ("dnf", ["dnf", "install", "-y"]),
-    ("pacman", ["pacman", "-S", "--needed", "--noconfirm"]),
-    ("zypper", ["zypper", "install", "-y"]),
+    ("apt-get", [["apt-get", "-o", "Acquire::Retries=3", "-o", "Acquire::http::Timeout=30", "update"]],
+     ["apt-get", "install", "-y"]),
+    ("dnf", [], ["dnf", "install", "-y"]),
+    ("pacman", [], ["pacman", "-S", "--needed", "--noconfirm"]),
+    ("zypper", [], ["zypper", "install", "-y"]),
 ]
 
 
@@ -318,12 +325,32 @@ def as_root(command):
     return command if hasattr(os, "geteuid") and os.geteuid() == 0 else ["sudo"] + command
 
 
-def install_command(missing, which=shutil.which):
-    """Il comando per installare i pacchetti mancanti con il gestore della distro, o None."""
-    for name, base in PACKAGE_MANAGERS:
+def install_commands(missing, which=shutil.which):
+    """I comandi, in ordine, per installare i pacchetti mancanti con il gestore della distro, o None.
+    L'ultimo installa, quelli prima aggiornano gli indici."""
+    for name, before, base in PACKAGE_MANAGERS:
         if which(name):
-            return as_root(base + [SANDBOX_PACKAGES[tool] for tool in missing])
+            return [as_root(c) for c in before] + [as_root(base + [SANDBOX_PACKAGES[tool] for tool in missing])]
     return None
+
+
+def install_packages(commands, runner):
+    """Un aggiornamento degli indici fallito (per esempio un repository di terze parti rotto) non
+    ferma l'installazione: i pacchetti possono essere già negli indici che ci sono."""
+    for refresh in commands[:-1]:
+        if not runner(refresh):
+            print(f"! {' '.join(refresh)} non riuscito: installo con gli indici presenti")
+    return runner(commands[-1])
+
+
+def apparmor_reload_commands(systemd_runtime_dir=SYSTEMD_RUNTIME_DIR):
+    """I modi di ricaricare AppArmor, da provare in ordine fino al primo che riesce."""
+    parser = as_root(["apparmor_parser", "-r", APPARMOR_PROFILE_PATH])
+    # la cartella c'è se systemd è il PID 1 (sd_booted), ma in un container può esserci senza che
+    # systemd risponda: lì systemctl fallisce e resta il parser
+    if os.path.isdir(systemd_runtime_dir):
+        return [as_root(["systemctl", "reload", "apparmor"]), parser]
+    return [parser]
 
 
 def needs_apparmor_profile(sysctl_path=APPARMOR_SYSCTL, profile_path=APPARMOR_PROFILE_PATH):
@@ -358,25 +385,28 @@ def install_sandbox_requirements(system, assume_yes, which=shutil.which, runner=
         print("✓ bubblewrap e socat presenti")
     else:
         packages = ", ".join(SANDBOX_PACKAGES[t] for t in missing)
-        command = install_command(missing, which)
-        if command is None:
+        commands = install_commands(missing, which)
+        if commands is None:
             print(f"! gestore dei pacchetti non riconosciuto: installa a mano {packages}")
             problems.append(packages)
-        elif not confirm(f"La sandbox richiede {packages}. Installo con: {' '.join(command)}?", assume_yes):
+        elif not confirm(f"La sandbox richiede {packages}. Installo con: "
+                         f"{', poi '.join(' '.join(c) for c in commands)}?", assume_yes):
             print(f"! {packages} non installati")
             problems.append(packages)
-        elif runner(command):
+        elif install_packages(commands, runner):
             print(f"✓ {packages} installati")
         else:
             print(f"! installazione di {packages} non riuscita")
             problems.append(packages)
     if needs_apparmor_profile():
-        if not confirm(f"AppArmor blocca bubblewrap: scrivo {APPARMOR_PROFILE_PATH} e ricarico AppArmor (sudo)?", assume_yes):
+        reloads = apparmor_reload_commands()
+        if not confirm(f"AppArmor blocca bubblewrap: scrivo {APPARMOR_PROFILE_PATH} e ricarico AppArmor con: "
+                       f"{' o '.join(' '.join(c) for c in reloads)}?", assume_yes):
             print("! profilo AppArmor non installato: la sandbox non parte")
             problems.append("profilo AppArmor")
         elif (runner(as_root(["tee", APPARMOR_PROFILE_PATH]), input=APPARMOR_PROFILE, text=True,
                      stdout=subprocess.DEVNULL)
-              and runner(as_root(["systemctl", "reload", "apparmor"]))):
+              and any(runner(c) for c in reloads)):
             print(f"✓ profilo AppArmor installato in {APPARMOR_PROFILE_PATH}")
         else:
             print("! profilo AppArmor non installato")
