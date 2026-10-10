@@ -7,6 +7,8 @@ finto nel PATH: il repo vero, ~/.claude e la CLI di Claude Code non vengono tocc
 La cartella di Mímir è scrivibile dalla sandbox: con -I non si importano moduli piantati accanto al
 test, e install.py si carica dal sorgente, senza sys.path e senza la cache .pyc.
 """
+import contextlib
+import io
 import json
 import os
 import shutil
@@ -198,11 +200,13 @@ class PureFunctions(unittest.TestCase):
         # escapate, su Linux una voce di denyWrite con * ? [ viene saltata. Le parentesi sono letterali.
         # caratteri di controllo: gitignore va a righe, un a capo spezza la regola
         for path in ("/home/a/mi[mi]r", "/home/a/mimir*", "/home/a/mimir?", "/home/a/mi]r", "/home/a/mi\\r",
-                     "/home/a/mi\nr", "/home/a/mi\tr", "/home/a/mi\x1fr"):
+                     "/home/a/mi\nr", "/home/a/mi\tr", "/home/a/mi\x1fr", "/home/a/mi\x7fr", "/home/a/mi\x80r",
+                     "/home/a/mi\x9br", "/home/a/mi\x9fr", "/home/a/mi\udcffr"):
             with self.assertRaises(install.InstallError, msg=path):
                 install.check_mimir_dir(path)
         install.check_mimir_dir("/home/a/mimir (copia)")
         install.check_mimir_dir("C:/Users/a/mimir")
+        install.check_mimir_dir("/home/a/Mímir\xa0è")
 
     def test_template_con_chiavi_non_ammesse_rifiutato(self):
         # prima della prima installazione una sessione nella sandbox può modificare il template, che poi
@@ -220,6 +224,24 @@ class PureFunctions(unittest.TestCase):
             install.check_template_keys({"\x1b[2J\n✓ ok": 1})
         self.assertNotIn("\x1b", str(raised.exception))
         self.assertNotIn("\n", str(raised.exception))
+
+    def test_errore_di_codifica_in_scrittura_si_segnala_senza_traceback(self):
+        # rete di sicurezza: la validazione rifiuta prima i valori non scrivibili in UTF-8
+        error = UnicodeEncodeError("utf-8", "\ud800", 0, 1, "surrogates not allowed")
+        stderr = io.StringIO()
+        # redirect anche di stdout: main riconfigura gli stream veri, quelli del runner non vanno toccati
+        with mock.patch.object(install, "read_inputs"), mock.patch.object(install, "compute"), \
+                mock.patch.object(install, "write_outputs", side_effect=error), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+            self.assertEqual(install.main(["--skip-system"]), 1)
+        self.assertIn("scrittura non riuscita", stderr.getvalue())
+
+    def test_settings_con_surrogato_isolato_rifiutati_ovunque(self):
+        for text in ('{"\\ud800": 1}', '{"a": ["\\ud800"]}', '{"a": "\\udc00\\ud800"}'):
+            with self.assertRaises(install.InstallError, msg=text):
+                install.parse_settings(text, "settings.json")
+        # una coppia valida json la compone in un carattere vero
+        self.assertEqual(install.parse_settings('{"a": "\\ud83d\\ude00"}', "settings.json"), {"a": "\U0001F600"})
 
     def test_import_scritto_una_volta_e_sostituito(self):
         first = install.linked_claude_md("riga\n@/a/CLAUDE.md\n", "/a")
@@ -414,6 +436,28 @@ class Installer(unittest.TestCase):
         self.assertIn("nessuna modifica", result.stderr)
         self.assertEqual(self.box.snapshot(), before)
 
+    def test_template_con_valore_non_scrivibile_in_utf8_nessuna_modifica(self):
+        # json accetta un surrogato isolato come escape, ma non si può scrivere in UTF-8: va rifiutato
+        # prima delle scritture, non a metà dopo CLAUDE.md
+        mimir = self.box.mimir()
+        write(mimir / "settings.template.json", '{"attribution": {"commit": "\\ud800"}}')
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertFalse((self.box.home / ".claude" / "CLAUDE.md").exists(), "CLAUDE.md scritto prima dell'errore")
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_settings_utente_con_valore_non_scrivibile_in_utf8_nessuna_modifica(self):
+        mimir = self.box.mimir()
+        write(self.box.home / ".claude" / "settings.json", '{"env": {"A": "\\udfff"}}')
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertFalse((self.box.home / ".claude" / "CLAUDE.md").exists(), "CLAUDE.md scritto prima dell'errore")
+        self.assertEqual(self.box.snapshot(), before)
+
     def test_settings_utente_con_chiavi_qualsiasi_conservato(self):
         # il controllo delle chiavi vale solo per il template: settings.json è dell'utente
         mimir = self.box.mimir()
@@ -464,6 +508,18 @@ class Installer(unittest.TestCase):
         self.assertIn("nessuna modifica", result.stderr)
         self.assertEqual(self.box.snapshot(), before)
         self.assertFalse((self.box.root / "claude.log").exists(), "il marketplace non va registrato")
+
+    @unittest.skipIf(sys.platform == "darwin", "APFS rifiuta i nomi non UTF-8")
+    def test_cartella_con_nome_non_utf8_nessuna_modifica(self):
+        # su Linux un byte non UTF-8 nel nome arriva come surrogato (surrogateescape), che non si scrive
+        # in CLAUDE.md: prima l'errore arrivava dopo aver creato i file personali
+        mimir = self.box.mimir(os.fsdecode(b"mimir_\xff"))
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertIn("\\udcff", result.stderr, "il percorso va mostrato con repr")
+        self.assertEqual(self.box.snapshot(), before)
 
     def test_cartella_con_parentesi_protetta(self):
         mimir = self.box.mimir("mimir (copia)")

@@ -137,11 +137,21 @@ def protected_entries(mimir_dir):
 
 # --- lettura e validazione ------------------------------------------------------------------------
 
+def is_control_char(c):
+    """C0, DEL e C1: alcuni terminali interpretano anche questi ultimi."""
+    return ord(c) < 32 or 0x7f <= ord(c) <= 0x9f
+
+
 def check_mimir_dir(mimir_dir):
     """Un percorso con caratteri di pattern renderebbe la protezione inefficace senza avviso. Anche i
     caratteri di controllo: gitignore va a righe e un a capo spezzerebbe la regola."""
+    try:
+        mimir_dir.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        # su Linux un byte non UTF-8 del nome arriva come surrogato, che CLAUDE.md non potrebbe contenere
+        raise InstallError(f"il percorso {mimir_dir!r} non è UTF-8 valido: rinomina la cartella") from exc
     found = sorted(set(PATTERN_CHARS) & set(mimir_dir))
-    if any(ord(c) < 32 for c in mimir_dir):
+    if any(is_control_char(c) for c in mimir_dir):
         found.append("caratteri di controllo")
     if found:
         raise InstallError(f"il percorso {mimir_dir!r} contiene {' '.join(found)}: Claude Code lo leggerebbe "
@@ -189,6 +199,12 @@ def parse_settings(text, path):
         raise InstallError(f"{path} non è JSON valido ({exc})") from exc
     if not isinstance(data, dict):
         raise InstallError(f"{path} non contiene un oggetto JSON")
+    # json accetta un surrogato isolato come escape (\ud800), che poi non si scrive in UTF-8: rifiutarlo qui
+    # evita di fermarsi a metà, dopo aver già scritto CLAUDE.md
+    try:
+        json.dumps(data, ensure_ascii=False).encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise InstallError(f"{path} contiene un carattere non scrivibile in UTF-8 ({exc.reason})") from exc
     for keys in (("permissions",), ("sandbox",), ("sandbox", "filesystem")):
         value = data
         for key in keys:
@@ -600,7 +616,7 @@ def main(argv=None):
     written = []
     try:
         write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, written)
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         print(f"✗ scrittura non riuscita ({exc}). File già scritti: {', '.join(written) or 'nessuno'}. "
               "Risolvi e rilancia install.sh.", file=sys.stderr)
         return 1
