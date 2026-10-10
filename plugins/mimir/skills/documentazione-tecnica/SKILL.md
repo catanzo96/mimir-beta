@@ -6,7 +6,7 @@ when_to_use: 'Es.: "aggiorna il README", "scrivi una guida di installazione", "d
 
 # Documentazione tecnica
 
-Si applica insieme a `clean-code`. Le convenzioni del progetto (struttura di docs, strumenti come wiki o sito) prevalgono. Per i documenti di analisi usa `analisi-funzionale` e `analisi-tecnica` (se disponibili); per i runbook `runbook`.
+Si applica insieme a `clean-code`. Le convenzioni del progetto (struttura di docs, strumenti come wiki o sito) prevalgono. Qui si scrive la documentazione da tenere per chi legge dopo. Per i documenti che servono a decidere, diagnosticare o censire un sistema con evidenze usa `analisi-funzionale` e `analisi-tecnica` (se disponibili); per i runbook `runbook`.
 
 Non creare o modificare file nei repo dei clienti senza ok: proponi prima cosa scrivere e dove.
 

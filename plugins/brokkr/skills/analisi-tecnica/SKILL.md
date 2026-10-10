@@ -10,6 +10,10 @@ Documenta **come funziona davvero** un sistema, con evidenze che chiunque può r
 
 Il metodo, cioè cosa conta come verifica, la tabella "Verificato su", le rettifiche e le trappole degli strumenti, è in [references/evidenze.md](references/evidenze.md). **Leggilo sempre prima di scrivere.**
 
+## Quando non usarla
+- Documentazione da tenere per chi legge dopo (README, guide, onboarding, mappa del repo): `documentazione-tecnica`. Qui il sistema si documenta con evidenze ricontrollabili, per decidere, diagnosticare o censire.
+- Un difetto da correggere: `debugging` per trovare la causa, `ticket` per il flusso fino al rilascio. Questa skill entra quando la diagnosi diventa un documento (incidente in produzione, causa radice da rendicontare).
+
 ## Contesto del progetto
 Dal `CLAUDE.md` del progetto ricava:
 - ambienti e DB (quali puoi interrogare e quali no);

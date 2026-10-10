@@ -6,7 +6,7 @@ when_to_use: 'Es.: "prepara lo stato avanzamento per il cliente", "siamo in rita
 
 # Stato e rischi
 
-Si applica insieme a `stime` per gli scostamenti di tempo e a `decisioni` per le richieste di decisione, se disponibili. Prevalgono il formato e il ritmo di rendicontazione richiesti dal cliente o dal contratto. Per produrre Word, Excel o slide usa le skill di formato (`docx`, `xlsx`, `pptx`) o gli Artifact: qui si cura il contenuto.
+Si applica insieme a `stime` per gli scostamenti di tempo, a `decisioni` per le richieste di decisione, a `riunioni` per agenda e verbale del SAL e a `presentazioni` per le slide, se disponibili. Prevalgono il formato e il ritmo di rendicontazione richiesti dal cliente o dal contratto. Per produrre Word, Excel o slide usa le skill di formato (`docx`, `xlsx`, `pptx`) o gli Artifact: qui si cura il contenuto.
 
 Scopo: far capire a chi legge in un minuto come va, cosa rischia e cosa deve fare lui. Il report serve a chi decide, non a chi scrive.
 

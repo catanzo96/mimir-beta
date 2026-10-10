@@ -6,7 +6,7 @@ when_to_use: 'Es.: "domani ho una riunione con…", "ecco gli appunti della call
 
 # Riunioni
 
-Si applica insieme alle regole sempre attive, in particolare `rules/communication.md` per i testi al cliente; se disponibile, `gestione-persone` per i 1:1 e `rilascio` o `ticket` per i temi collegati. Le convenzioni dell'azienda e del cliente (formato verbali, liste di distribuzione) prevalgono. Per produrre il verbale o l'agenda in Word, PDF o altro formato, usa le skill dedicate (`docx`, `pdf`): qui si cura il contenuto.
+Si applica insieme alle regole sempre attive, in particolare `rules/communication.md` per i testi al cliente; se disponibile, `gestione-persone` per i 1:1, `rilascio` o `ticket` per i temi collegati e `stato-e-rischi` per il contenuto di un SAL (qui la riunione: agenda, verbale, follow-up). Le convenzioni dell'azienda e del cliente (formato verbali, liste di distribuzione) prevalgono. Per produrre il verbale o l'agenda in Word, PDF o altro formato, usa le skill dedicate (`docx`, `pdf`): qui si cura il contenuto.
 
 Scopo: una riunione ha un esito che si può nominare, e chi non c'era capisce cosa è stato deciso e cosa deve fare.
 

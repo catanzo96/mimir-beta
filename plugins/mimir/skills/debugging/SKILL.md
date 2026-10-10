@@ -6,7 +6,7 @@ when_to_use: 'Es.: "non funziona", "dà errore", "il test è rosso", "ogni tanto
 
 # Debugging
 
-Si applica insieme a `clean-code` (per il fix e i test) e alla skill del linguaggio o del framework in uso. Per i difetti segnalati da terzi, se disponibile, vale anche `ticket`. Prevalgono le convenzioni e gli strumenti del progetto.
+Si applica insieme a `clean-code` (per il fix e i test) e alla skill del linguaggio o del framework in uso. Per i difetti segnalati da terzi, se disponibile, vale anche `ticket`; se la diagnosi va consegnata come documento (incidente, causa radice), `analisi-tecnica`. Prevalgono le convenzioni e gli strumenti del progetto.
 
 Regola di fondo: nessun fix senza una causa accertata. Un fix provato "per vedere se passa" nasconde il sintomo e lascia il difetto.
 

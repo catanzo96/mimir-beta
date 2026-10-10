@@ -5,7 +5,7 @@ description: Contenuto e struttura di slide e presentazioni. Usala quando devi p
 
 # Presentazioni
 
-Si applica insieme a `scrittura-professionale` per i testi. Le convenzioni e i modelli del cliente o dell'azienda prevalgono. Il formato (Artifact di tipo Slides, skill `pptx`) si sceglie dopo il contenuto e non si duplica qui.
+Si applica insieme a `scrittura-professionale` per i testi. Per uno stato avanzamento i fatti (avanzamento, scostamenti, rischi) li prepara `stato-e-rischi`, se disponibile; qui si costruiscono le slide. Le convenzioni e i modelli del cliente o dell'azienda prevalgono. Il formato (Artifact di tipo Slides, skill `pptx`) si sceglie dopo il contenuto e non si duplica qui.
 
 ## Contenuto prima del formato
 1. **Obiettivo**: cosa deve fare o decidere il pubblico alla fine?
