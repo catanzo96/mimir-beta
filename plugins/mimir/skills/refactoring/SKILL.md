@@ -28,7 +28,7 @@ Refactoring significa cambiare la struttura **senza cambiare il comportamento os
 Servono quando il codice non ha test e il comportamento attuale va preservato, anche se discutibile.
 - Chiama il codice con input reali o realistici e registra l'output attuale come atteso. Non giudicare se è giusto: fissa ciò che fa oggi.
 - Parti dai casi di confine e dai rami che userai: non serve coprire tutto, serve coprire ciò che stai per spostare.
-- Per output grandi (report, JSON, HTML) usa snapshot o golden file, se il progetto ha già lo strumento. Niente nuove dipendenze senza ok.
+- Per output grandi (report, JSON, HTML) usa snapshot o golden file, se il progetto ha già lo strumento.
 - Un bug scoperto così non si corregge nel refactoring: lo segnali, e lo tratti dopo con un commit `fix` (test che lo riproduce prima).
 - Marca questi test come "caratterizzazione" nel nome o in un commento: sono provvisori e potranno essere sostituiti da test sul comportamento voluto.
 

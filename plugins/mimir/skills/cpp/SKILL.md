@@ -82,7 +82,7 @@ Non possiedono i dati: sono comodi come **parametri**, pericolosi come valori co
 ## CMake moderno
 - Un target per libreria o eseguibile: `add_library`, `add_executable`, poi `target_link_libraries`, `target_include_directories`, `target_compile_features(… cxx_std_20)`, ciascuno con `PRIVATE`/`PUBLIC`/`INTERFACE` motivato.
 - Niente comandi globali (`include_directories`, `add_definitions`, `link_libraries`, `set(CMAKE_CXX_FLAGS …)`) e niente impostazioni a livello di directory: le proprietà viaggiano con il target (`target_include_directories`, `target_compile_definitions`, `target_link_libraries`).
-- Dipendenze con `find_package` (config package) o `FetchContent` con versione e hash fissati; una dipendenza nuova va concordata.
+- Dipendenze con `find_package` (config package) o `FetchContent` con versione e hash fissati.
 - `CMAKE_EXPORT_COMPILE_COMMANDS=ON` per analizzatori e IDE; `CMakePresets.json` se il progetto lo usa per configurazioni riproducibili. Build out-of-source.
 - Non cambiare standard, compilatore o flag di tutto il progetto per ottenere una compilazione.
 

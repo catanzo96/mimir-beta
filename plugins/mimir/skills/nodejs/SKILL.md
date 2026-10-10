@@ -57,7 +57,7 @@ Feature utili (dalla documentazione ufficiale):
 - `console.log` non è logging applicativo.
 
 ## Sicurezza
-- **Dipendenze**: `npm audit` (o equivalente) in CI, lockfile versionato e `npm ci` nelle build; ogni dipendenza nuova va motivata e approvata. Occhio ai pacchetti con script `postinstall` e ai typosquatting.
+- **Dipendenze**: `npm audit` (o equivalente) in CI, lockfile versionato e `npm ci` nelle build. Occhio ai pacchetti con script `postinstall` e ai typosquatting.
 - **Prototype pollution**, `eval`, regex (ReDoS): vedi `typescript` sezione sicurezza.
 - **`child_process`**: `execFile`/`spawn` con array di argomenti, mai `exec` con stringhe composte; `shell: true` solo su valori costanti.
 - **Percorsi**: normalizza e confina (`path.resolve` e controllo del prefisso) prima di leggere file indicati dall'utente.

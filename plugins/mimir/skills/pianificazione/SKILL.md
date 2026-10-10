@@ -38,7 +38,7 @@ Per compiti grandi o rischiosi (dati, migrazioni, sicurezza, pagamenti, contratt
 ### Spike
 Quando una domanda si chiude solo provando (una libreria fa davvero X? due approcci, quale regge?), proponi uno spike prima del piano e aspetta l'ok su domande, tempo e posto:
 - **Domande osservabili**, da 1 a 4, nella forma "dato…, quando…, allora si vede…". Prima la più rischiosa: se cade quella, le altre non servono.
-- **Tempo massimo** e **posto usa e getta**: di default lo scratchpad. Un branch nel repo del progetto e ogni dipendenza nuova richiedono l'ok dell'utente. Niente dati reali né scritture su sistemi condivisi.
+- **Tempo massimo** e **posto usa e getta**: di default lo scratchpad. Un branch nel repo del progetto richiede l'ok dell'utente. Niente dati reali né scritture su sistemi condivisi.
 - Il codice dello spike non entra nel prodotto: se serve pulirlo per tenerlo, lo spike è cresciuto oltre il suo scopo.
 - La prova si deve poter vedere o rilanciare (un test, uno script, una pagina): un messaggio di successo stampato non dimostra niente. Oltre al caso che deve funzionare, prova quello che dovrebbe fallire.
 - **Esito** per domanda: confermata, confermata con vincoli (quali), smentita. Anche la smentita è un risultato utile: costa uno spike invece di una funzione intera.

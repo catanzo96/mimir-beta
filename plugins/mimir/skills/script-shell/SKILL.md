@@ -100,7 +100,7 @@ Passa a Python (o a un altro linguaggio già nel progetto) quando:
 - gestisci errori con tentativi, parallelismo, API HTTP complesse;
 - lo script deve girare su Windows.
 
-Il Bash resta la scelta giusta per orchestrare comandi, pipeline di processi, wrapper e hook brevi. Usa solo la libreria standard di Python, senza nuove dipendenze senza ok.
+Il Bash resta la scelta giusta per orchestrare comandi, pipeline di processi, wrapper e hook brevi. Usa solo la libreria standard di Python.
 
 ## sh POSIX
 Stesse regole di sicurezza e struttura, ma: niente array (usa `"$@"` con `set --`), `[ ]` e `case`, `local` non standard (ma accettato da dash e ash: verifica sul target), niente `pipefail` (in alcune shell POSIX recenti c'è, non contarci), `printf` e non `echo`. Prova con `dash` e, se serve, `busybox sh`.

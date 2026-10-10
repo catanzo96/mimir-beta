@@ -35,7 +35,7 @@ Le versioni con supporto attivo cambiano ogni anno: controlla php.net/supported-
 ## Composer e autoload
 - Autoload **PSR-4** (`"autoload": {"psr-4": {"App\\": "src/"}}`): un file per classe, namespace uguale al percorso. Dopo modifiche all'autoload: `composer dump-autoload`.
 - Versioni con `^`. Il `composer.lock` si versiona per le applicazioni, non per le librerie. In CI e in produzione `composer install --no-dev --optimize-autoloader`, mai `update`.
-- Nessuna nuova dipendenza senza ok. Prima di proporla: manutenzione, licenza, `composer audit`.
+- Prima di proporre una dipendenza nuova: manutenzione, licenza, `composer audit`.
 - Se usi estensioni (`ext-intl`, `ext-pdo_pgsql`) dichiarale in `require`.
 
 ## Standard PSR

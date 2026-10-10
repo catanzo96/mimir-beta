@@ -34,7 +34,7 @@ Segui il progetto. In mancanza:
 ## Dipendenze e ambienti
 - Dichiara tutto in `pyproject.toml` e usa **lo strumento già presente** (uv, poetry, pip-tools, pip + venv): riconoscilo da `uv.lock`, `poetry.lock`, `requirements*.in`.
 - Un ambiente virtuale per progetto, mai installazioni nel Python di sistema.
-- Il lockfile si aggiorna solo con lo strumento, mai a mano; dipendenze nuove solo con ok (regola generale).
+- Il lockfile si aggiorna solo con lo strumento, mai a mano.
 - Separa runtime e sviluppo (`dependency-groups` o extra); non fissare con `==` nelle librerie, sì nelle applicazioni (via lockfile).
 
 ## Eccezioni e risorse
