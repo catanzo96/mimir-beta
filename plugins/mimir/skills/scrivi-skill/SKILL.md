@@ -41,7 +41,7 @@ Nel dubbio, `mimir` solo se serve davvero anche fuori dal lavoro.
   5. file di supporto.
 - Tono imperativo e calmo. Niente maiuscole o "assolutamente": dai il motivo delle regole non ovvie, funziona meglio.
 - Non ripetere le regole sempre attive: dalle per scontate o rimanda.
-- Coerenza con le regole: italiano, commit e push solo con approvazione, nessuna attribuzione all'AI, verificato ≠ plausibile, nessun file di metodo creato nei repo dei clienti se non richiesto.
+- Coerenza con le regole: italiano, commit e push solo con approvazione, nessuna attribuzione all'AI, verificato ≠ plausibile, nessun file di metodo creato nei repo dei progetti se non richiesto.
 - Niente dati di aziende o clienti: il metodo qui, i dati nei progetti.
 - Da fonti esterne prendi idee e strutture, non testo: riscrivi con parole tue.
 

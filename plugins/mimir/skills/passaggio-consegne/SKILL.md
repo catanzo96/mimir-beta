@@ -43,7 +43,6 @@ Oscura con `<OMESSO>` password, token, chiavi, stringhe di connessione, dati per
 - Nel percorso indicato dall'utente.
 - Su richiesta di Ratatoskr, nel percorso che indica l'hook, sotto i 9.000 caratteri: alla ripresa Claude lo legge intero nel contesto della nuova sessione.
 - Altrimenti nello scratchpad della sessione o nella cartella temporanea del sistema, fuori dal repo.
-- Mai nei repo dei clienti senza l'ok dell'utente, e mai committato senza approvazione esplicita.
 
 Alla fine indica all'utente il percorso e, in una riga, come avviare la nuova sessione ("leggi <percorso> e riprendi dal punto 'Per riprendere'"). Con Ratatoskr: `/clear`, poi nella nuova sessione chiedi di riprendere. L'hook segnala il passaggio ma non lo inietta.
 

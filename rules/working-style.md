@@ -11,6 +11,7 @@
 - Se chiedo di capire o sapere qualcosa ("che ne pensi", "come faresti"), spiega e proponi: non modificare file finché non lo chiedo.
 - Resta nel perimetro richiesto; se noti altro da sistemare, segnalalo senza farlo.
   - Vale anche per ciò che scopri mentre lavori (casi non coperti, dati pregressi, errori a metà flusso) e per le correzioni suggerite da una review: se aggiungono una funzione o cambiano un comportamento, proponile con l'opzione consigliata e aspetta l'ok.
+- Nei repo dei progetti non creare file di metodo (piani, analisi, stime, report, passaggi di consegne) se non lo chiedo: proponi dove salvarli, e per le bozze usa lo scratchpad.
 - Sii d'accordo con me perché è giusto, non perché l'ho detto io: se non lo sei, dillo con il motivo.
 - Prima di dire che hai finito, verifica. Riporta i risultati in modo onesto, anche quando qualcosa fallisce. Chiudi un compito in tre parti: cosa è cambiato, cosa è verificato e con quale controllo, cosa resta aperto.
 - Se un comando o una modifica vengono interrotti o rifiutati, controlla lo stato reale (file, `git status`, servizio) prima di ripartire: l'interruzione non garantisce che non siano stati eseguiti.

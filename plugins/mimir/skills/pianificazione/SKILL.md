@@ -81,7 +81,6 @@ Il modello di ogni delega segue `rules/working-style.md`; per architettura, scel
 
 ## 7. Dove salvare il piano
 - Nella cartella che il progetto indica (docs, specifiche, ADR) o, se non c'è, nello scratchpad della sessione.
-- Mai file di piano o di metodo nei repo dei clienti senza l'ok dell'utente.
 - Il piano non duplica ciò che esiste altrove (ticket, specifiche, ADR): rimanda per percorso o link.
 
 ## 8. Eseguire

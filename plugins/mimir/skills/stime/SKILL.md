@@ -47,7 +47,7 @@ Dichiara la fonte e il campione ("3 ticket simili, da 2 a 5 giorni"). Un campion
 - **Esclusioni**: cosa non è incluso, scritto.
 - **Contingenza**: un margine per i rischi noti, mostrato come riga separata con la motivazione. Mai nascosto dentro i singoli numeri: altrimenti chi legge lo toglie come "gonfiatura".
 
-Usa [templates/stima.md](templates/stima.md). Dove salvarlo lo proponi tu e lo decide l'utente: mai nei repo dei clienti senza ok.
+Usa [templates/stima.md](templates/stima.md). Dove salvarlo lo proponi tu e lo decide l'utente.
 
 ## 7. Comunica
 Distingui tre cose, perché spesso vengono confuse:
