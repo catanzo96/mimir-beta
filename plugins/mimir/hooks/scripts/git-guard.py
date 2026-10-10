@@ -364,12 +364,8 @@ def has_attribution(text):
     return any(pattern.search(text) for pattern in ATTRIBUTION)
 
 
-def commit_problem(commit_args, bodies, cwd, attribution_in_cmd):
-    """Il motivo per cui il messaggio del commit va bloccato, o None se è in regola o non ricostruibile.
-
-    attribution_in_cmd dice se c'è un'attribuzione in tutto il comando: si calcola una volta sola,
-    perché con molti commit nello stesso comando ripeterla costerebbe un tempo quadratico.
-    """
+def commit_problem(commit_args, cwd):
+    """Il motivo per cui il commit va bloccato, o None se forma e messaggio sono in regola."""
     try:
         message = parse_commit_args(commit_args, cwd)
     except CommitFormError as exc:
@@ -383,17 +379,17 @@ def commit_problem(commit_args, bodies, cwd, attribution_in_cmd):
         return (f"Commit bloccato: il file del messaggio {exc.path[:80]!r} {exc.reason}, quindi non si può "
                 "controllare. Scrivi il messaggio con lo strumento Write e passa a git commit -F il percorso "
                 "assoluto che restituisce (su Windows con le barre, C:/…).")
-    # Attribuzioni: nel messaggio ricostruito. Se non si riesce a ricostruirlo, in tutto il comando
-    # (heredoc compresi): i pattern sono abbastanza specifici da non scattare su percorsi o nomi di file.
-    if has_attribution(message) if message is not None else attribution_in_cmd():
+    # --amend --no-edit: nessun messaggio nel comando, git riusa quello di HEAD
+    if message is None:
+        return None
+    if has_attribution(message):
         return ("Commit bloccato: il messaggio contiene un'attribuzione all'AI "
                 "(trailer come Co-Authored-By, 'Generated with…', link a Claude Code). "
                 "Rimuovila e riproponi il commit.")
-    if message is not None:
-        problems = length_problems(message)
-        if problems:
-            return ("Commit bloccato: " + "; ".join(problems)
-                    + ". Vedi la skill commit: intestazione e righe del corpo entro 72 caratteri.")
+    problems = length_problems(message)
+    if problems:
+        return ("Commit bloccato: " + "; ".join(problems)
+                + ". Vedi la skill commit: intestazione e righe del corpo entro 72 caratteri.")
     return None
 
 
@@ -446,13 +442,7 @@ def check(raw):
 
     # il corpo di un heredoc può essere uno script eseguito (bash <<EOF): nel dubbio è una scrittura
     writes = ["heredoc"] if any(loose_git_write(body) for body in bodies) else []
-    attribution_cache = []
     shell_checked = False
-
-    def attribution_in_cmd():
-        if not attribution_cache:
-            attribution_cache.append(has_attribution(cmd))
-        return attribution_cache[0]
 
     for sub, args in calls:
         if sub == "dynamic":
@@ -472,7 +462,7 @@ def check(raw):
             return 2
         # commit-tree ha altri argomenti e non ha una regola ask: lo blocca block_form
         if sub == "commit":
-            problem = commit_problem(args, bodies, data.get("cwd") or os.getcwd(), attribution_in_cmd)
+            problem = commit_problem(args, data.get("cwd") or os.getcwd())
             if problem:
                 print(problem, file=sys.stderr)
                 return 2
