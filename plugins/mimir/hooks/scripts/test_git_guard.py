@@ -47,7 +47,6 @@ HEREDOC = "git commit -F - <<'EOF'\n{}\nEOF"
 # Bloccati per il contenuto: attribuzioni, righe oltre 72, force push (exit 2)
 CONTENT_BLOCK = {
     "Generated with Claude Code": 'git commit -m "feat: x" -m "🤖 Generated with [Claude Code](https://claude.com/claude-code)"',
-    "trailer passato con --trailer": 'git commit -m "feat: x" --trailer "Co-authored-by: Claude <noreply@anthropic.com>"',
     # con le barre: un percorso Windows con i backslash e senza virgolette bash lo rompe (anche Git Bash)
     "attribuzione in un file -F": f"git commit -F {Path(DIRTY_FILE).as_posix()}",
     # fail-closed: un messaggio che l'hook non può leggere non si può controllare
@@ -61,8 +60,6 @@ CONTENT_BLOCK = {
     "attribuzione oltre il limite di lettura": f"git commit -F {Path(LONG_FILE).as_posix()}",
     "intestazione oltre 72": f'git commit -m "{LONG}"',
     "intestazione accentata di 73 caratteri": 'git commit -m "feat: ' + "è" * 67 + '"',
-    "trailer Claude in heredoc": HEREDOC.format("feat: aggiungi x\n\nCo-Authored-By: Claude <noreply@anthropic.com>"),
-    "riga del corpo oltre 72 in heredoc": HEREDOC.format("feat: x\n\n" + "y" * 80),
     "opzione globale -c con intestazione lunga": f'git -c user.name=x commit -m "{LONG}"',
     "force push -f": "git push -f",
     "-f dopo il remote": "git push origin -f",
@@ -116,8 +113,6 @@ FORM_BLOCK = {
     "su -c": "su -c 'git push origin main' utente",
     "bash <<< con git push": "bash <<< 'git push'",
     "echo | sh con git push": "echo 'git push' | sh",
-    "heredoc come messaggio": HEREDOC.format("feat: x\n\nCorpo breve."),
-    "messaggio con $(cat <<EOF)": "git commit -m \"$(cat <<'EOF'\nfeat: x\n\nCorpo breve.\nEOF\n)\"",
     "messaggio su più righe": 'git commit -m "feat: x\n\nCorpo breve."',
     "push nel corpo di bash <<EOF": "bash <<'EOF'\ngit push\nEOF",
     "commit citato nel corpo di un heredoc": "python3 - <<'X'\nnota = 'dopo `git commit` il trailer'\nX",
@@ -132,6 +127,65 @@ FORM_BLOCK = {
     "echo git push": "echo git push",
     "virgolette sbilanciate": 'git push "origin',
     "due spazi dopo git": "git  push origin main",
+}
+
+# Bloccati perché gli argomenti di git commit non sono tra le forme ammesse (elenco chiuso): exit 2
+COMMIT_FORM_BLOCK = {
+    # git accetta valori attaccati e abbreviazioni delle opzioni lunghe
+    "-F attaccato al file": "git commit -Fmsg-pulito.txt",
+    "-m attaccato al messaggio": 'git commit -m"feat: x"',
+    "abbreviazione --fil=": "git commit --fil=msg-pulito.txt",
+    "abbreviazione --mess=": 'git commit --mess="feat: x"',
+    "-am": 'git commit -am "feat: x"',
+    # opzioni che cambiano autore, contenuto o messaggio senza passare dal controllo
+    "--author con un'AI": 'git commit -m "feat: x" --author="Claude <noreply@anthropic.com>"',
+    "--trailer pulito": 'git commit -m "feat: x" --trailer "Signed-off-by: Mario <m@x.it>"',
+    "-C riusa un messaggio": "git commit -C HEAD",
+    "-c riusa un messaggio": "git commit -c HEAD",
+    "--fixup": "git commit --fixup=HEAD",
+    "--squash": "git commit --squash=HEAD",
+    "--template": "git commit --template=msg-pulito.txt",
+    "--no-verify": 'git commit --no-verify -m "feat: x"',
+    "-a": 'git commit -a -m "feat: x"',
+    "-s": 'git commit -s -m "feat: x"',
+    "-q": 'git commit -q -m "feat: x"',
+    "--dry-run": 'git commit --dry-run -m "feat: x"',
+    "file posizionale": 'git commit -m "feat: x" a.txt',
+    "--": 'git commit -m "feat: x" -- a.txt',
+    "senza messaggio": "git commit",
+    "--no-edit senza --amend": "git commit --no-edit",
+    # combinazioni che git rifiuta o risolve in modo diverso dall'hook
+    "-m insieme a -F": 'git commit -m "feat: x" -F msg-pulito.txt',
+    "due -F: vince l'ultimo": "git commit -F msg-pulito.txt -F msg-pulito.txt",
+    # messaggi che la shell espande o che l'hook non vede
+    "-m con una variabile": 'git commit -m "feat: $X"',
+    "-m con un backtick": 'git commit -m "feat: `id`"',
+    # la shell espande graffe, caratteri jolly e ~: git riceverebbe un altro messaggio o altri file
+    "-m con le graffe": "git commit --message=Co-Authored-By:\\ Cl{au,x}de",
+    "-m con un glob": "git commit -m *",
+    "-m con ~ iniziale": "git commit -m ~/x",
+    "-m con [ ]: falso positivo accettato": 'git commit -m "[skip ci] feat: x"',
+    "-m senza valore": "git commit -m",
+    "--amend da solo": "git commit --amend",
+    "messaggio con $(cat <<EOF)": "git commit -m \"$(cat <<'EOF'\nfeat: x\n\nCorpo breve.\nEOF\n)\"",
+    "-F - da stdin": "git commit -F - < msg-pulito.txt",
+    "-F con redirect": "git commit -F msg-pulito.txt > out.txt",
+}
+COMMIT_FORM_REASON = "forme ammesse"
+
+# Bloccati con un motivo preciso: (comando, testo che deve comparire nel motivo)
+REASON_BLOCK = {
+    # il messaggio si controlla tutto, non solo l'ultimo -m
+    "attribuzione in un -m che non è l'ultimo": (
+        'git commit -m "feat: x" -m "Co-Authored-By: Claude <noreply@anthropic.com>" -m "Corpo breve."',
+        "attribuzione"),
+    "riga del corpo oltre 72 in un -m che non è l'ultimo": (
+        'git commit -m "feat: x" -m "' + "y" * 80 + '" -m "Corpo breve."', "riga 3 di 80"),
+    "intestazione oltre 72 con --message=": (f'git commit --message="{LONG}"', "intestazione di 82"),
+    # il motivo non deve mostrare il segnaposto interno degli heredoc
+    "heredoc come messaggio": (HEREDOC.format("feat: x\n\nCorpo breve."), "heredoc"),
+    "redirect dopo il messaggio": ('git commit -m "feat: x" 2>&1', "redirect"),
+    "--amend ripetuto": ('git commit --amend --amend -m "feat: x"', "--amend è ripetuto"),
 }
 
 # Lasciati alle regole ask di settings (forma semplice) o senza nulla da controllare: exit 0, nessun output
@@ -154,6 +208,12 @@ ALLOW = {
     # 72 caratteri ma 138 byte: la lunghezza si conta sul testo decodificato in UTF-8
     "intestazione accentata di 72 caratteri": 'git commit -m "feat: ' + "è" * 66 + '"',
     "amend senza messaggio": "git commit --amend --no-edit",
+    "commit con --message=": 'git commit --message="feat: x"',
+    "commit con --file=": "git commit --file=msg-pulito.txt",
+    "amend con -m": 'git commit --amend -m "feat: x"',
+    "amend con -F": "git commit --amend -F msg-pulito.txt",
+    # git prende il token dopo -m anche se inizia con -: il messaggio è "--amend"
+    "-m con valore che inizia con -": "git commit -m --amend",
     "tag senza argomenti": "git tag",
     "tag -l": "git tag -l 'v*'",
     "tag --list in una pipe": "git tag --list | grep v1",
@@ -183,7 +243,13 @@ PS_FORM_BLOCK = {
     "& git push": "& git push origin main",
     "iex": 'iex "git push origin main"',
     "continuazione con backtick": "git push `\n  origin main",
+    # su più righe il tokenizzatore trova virgolette sbilanciate: non arriva al controllo degli argomenti
     "here-string pulita": 'git commit -m @"\nfeat: x\n\nCorpo breve.\n"@',
+}
+PS_COMMIT_FORM_BLOCK = {
+    "here-string su una riga": "git commit -m @'feat: x'@",
+    # falso positivo accettato: il tokenizzatore spezza --message="a b" in due token
+    "--message= con uno spazio": 'git commit --message="feat: x"',
 }
 PS_ALLOW = {
     "maiuscole: le regole PowerShell non le distinguono": 'Git COMMIT -m "feat: x"',
@@ -233,12 +299,16 @@ def expect(label, name, result, code, reason=None):
 
 
 for tool, groups in (
-    ("Bash", [(CONTENT_BLOCK, 2, None), (FORM_BLOCK, 2, FORM_REASON), (ALLOW, 0, None)]),
-    ("PowerShell", [(PS_CONTENT_BLOCK, 2, None), (PS_FORM_BLOCK, 2, FORM_REASON), (PS_ALLOW, 0, None)]),
+    ("Bash", [(CONTENT_BLOCK, 2, None), (FORM_BLOCK, 2, FORM_REASON),
+              (COMMIT_FORM_BLOCK, 2, COMMIT_FORM_REASON), (ALLOW, 0, None)]),
+    ("PowerShell", [(PS_CONTENT_BLOCK, 2, None), (PS_FORM_BLOCK, 2, FORM_REASON),
+                    (PS_COMMIT_FORM_BLOCK, 2, COMMIT_FORM_REASON), (PS_ALLOW, 0, None)]),
 ):
     for cases, code, reason in groups:
         for name, cmd in cases.items():
             expect(tool, name, run(cmd, tool), code, reason)
+for name, (cmd, reason) in REASON_BLOCK.items():
+    expect("Bash", name, run(cmd), 2, reason)
 for name, (payload, code) in BROKEN.items():
     expect("input rotto", name, run_raw(payload), code)
 
@@ -274,7 +344,7 @@ for name, (cmd, code) in SLOW.items():
         print(f"FALLITO (tempo: {elapsed:.1f} s, massimo {MAX_SECONDS}): {name}")
 
 shutil.rmtree(TMP, ignore_errors=True)
-total = sum(len(c) for c in (CONTENT_BLOCK, FORM_BLOCK, ALLOW, PS_CONTENT_BLOCK, PS_FORM_BLOCK, PS_ALLOW,
-                             BROKEN, SLOW))
+total = sum(len(c) for c in (CONTENT_BLOCK, FORM_BLOCK, COMMIT_FORM_BLOCK, ALLOW, PS_CONTENT_BLOCK,
+                             PS_FORM_BLOCK, PS_COMMIT_FORM_BLOCK, PS_ALLOW, REASON_BLOCK, BROKEN, SLOW))
 print(f"{total - failures}/{total} casi corretti")
 sys.exit(1 if failures else 0)
