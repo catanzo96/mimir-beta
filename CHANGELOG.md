@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-10 (health-check: ripetizioni, nuova regola, confini)
+- Regola in `rules/working-style.md`: nei repo dei progetti non si creano file di metodo (piani, analisi, stime, report, passaggi) se non richiesti. Prima era ripetuta in sei skill; `stime`, `stato-e-rischi`, `pianificazione` e `passaggio-consegne` ora la danno per scontata, `documentazione-tecnica` tiene la sua variante (anche il README si tocca solo con ok).
+- Ripetizioni delle regole tolte dove non aggiungevano nulla dello stack: dipendenze nuove (`nodejs`, `cpp`, `python`, `php`, `refactoring`, `pianificazione`, `script-shell`), segreti nei log (`nodejs`, `quarkus`, `go`). Restano i passaggi che dicono dove si nasconde un segreto o come si inghiotte un'eccezione in quel linguaggio. `git-workflow` elenca solo le approvazioni che aggiunge alla regola (rebase e merge).
+- Confini dichiarati nel corpo, description invariate: `analisi-tecnica` ("Quando non usarla") con `documentazione-tecnica`, `debugging` e `ticket`; SAL tra `stato-e-rischi` (contenuto), `riunioni` (riunione) e `presentazioni` (slide).
+
 ## 2026-10-10 (health-check: correzioni dall'audit)
 - `plugin.json` di `mimir` e `brokkr` con `author`: `claude plugin validate --strict` falliva su entrambi (Claude Code 2.1.296), ora passa.
 - Agent `code-reviewer`: ricava il branch base con `git symbolic-ref refs/remotes/origin/HEAD`, senza rete come gli altri agent di sola lettura, invece di `git remote show origin`.
