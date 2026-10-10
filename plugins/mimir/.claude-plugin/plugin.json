@@ -1,5 +1,6 @@
 {
   "name": "mimir",
-  "version": "0.21.4",
-  "description": "Skill, agent e hook di Mímir validi in ogni ambito"
+  "version": "0.21.5",
+  "description": "Skill, agent e hook di Mímir validi in ogni ambito",
+  "author": { "name": "Giacomo Catanzaro" }
 }

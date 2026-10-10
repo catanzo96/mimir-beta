@@ -41,14 +41,16 @@ for dir in "$plugin"/skills/*/; do
   grep -ohE '([a-z0-9-]+/)?(references|templates)/[A-Za-z0-9_-]+\.md' "$dir/SKILL.md" | sort -u | while read -r ref; do
     case "$ref" in
       references/*|templates/*) path="$dir/$ref" ;;
-      *) path="$plugin/skills/$ref" ;;
+      *) path="$plugin/skills/$ref"
+         # un rimando può puntare a una skill dell'altro plugin (es. brokkr)
+         [ -e "$path" ] || path=$(printf '%s\n' "$plugin"/../*/skills/"$ref" | head -n 1) ;;
     esac
     [ -e "$path" ] || echo "ROTTO  $skill: $ref"
   done
 done
 ```
 
-Caso noto: una skill di prova che cita `references/manca.md` senza il file deve stampare `ROTTO`. Limiti: non vede i rimandi scritti in prosa ("nella skill `spring-boot`, `references/x.md`") né i file orfani; le segnalazioni ambigue (un percorso senza il nome della skill, scritto in prosa accanto al nome di un'altra) vanno lette a mano. Conferma ogni segnalazione leggendo la riga prima di proporre la modifica.
+Caso noto: una skill di prova che cita `references/manca.md` senza il file deve stampare `ROTTO`; un rimando a una skill dell'altro plugin passa se il file c'è e stampa `ROTTO` se manca (provato il 10/10). Limiti: non vede i rimandi scritti in prosa ("nella skill `spring-boot`, `references/x.md`") né i file orfani; le segnalazioni ambigue (un percorso senza il nome della skill, scritto in prosa accanto al nome di un'altra) vanno lette a mano. Conferma ogni segnalazione leggendo la riga prima di proporre la modifica.
 
 File orfani: `find plugins/<plugin>/skills -path '*/references/*' -o -path '*/templates/*'` e confronto con i riferimenti citati.
 

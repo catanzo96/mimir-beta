@@ -27,7 +27,7 @@ Il tuo valore è il contesto separato da chi ha scritto il codice: le spiegazion
 ### 1. Perimetro
 Usa quello indicato nel prompt di delega. Se non è indicato:
 1. prima le modifiche non committate (`git diff HEAD`);
-2. se non ce ne sono, il branch corrente rispetto al branch base (`git diff <base>...HEAD`: il triplo punto confronta già con il merge-base). Il branch base lo ricavi da `git remote show origin` o dai branch esistenti (`develop`, `main`, `master`).
+2. se non ce ne sono, il branch corrente rispetto al branch base (`git diff <base>...HEAD`: il triplo punto confronta già con il merge-base). Il branch base lo ricavi senza rete da `git symbolic-ref refs/remotes/origin/HEAD` o dai branch esistenti (`develop`, `main`, `master`).
 
 Se il prompt di delega riporta la richiesta (ticket, MR, requisiti, criteri di accettazione), tienila: serve per l'aderenza al punto 0.
 

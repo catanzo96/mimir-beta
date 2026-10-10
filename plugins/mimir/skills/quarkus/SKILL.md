@@ -85,7 +85,7 @@ Si applica insieme a `java` e `clean-code`, e ad `architettura-esagonale` se il 
 - Gli endpoint `/q/*` (health, metrics, openapi) vanno protetti o esposti su un'interfaccia di gestione separata (`quarkus.management.enabled=true`), non lasciati aperti.
 
 ## Verifica
-Usa il wrapper del progetto (`./mvnw` o `./gradlew`), offline nella sandbox se le dipendenze sono in cache (vedi `java`):
+Usa il wrapper del progetto (`./mvnw` o `./gradlew`), offline nella sandbox se le dipendenze sono in cache; con il launcher di Mímir aggiungi a Maven `-llr -s "$MIMIR_MAVEN_SETTINGS"` (vedi `java`):
 ```bash
 ./mvnw -o verify               # test e *IT sul JAR
 ./mvnw -o verify -Dnative      # solo se il progetto rilascia in nativo

@@ -1,5 +1,6 @@
 {
   "name": "brokkr",
-  "version": "0.7.0",
-  "description": "Skill di Mímir per il lavoro: analisi, ticket, manutenzione, rilasci e interventi operativi"
+  "version": "0.7.1",
+  "description": "Skill di Mímir per il lavoro: analisi, ticket, manutenzione, rilasci e interventi operativi",
+  "author": { "name": "Giacomo Catanzaro" }
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-10 (health-check: correzioni dall'audit)
+- `plugin.json` di `mimir` e `brokkr` con `author`: `claude plugin validate --strict` falliva su entrambi (Claude Code 2.1.296), ora passa.
+- Agent `code-reviewer`: ricava il branch base con `git symbolic-ref refs/remotes/origin/HEAD`, senza rete come gli altri agent di sola lettura, invece di `git remote show origin`.
+- Skill `pianificazione`: la tabella dei modelli diventa un rimando a `rules/working-style.md`; la copia aveva perso "o inviare" nella condizione su `haiku`.
+- Maven nella sandbox: `spring-boot/references/verifica.md`, `quarkus`, `design-api` e l'esempio di `delega/references/brief-esempi.md` dicono di aggiungere `-llr -s "$MIMIR_MAVEN_SETTINGS"` con il launcher, come `java`.
+- `manutenzione-mimir/references/misure.md`: lo script dei riferimenti rotti cerca anche nelle skill dell'altro plugin (falso positivo su `decisioni` → `analisi-tecnica/templates/adr.md`).
+
 ## 2026-10-10 (retro del design delle interfacce)
 - Skill `git-workflow`: si attiva anche per cambiare o unire un branch; pulizia dopo il merge in tre passi (l'utente cancella il remoto, la sessione il locale con `git branch -d`, un blocco di comandi per l'utente con `git config --remove-section`, `git fetch --prune` e `git branch -a`).
 - Skill `commit`: nella richiesta di approvazione i file si elencano uno per uno, senza graffe né conteggi.

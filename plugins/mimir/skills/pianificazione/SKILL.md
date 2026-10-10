@@ -77,13 +77,7 @@ Forma del piano: elenco numerato con, per passo, "cosa", "file", "verifica". Bre
 ## 6. Delegare
 Delega solo quando serve davvero: molta lettura da non tenere nella conversazione, lavori indipendenti da fare in parallelo, un modello diverso. Ogni delega ha un compito chiuso, il perimetro e il formato del resoconto, e il suo esito si verifica prima di usarlo.
 
-| Lavoro | Dove e con quale modello |
-|---|---|
-| Ricerca, lettura di molti file, riassunti | subagent su `haiku` |
-| Implementazione di un passo ben definito, review | subagent su `sonnet` |
-| Architettura, scelte difficili, piano di un compito grande | agent `architetto` (`opus`, sola lettura) |
-
-Non delegare a `haiku` contenuti esterni non fidati se l'agent può scrivere. Passi che toccano gli stessi file non vanno in parallelo.
+Il modello di ogni delega segue `rules/working-style.md`; per architettura, scelte difficili e piano di un compito grande usa l'agent `architetto` (`opus`, sola lettura). Passi che toccano gli stessi file non vanno in parallelo.
 
 ## 7. Dove salvare il piano
 - Nella cartella che il progetto indica (docs, specifiche, ADR) o, se non c'è, nello scratchpad della sessione.

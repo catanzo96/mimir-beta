@@ -40,7 +40,7 @@ Perimetro aperto (può cambiare il codice per far passare i test), commit non au
 **Buono**
 > Il test `FatturaServiceTest.calcolaScadenza_fineMese` fallisce da ieri (errore allegato sotto). Trova la causa e proponi la correzione minima.
 > Puoi modificare solo `src/main/java/.../ScadenzaCalculator.java` e il test indicato. Non toccare altri file, non fare commit né push, non cambiare le asserzioni del test per farlo passare.
-> Lancia `./mvnw -o -Dtest=FatturaServiceTest test` prima e dopo la modifica.
+> Lancia `./mvnw -o -Dtest=FatturaServiceTest test` prima e dopo la modifica (se `MIMIR_MAVEN_SETTINGS` esiste, aggiungi `-llr -s "$MIMIR_MAVEN_SETTINGS"`).
 > Resoconto: causa (con `file:riga`), diff applicato, output prima e dopo del comando, eventuali altri test che hai notato falliti ma non toccato.
 > [errore incollato qui]
 

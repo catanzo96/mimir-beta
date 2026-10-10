@@ -88,6 +88,6 @@ Un'API con un solo consumatore nel tuo stesso repo si cambia con un commit. Un'A
 ## Verifica
 Con gli strumenti già nel progetto:
 - valida il contratto (linter OpenAPI come Spectral o quello configurato) e, se c'è, il controllo di compatibilità contro la versione rilasciata;
-- lancia i test dell'API e del contratto (`./mvnw test`, offline nella sandbox se la cache locale c'è; `npm test`, a seconda dello stack);
+- lancia i test dell'API e del contratto (`./mvnw test`, offline nella sandbox se la cache locale c'è e con le opzioni del launcher di Mímir indicate in `java`; `npm test`, a seconda dello stack);
 - prova a mano gli status code e i casi di errore di ogni endpoint toccato (`curl -i`) e leggi gli header di risposta;
 - cerca nel diff campi rimossi, rinominati o resi obbligatori e dichiaralo come rottura nel resoconto.

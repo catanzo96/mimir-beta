@@ -2,7 +2,7 @@
 
 Ogni passo si chiude con il comando lanciato e l'esito letto, non con quello atteso. Un passo saltato si dichiara, con il motivo. Usa gli strumenti già configurati nel progetto: nessun plugin o dipendenza nuova senza ok.
 
-Nella sandbox di Claude Code Maven e Gradle non hanno rete: usa `-o` / `--offline` (vedi la skill `java`, che indica anche le opzioni di Maven per le sessioni avviate con il launcher di Mímir).
+Nella sandbox di Claude Code Maven e Gradle non hanno rete: usa `-o` / `--offline`. Nelle sessioni avviate con il launcher di Mímir aggiungi a ogni comando Maven qui sotto anche `-llr -s "$MIMIR_MAVEN_SETTINGS"` (motivo nella skill `java`).
 
 ## Passi
 1. **Compilazione**: `./mvnw -o -q test-compile` (Gradle: `./gradlew --offline testClasses`). Compila anche i test: una firma cambiata li rompe prima che girino.
