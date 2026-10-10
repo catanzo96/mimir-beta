@@ -46,7 +46,7 @@ Dalla cartella di Mímir l'installer non segue i symlink: rifiuta esempi, templa
 
 Test: `python3 -I test_install.py`, che usa copie di Mímir in una cartella temporanea e non tocca `~/.claude`. I test di `install.ps1`, e quelli di `bin/claude-mimir.ps1` in `test_claude_mimir.py`, girano se trovano PowerShell (`MIMIR_TEST_PWSH`, `pwsh` o `powershell`); altrimenti vengono saltati. Tutte le suite insieme, compresi i test degli hook: `python3 -I .github/scripts/run_tests.py`.
 
-La cartella può stare ovunque: launcher e script ricavano il percorso dalla propria posizione. Fuori dal repo Claude Code vuole percorsi assoluti (marketplace, import in `~/.claude/CLAUDE.md`): se sposti la cartella, rilancia `install.sh` e li riallinea.
+La cartella può stare ovunque: launcher e script ricavano il percorso dalla propria posizione. Il percorso però non deve contenere `*`, `?`, `[` o, per prudenza, `]`, `\` e caratteri di controllo (a capo, tab): l'installer si ferma senza modifiche, perché Claude Code leggerebbe il percorso come un pattern nelle regole `Edit(…)` e, su Linux e WSL2, salterebbe le voci di `denyWrite` con `*`, `?` o `[`. Le parentesi tonde vanno bene. Fuori dal repo Claude Code vuole percorsi assoluti (marketplace, import in `~/.claude/CLAUDE.md`): se sposti la cartella, rilancia `install.sh` e li riallinea.
 
 ### CI
 `.github/workflows/ci.yml` gira a ogni push e pull request, senza API key, con permessi in sola lettura e azioni fissate a uno SHA:

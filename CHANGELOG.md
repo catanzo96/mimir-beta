@@ -2,6 +2,7 @@
 
 ## 2026-10-10 (installer-2: rilievi di installer, launcher e CI)
 - `install.py` su Linux e WSL2: con apt-get lancia prima `apt-get update` (3 tentativi, timeout HTTP di 30 s), perché con indici vecchi l'installazione non trova i pacchetti; se l'aggiornamento fallisce avvisa e installa con gli indici presenti. Il profilo AppArmor di `bwrap` si ricarica con `systemctl reload apparmor` e, se systemd manca o il comando fallisce, con `apparmor_parser -r`; la conferma mostra i comandi. La CI non prepara più apt da sé, così il percorso di `install.py` è provato; il timeout di 8 minuti passa allo step dell'installer. Review con `code-reviewer` e `security-reviewer`.
+- `install.py` si ferma senza modifiche se il percorso di Mímir contiene `*`, `?`, `[`, `]` o `\`: secondo la doc le regole `Edit(…)` scritte a mano seguono gitignore senza escape e su Linux una voce di `denyWrite` con `*`, `?` o `[` viene saltata, quindi la protezione sarebbe sparita senza avviso; `]` e `\` per prudenza, e i caratteri di controllo, perché gitignore va a righe. Le parentesi sono letterali e restano ammesse (test con `mimir (copia)`).
 
 ## 2026-10-10 (git-guard: comandi git distruttivi)
 - Regole `ask` in `settings.template.json` e `sandbox.settings.json` per reset, rebase, merge, cherry-pick, revert, pull, am, clean, restore, checkout, update-ref, filter-branch, prune e per le forme distruttive di branch, switch, stash e reflog (`git branch -D`, `git stash drop`…).

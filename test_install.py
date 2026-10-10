@@ -193,6 +193,17 @@ class PureFunctions(unittest.TestCase):
             with self.assertRaises(install.InstallError, msg=name):
                 install.read_mimir_file(folder / name)
 
+    def test_percorso_con_caratteri_di_pattern_rifiutato(self):
+        # doc permissions e settings-reference (10/10): le regole Edit seguono gitignore e non vengono
+        # escapate, su Linux una voce di denyWrite con * ? [ viene saltata. Le parentesi sono letterali.
+        # caratteri di controllo: gitignore va a righe, un a capo spezza la regola
+        for path in ("/home/a/mi[mi]r", "/home/a/mimir*", "/home/a/mimir?", "/home/a/mi]r", "/home/a/mi\\r",
+                     "/home/a/mi\nr", "/home/a/mi\tr", "/home/a/mi\x1fr"):
+            with self.assertRaises(install.InstallError, msg=path):
+                install.check_mimir_dir(path)
+        install.check_mimir_dir("/home/a/mimir (copia)")
+        install.check_mimir_dir("C:/Users/a/mimir")
+
     def test_import_scritto_una_volta_e_sostituito(self):
         first = install.linked_claude_md("riga\n@/a/CLAUDE.md\n", "/a")
         self.assertEqual(first, f"riga\n{install.MARKER}\n@/a/CLAUDE.md\n")
@@ -228,7 +239,8 @@ class PureFunctions(unittest.TestCase):
         with mock.patch.object(install, "as_root", side_effect=lambda c: ["sudo"] + c):
             # con indici vecchi apt-get install non trova i pacchetti: prima l'aggiornamento
             self.assertEqual(install.install_commands(["bwrap", "socat"], which("apt-get", "dnf")),
-                             [["sudo", "apt-get", "-o", "Acquire::Retries=3", "-o", "Acquire::http::Timeout=30", "update"],
+                             [["sudo", "apt-get", "-o", "Acquire::Retries=3", "-o", "Acquire::http::Timeout=30",
+                               "update"],
                               ["sudo", "apt-get", "install", "-y", "bubblewrap", "socat"]])
             self.assertEqual(install.install_commands(["bwrap", "socat"], which("dnf", "zypper")),
                              [["sudo", "dnf", "install", "-y", "bubblewrap", "socat"]])
@@ -288,7 +300,8 @@ class PureFunctions(unittest.TestCase):
             problems = install.install_sandbox_requirements(
                 "linux", True, which=lambda n: "/usr/bin/apt-get" if n == "apt-get" else None, runner=runner)
         self.assertEqual(problems, [])
-        self.assertEqual(calls, [["sudo", "apt-get", "-o", "Acquire::Retries=3", "-o", "Acquire::http::Timeout=30", "update"],
+        self.assertEqual(calls, [["sudo", "apt-get", "-o", "Acquire::Retries=3", "-o", "Acquire::http::Timeout=30",
+                                  "update"],
                                  ["sudo", "apt-get", "install", "-y", "bubblewrap", "socat"]])
         self.assertIn("update non riuscito", str(printed.call_args_list))
 
@@ -398,6 +411,24 @@ class Installer(unittest.TestCase):
             settings = self.box.settings()
             self.assertIn(f"Edit(/{mimir}/plugins/**)", settings["permissions"]["ask"], other)
             self.assertIn(f"{mimir}/plugins", settings["sandbox"]["filesystem"]["denyWrite"], other)
+
+    def test_cartella_con_caratteri_di_pattern_nessuna_modifica(self):
+        mimir = self.box.mimir("mi[mi]r")
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("contiene [ ]", result.stderr)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertEqual(self.box.snapshot(), before)
+        self.assertFalse((self.box.root / "claude.log").exists(), "il marketplace non va registrato")
+
+    def test_cartella_con_parentesi_protetta(self):
+        mimir = self.box.mimir("mimir (copia)")
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        settings = self.box.settings()
+        self.assertIn(f"Edit(/{mimir}/plugins/**)", settings["permissions"]["ask"])
+        self.assertIn(f"{mimir}/plugins", settings["sandbox"]["filesystem"]["denyWrite"])
 
     def test_destinazione_symlink_pendente_non_scrive_fuori(self):
         mimir = self.box.mimir()

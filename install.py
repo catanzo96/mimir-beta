@@ -47,6 +47,11 @@ PROTECTED_DIRS = ["plugins", "bin", ".claude-plugin", ".claude", "sandbox", "rul
 PROTECTED_FILES = ["sandbox.settings.json", "settings.template.json", "inbox.example.md", "install.sh", "install.py",
                    "install.ps1", "test_install.py", "test_claude_mimir.py", "CLAUDE.md"]
 
+# Le regole Edit seguono la sintassi gitignore e Claude Code non escapa quelle scritte a mano; su Linux e
+# WSL2 una voce di denyWrite con * ? [ viene saltata (doc permissions e settings-reference, 10/10).
+# ] e \ per prudenza: \ è l'escape di gitignore, ] chiude [. Le parentesi sono letterali.
+PATTERN_CHARS = "*?[]\\"
+
 # Testo dalla doc di Claude Code, pagina sandboxing (08/10/2026)
 APPARMOR_PROFILE_PATH = "/etc/apparmor.d/bwrap"
 APPARMOR_PROFILE = """abi <abi/4.0>,
@@ -126,6 +131,18 @@ def protected_entries(mimir_dir):
 
 
 # --- lettura e validazione ------------------------------------------------------------------------
+
+def check_mimir_dir(mimir_dir):
+    """Un percorso con caratteri di pattern renderebbe la protezione inefficace senza avviso. Anche i
+    caratteri di controllo: gitignore va a righe e un a capo spezzerebbe la regola."""
+    found = sorted(set(PATTERN_CHARS) & set(mimir_dir))
+    if any(ord(c) < 32 for c in mimir_dir):
+        found.append("caratteri di controllo")
+    if found:
+        raise InstallError(f"il percorso {mimir_dir!r} contiene {' '.join(found)}: Claude Code lo leggerebbe "
+                           "come un pattern e i file di Mímir resterebbero senza protezione. Sposta la cartella "
+                           f"in un percorso senza {' '.join(PATTERN_CHARS)} né caratteri di controllo")
+
 
 def read_text(path):
     """Legge un file di ~/.claude, che la sandbox non scrive: i symlink si seguono (dotfiles)."""
@@ -451,6 +468,7 @@ def read_old_dir(claude_md):
 
 def read_inputs(mimir_path, claude_md_path, settings_path):
     """Legge e valida tutto prima di qualsiasi scrittura; InstallError se qualcosa non va."""
+    check_mimir_dir(mimir_path.as_posix())
     for required in ("CLAUDE.md", "plugins", "sandbox.settings.json"):
         if not (mimir_path / required).exists():
             raise InstallError(f"{mimir_path.as_posix()} non sembra la cartella di Mímir: manca {required}")
