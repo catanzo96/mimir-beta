@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Test del wrapper run-python.sh: sceglie un interprete che funziona e, senza Python, blocca solo i commit.
+"""Test del wrapper run-python.sh: sceglie un interprete che funziona e, senza Python, blocca solo i comandi
+git che scrivono.
 
 Uso: python3 test_run_python.py [percorso del wrapper da provare]
 Su Windows bash deve essere quello di Git for Windows: se nel PATH c'è prima un altro bash
 (per esempio quello di WSL), indicane il percorso in MIMIR_TEST_BASH.
 """
+import importlib.util
 import json
 import os
 import shutil
@@ -100,6 +102,19 @@ try:
     ]:
         path_dir, flags, stdin, code = args
         check(name, run(path_dir, flags, stdin), code)
+        CASES += 1
+    for command in ("git status", "git merge-base main HEAD", "git log --oneline", "git stash-x"):
+        check(f"senza Python, fail-closed, {command} passa",
+              run(EMPTY, ["--fail-closed"], bash_command(command)), 0)
+        CASES += 1
+    # senza Python il wrapper deve bloccare ogni sottocomando che git-guard tratta come scrittura,
+    # anche le letture di branch e stash (falso positivo accettato: senza Python non si distinguono)
+    spec = importlib.util.spec_from_file_location("git_guard", os.path.join(HERE, "git-guard.py"))
+    guard = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(guard)
+    for sub in sorted(guard.WRITE_SUBCOMMANDS):
+        check(f"senza Python, fail-closed, git -C . {sub} bloccato",
+              run(EMPTY, ["--fail-closed"], bash_command(f"git -C . {sub} x")), 2)
         CASES += 1
     check("senza Python, fail-closed, git commit bloccato con il motivo",
           run(EMPTY, ["--fail-closed"], commit), 2, stderr="comando bloccato")
