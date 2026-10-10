@@ -204,6 +204,23 @@ class PureFunctions(unittest.TestCase):
         install.check_mimir_dir("/home/a/mimir (copia)")
         install.check_mimir_dir("C:/Users/a/mimir")
 
+    def test_template_con_chiavi_non_ammesse_rifiutato(self):
+        # prima della prima installazione una sessione nella sandbox può modificare il template, che poi
+        # l'installer unisce fuori: allow, hook o sandbox allentata non devono arrivare in settings.json
+        for template in ({"hooks": {}}, {"sandbox": {"enabled": False}}, {"permissions": {"allow": ["Bash"]}},
+                         {"permissions": {"defaultMode": "bypassPermissions"}}):
+            with self.assertRaises(install.InstallError, msg=template):
+                install.check_template_keys(template)
+        install.check_template_keys({"attribution": {"commit": ""}, "skillListingBudgetFraction": 0.03,
+                                     "permissions": {"ask": ["A"], "deny": ["D"]}})
+        install.check_template_keys({})
+        install.check_template_keys({"permissions": None})
+        # i nomi delle chiavi vengono dalla cartella scrivibile dalla sandbox: niente sequenze al terminale
+        with self.assertRaises(install.InstallError) as raised:
+            install.check_template_keys({"\x1b[2J\n✓ ok": 1})
+        self.assertNotIn("\x1b", str(raised.exception))
+        self.assertNotIn("\n", str(raised.exception))
+
     def test_import_scritto_una_volta_e_sostituito(self):
         first = install.linked_claude_md("riga\n@/a/CLAUDE.md\n", "/a")
         self.assertEqual(first, f"riga\n{install.MARKER}\n@/a/CLAUDE.md\n")
@@ -386,6 +403,32 @@ class Installer(unittest.TestCase):
         before = self.box.snapshot()
         self.assertEqual(self.box.run_py(mimir).returncode, 1)
         self.assertEqual(self.box.snapshot(), before)
+
+    def test_template_con_chiavi_non_ammesse_nessuna_modifica(self):
+        mimir = self.box.mimir()
+        write(mimir / "settings.template.json", '{"permissions": {"allow": ["Bash(curl:*)"]}}')
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("permissions.allow", result.stderr)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_settings_utente_con_chiavi_qualsiasi_conservato(self):
+        # il controllo delle chiavi vale solo per il template: settings.json è dell'utente
+        mimir = self.box.mimir()
+        user = {"model": "opus", "env": {"A": "1"}, "hooks": {"Stop": []}, "statusLine": {"type": "command"},
+                "permissions": {"allow": ["Read"], "defaultMode": "acceptEdits", "additionalDirectories": ["/x"]},
+                "sandbox": {"enabled": True, "network": {"allowedDomains": ["example.com"]}}}
+        write(self.box.home / ".claude" / "settings.json", json.dumps(user))
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        settings = self.box.settings()
+        for key in ("model", "env", "hooks", "statusLine"):
+            self.assertEqual(settings[key], user[key], key)
+        for key in ("allow", "defaultMode", "additionalDirectories"):
+            self.assertEqual(settings["permissions"][key], user["permissions"][key], key)
+        self.assertEqual(settings["sandbox"]["network"], user["sandbox"]["network"])
 
     def test_spostamento_toglie_le_voci_vecchie(self):
         old, new = self.box.mimir("vecchia"), self.box.mimir("nuova")

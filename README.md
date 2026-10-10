@@ -28,6 +28,8 @@ Lancia sempre `install.sh` o `install.ps1`. Le opzioni sono le stesse, scritte i
 - `--yes` e `-Yes` rispondono sì alle conferme (con `install.ps1`, non a WSL);
 - `--skip-system` e `-SkipSystem` saltano i passi di sistema: sudo su Linux, winget e WSL su Windows. Lo script avvia `install.py` con `python -I`: la cartella di Mímir è scrivibile dalla sandbox e l'installer gira fuori, quindi non deve importare moduli piantati accanto a sé.
 
+Lancia l'installer subito dopo il clone: prima della prima installazione la protezione non c'è, e una sessione di Claude nella cartella può modificare i file che l'installer usa fuori dalla sandbox. Se hai già aperto sessioni, controlla prima con `git status` e `git diff HEAD`. L'installer rifiuta un `settings.template.json` con chiavi diverse da `attribution`, `skillListingBudgetFraction` e `permissions` (solo `ask` e `deny`); il tuo `~/.claude/settings.json` può avere qualsiasi chiave. Il controllo copre solo il template: non protegge da installer, launcher, hook o regole modificati.
+
 Si può rilanciare senza danni. Prima legge e valida i file; se uno non è valido si ferma senza modificare nulla. Poi scrive, con un backup, solo ciò che cambia:
 - crea `profile/profile.md` e `inbox.md` dagli esempi, se mancano;
 - importa le regole di Mímir in `~/.claude/CLAUDE.md`;

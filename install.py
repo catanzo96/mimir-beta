@@ -52,6 +52,11 @@ PROTECTED_FILES = ["sandbox.settings.json", "settings.template.json", "inbox.exa
 # ] e \ per prudenza: \ è l'escape di gitignore, ] chiude [. Le parentesi sono letterali.
 PATTERN_CHARS = "*?[]\\"
 
+# Prima della prima installazione la sandbox può scrivere il template, che l'installer unisce fuori:
+# ammesse solo le chiavi che non allentano nulla. Non protegge da un install.py modificato.
+TEMPLATE_KEYS = {"attribution", "skillListingBudgetFraction", "permissions"}
+TEMPLATE_PERMISSION_KEYS = {"ask", "deny"}
+
 # Testo dalla doc di Claude Code, pagina sandboxing (08/10/2026)
 APPARMOR_PROFILE_PATH = "/etc/apparmor.d/bwrap"
 APPARMOR_PROFILE = """abi <abi/4.0>,
@@ -197,6 +202,16 @@ def parse_settings(text, path):
         if value is not None and not (isinstance(value, list) and all(isinstance(v, str) for v in value)):
             raise InstallError(f"{path}: {'.'.join(keys)} deve essere una lista di stringhe")
     return data
+
+
+def check_template_keys(template):
+    """Solo per settings.template.json: il settings.json dell'utente può avere qualsiasi chiave."""
+    extra = sorted(set(template) - TEMPLATE_KEYS)
+    extra += sorted(f"permissions.{k}" for k in set(template.get("permissions") or {}) - TEMPLATE_PERMISSION_KEYS)
+    if extra:
+        # repr: i nomi vengono da un file che la sandbox può scrivere, niente sequenze al terminale
+        raise InstallError("settings.template.json contiene chiavi non ammesse, da controllare con git status e "
+                           f"git diff HEAD: {', '.join(repr(k) for k in extra)}")
 
 
 def split_lines(text):
@@ -475,6 +490,8 @@ def read_inputs(mimir_path, claude_md_path, settings_path):
     template_text = read_mimir_file(mimir_path / "settings.template.json")
     if template_text is None:
         raise InstallError("manca settings.template.json")
+    template = parse_settings(template_text, "settings.template.json")
+    check_template_keys(template)
     examples = {}
     for example, personal in PERSONAL_FILES:
         examples[personal] = read_mimir_file(mimir_path / example)
@@ -489,7 +506,7 @@ def read_inputs(mimir_path, claude_md_path, settings_path):
         claude_md=claude_md,
         settings_text=settings_text,
         current=parse_settings(settings_text, settings_path) if settings_text is not None else {},
-        template=parse_settings(template_text, "settings.template.json"),
+        template=template,
         examples=examples,
         has_git=has_git,
         git_note=git_note,
