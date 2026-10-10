@@ -66,7 +66,11 @@
       "PowerShell(git stash drop:*)",
       "PowerShell(git stash clear:*)",
       "PowerShell(git reflog expire:*)",
-      "PowerShell(git reflog delete:*)"
+      "PowerShell(git reflog delete:*)",
+      "Bash(gh:*)",
+      "Bash(hub:*)",
+      "PowerShell(gh:*)",
+      "PowerShell(hub:*)"
     ],
     "deny": [
       "Bash(git push --force:*)",

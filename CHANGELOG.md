@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-10 (git-guard-2: secondo giro di hardening)
+- `gh` e `hub`: regole `ask` su `Bash(gh:*)`, `Bash(hub:*)`, `PowerShell(gh:*)` e `PowerShell(hub:*)` in `settings.template.json` e `sandbox.settings.json`; in `sandbox.settings.json` `~/.config/gh/hosts.yml` e `~/.config/hub` negati alla sandbox e allo strumento Read (di gh solo `hosts.yml`: `config.yml` serve anche senza autenticazione). La lettura negata è da provare in una sessione nuova.
+- Spike in sandbox (gh 2.45.0): `gh api user` raggiunge api.github.com ma riceve 401; il token sta nel keyring, non in `hosts.yml`, e la sandbox non apre socket Unix (`busctl --user status`: "Operation not permitted"), quindi non arriva a D-Bus. `gh --version` e `gh api` senza autenticazione funzionano.
+- Limiti: per gh e hub non c'è un hook come git-guard, `FOO=1 gh …`, `command gh`, `/usr/bin/gh`, `gh.exe`, `sh -c "gh …"`, `eval` e `$(which gh)` passano senza conferma, e con il solo template il prefisso è l'unico cancello; `GH_TOKEN`/`GITHUB_TOKEN` nell'ambiente arriverebbero ai comandi in sandbox; fuori dalla sandbox `git credential fill` restituisce il token dell'helper di gh. Review con `code-reviewer` e `security-reviewer`.
+
 ## 2026-10-10 (git-guard: comandi git distruttivi)
 - Regole `ask` in `settings.template.json` e `sandbox.settings.json` per reset, rebase, merge, cherry-pick, revert, pull, am, clean, restore, checkout, update-ref, filter-branch, prune e per le forme distruttive di branch, switch, stash e reflog (`git branch -D`, `git stash drop`…).
 - Hook `git-guard.py`: `git commit` ammesso solo nelle forme note (`-m`/`--message` ripetuti, un solo `-F`/`--file`, `--amend`, `--amend --no-edit`); le righe con `#` contano nella lunghezza.

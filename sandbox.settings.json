@@ -46,6 +46,14 @@
         {
           "path": "~/.gnupg",
           "mode": "deny"
+        },
+        {
+          "path": "~/.config/gh/hosts.yml",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/hub",
+          "mode": "deny"
         }
       ]
     },
@@ -77,6 +85,8 @@
       "Read(~/.docker/config.json)",
       "Read(~/.gradle/gradle.properties)",
       "Read(~/.gnupg/**)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(~/.config/hub)",
       "Read(~/.claude.json)",
       "Read(**/.env)",
       "Read(**/.env.*)"
@@ -142,6 +152,10 @@
       "PowerShell(git stash clear:*)",
       "PowerShell(git reflog expire:*)",
       "PowerShell(git reflog delete:*)",
+      "Bash(gh:*)",
+      "Bash(hub:*)",
+      "PowerShell(gh:*)",
+      "PowerShell(hub:*)",
       "Bash(dangerouslyDisableSandbox:true)"
     ]
   },

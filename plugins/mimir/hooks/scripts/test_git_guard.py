@@ -483,6 +483,24 @@ for settings, tool in ALIGNMENT:
         failures += 1
         print(f"FALLITO (allineamento {settings}, {tool}): solo nelle regole {sorted(prefixes - set(guard.ASK_PREFIXES))}, "
               f"solo nell'hook {sorted(set(guard.ASK_PREFIXES) - prefixes)}")
+# gh e hub agiscono su GitHub senza passare da git-guard: almeno il prefisso chiede conferma
+GH_RULES = [(settings, f"{tool}({cli}:*)") for settings, tool in ALIGNMENT for cli in ("gh", "hub")]
+for settings, rule in GH_RULES:
+    if rule not in json.loads(Path(ROOT, settings).read_text(encoding="utf-8"))["permissions"]["ask"]:
+        failures += 1
+        print(f"FALLITO (regola ask mancante in {settings}): {rule}")
+# i file dove gh e hub tengono il token in chiaro, negati ai comandi nella sandbox e allo strumento Read;
+# di gh solo hosts.yml: config.yml serve a gh anche senza autenticazione
+sandbox_settings = json.loads(Path(ROOT, "sandbox.settings.json").read_text(encoding="utf-8"))
+denied_files = sandbox_settings.get("sandbox", {}).get("credentials", {}).get("files", [])
+denied_reads = sandbox_settings.get("permissions", {}).get("deny", [])
+GH_CREDENTIALS = [(where, path, denied) for path in ("~/.config/gh/hosts.yml", "~/.config/hub")
+                  for where, denied in (("nella sandbox", {"path": path, "mode": "deny"} in denied_files),
+                                        ("a Read", f"Read({path})" in denied_reads))]
+for where, path, denied in GH_CREDENTIALS:
+    if not denied:
+        failures += 1
+        print(f"FALLITO (credenziale non negata {where}): {path}")
 FORMS = [(sub, form) for sub, forms in guard.ASK_FORMS.items() for form in forms]
 for sub, form in FORMS:
     if not guard.is_destructive(sub, [form, "x"]):
@@ -492,6 +510,6 @@ for sub, form in FORMS:
 shutil.rmtree(TMP, ignore_errors=True)
 total = sum(len(c) for c in (CONTENT_BLOCK, FORM_BLOCK, COMMIT_FORM_BLOCK, ALLOW, PS_CONTENT_BLOCK,
                              PS_FORM_BLOCK, PS_COMMIT_FORM_BLOCK, PS_ALLOW, REASON_BLOCK, BROKEN, SLOW,
-                             ALIGNMENT, FORMS))
+                             ALIGNMENT, GH_RULES, GH_CREDENTIALS, FORMS))
 print(f"{total - failures}/{total} casi corretti")
 sys.exit(1 if failures else 0)
