@@ -36,6 +36,19 @@ Si staccano dal branch di integrazione del progetto (es. `develop` o `main`).
    2. la sessione cancella quello locale con `git branch -d <nome>`, che rifiuta un branch non unito;
    3. un solo blocco di comandi per il terminale dell'utente: `git config --remove-section branch.<nome>` (nella sandbox `-d` non la toglie), poi `git fetch --prune origin` e `git branch -a` per verificare.
 
+## Più commit da modifiche sovrapposte
+Se i temi di un lavoro toccano gli stessi file, `git add` per file non li separa e `git add -p` è interattivo. A fine di ogni tema fotografa lo stato come tree, con un indice temporaneo che lascia intatto quello reale (la variabile su ogni comando: tra un comando e l'altro della sessione non resta):
+
+```bash
+I="$TMPDIR/temi/idx"; mkdir -p "$TMPDIR/temi"
+GIT_INDEX_FILE="$I" git read-tree HEAD                          # una volta, all'inizio
+GIT_INDEX_FILE="$I" git add -u && GIT_INDEX_FILE="$I" git write-tree > "$TMPDIR/temi/t1"   # a fine tema 1, poi t2…
+```
+
+- `-u` vede solo i file tracciati: quelli nuovi si aggiungono per nome. Dopo l'ultimo tema, `git diff --quiet <ultimo tree>` conferma che coincide con l'albero di lavoro.
+- Una correzione tardiva a un file di un solo tema si aggiunge a quel tree e ai successivi (`read-tree`, `add`, `write-tree` su ognuno).
+- Dopo l'ok, per ogni commit in ordine: `git read-tree <tree>`, controllo con `git diff --cached --name-only`, poi `git commit -F` come comando a sé (skill `commit`).
+
 ## MR piccole
 - Una MR, un solo obiettivo.
 - Dimensione da review in circa 5 minuti: idealmente meno di 5 file, o un singolo obiettivo chiaro.

@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-10-10 (git-workflow: commit da modifiche sovrapposte)
+- Skill `git-workflow`, sezione "Più commit da modifiche sovrapposte": quando i temi toccano gli stessi file, lo stato di ogni tema si fotografa come tree con un indice temporaneo (`GIT_INDEX_FILE`) e dopo l'ok si committa in ordine con `git read-tree`. Usato per i commit dell'health-check e provato in un repo di prova (un file diviso tra due temi, confronto finale visto segnalare un albero diverso).
+
 ## 2026-10-10 (health-check: ripetizioni, nuova regola, confini)
 - Regola in `rules/working-style.md`: nei repo dei progetti non si creano file di metodo (piani, analisi, stime, report, passaggi) se non richiesti. Prima era ripetuta in sei skill; `stime`, `stato-e-rischi`, `pianificazione` e `passaggio-consegne` ora la danno per scontata, `documentazione-tecnica` tiene la sua variante (anche il README si tocca solo con ok).
 - Ripetizioni delle regole tolte dove non aggiungevano nulla dello stack: dipendenze nuove (`nodejs`, `cpp`, `python`, `php`, `refactoring`, `pianificazione`, `script-shell`), segreti nei log (`nodejs`, `quarkus`, `go`). Restano i passaggi che dicono dove si nasconde un segreto o come si inghiotte un'eccezione in quel linguaggio. `git-workflow` elenca solo le approvazioni che aggiunge alla regola (rebase e merge).
