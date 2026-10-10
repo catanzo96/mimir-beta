@@ -7,7 +7,7 @@ description: Flusso di lavoro con git. Usala quando crei, cambi, unisci o rialli
 
 Si applica insieme alla skill `commit` e alle regole in `git-and-safety`. Il modello di branching del progetto (branch permanenti, default branch, protezioni) prevale: prima ricavalo dal repo (`git branch -r`, CONTRIBUTING, CI).
 
-**Approvazioni**: commit, push, rebase, merge e cancellazione di branch richiedono l'ok esplicito dell'utente, con l'elenco di repo, branch e operazioni. Creare un branch locale non lo richiede.
+**Approvazioni**: oltre a ciò che chiede `git-and-safety`, anche rebase e merge richiedono l'ok esplicito, con lo stesso elenco. Creare un branch locale non lo richiede.
 
 ## Branch di lavoro
 Si staccano dal branch di integrazione del progetto (es. `develop` o `main`).
