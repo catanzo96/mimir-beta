@@ -355,7 +355,8 @@ def length_problems(message):
     if lines and len(lines[0]) > MAX_LINE:
         problems.append(f"intestazione di {len(lines[0])} caratteri (massimo {MAX_LINE})")
     for n, line in enumerate(lines[1:], start=2):
-        if len(line) > MAX_LINE and "://" not in line and not line.startswith("#"):
+        # le righe con # contano: senza editor git le tiene nel messaggio (--cleanup=default)
+        if len(line) > MAX_LINE and "://" not in line:
             problems.append(f"riga {n} di {len(line)} caratteri (massimo {MAX_LINE})")
     return problems
 

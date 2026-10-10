@@ -181,6 +181,8 @@ REASON_BLOCK = {
         "attribuzione"),
     "riga del corpo oltre 72 in un -m che non è l'ultimo": (
         'git commit -m "feat: x" -m "' + "y" * 80 + '" -m "Corpo breve."', "riga 3 di 80"),
+    # senza editor git pulisce solo gli spazi e tiene le righe con # (--cleanup=default in git-commit(1))
+    "riga del corpo oltre 72 che inizia con #": ('git commit -m "feat: x" -m "#' + "y" * 80 + '"', "riga 3 di 81"),
     "intestazione oltre 72 con --message=": (f'git commit --message="{LONG}"', "intestazione di 82"),
     # il motivo non deve mostrare il segnaposto interno degli heredoc
     "heredoc come messaggio": (HEREDOC.format("feat: x\n\nCorpo breve."), "heredoc"),
