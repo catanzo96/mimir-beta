@@ -25,7 +25,7 @@ Si staccano dal branch di integrazione del progetto (es. `develop` o `main`).
 - con un ticket, l'ID in testa: `feature/456-export-report`.
 
 ## Ciclo di vita
-1. **Creazione**: aggiorna il branch base e stacca il nuovo branch.
+1. **Creazione**: aggiorna il branch base e stacca il nuovo branch con `git switch -c <nome>`. Per cambiare branch usa `git switch`: `git checkout` può sovrascrivere file e chiede sempre conferma.
 2. **Sviluppo**:
    - commit atomici (vedi skill `commit`);
    - riallinea spesso al branch base, di norma con `git fetch` più `rebase` sul branch *non ancora condiviso*;
@@ -33,7 +33,7 @@ Si staccano dal branch di integrazione del progetto (es. `develop` o `main`).
 3. **MR/PR** verso il branch base: pipeline verde e almeno una review. Il merge sul branch base, anche locale o in fast-forward, si fa solo con la CI del branch verde, letta job per job: un rosso "estraneo" arriva sul base insieme al merge. Il lavoro di più sessioni o di un worktree si porta su main da un branch, con la CI del branch verde; un commit diretto su main va bene solo per modifiche piccole di una sola sessione.
 4. **Dopo il merge**, con la CI del branch base verde:
    1. l'utente cancella il branch remoto (dalla pagina della MR/PR o del repo);
-   2. la sessione cancella quello locale con `git branch -d <nome>`, che rifiuta un branch non unito;
+   2. la sessione cancella quello locale con `git branch -d <nome>`, che rifiuta un branch non unito e chiede conferma;
    3. un solo blocco di comandi per il terminale dell'utente: `git config --remove-section branch.<nome>` (nella sandbox `-d` non la toglie), poi `git fetch --prune origin` e `git branch -a` per verificare.
 
 ## Più commit da modifiche sovrapposte

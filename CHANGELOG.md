@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-10 (git-guard: comandi git distruttivi)
+- Regole `ask` in `settings.template.json` e `sandbox.settings.json` per reset, rebase, merge, cherry-pick, revert, pull, am, clean, restore, checkout, update-ref, filter-branch, prune e per le forme distruttive di branch, switch, stash e reflog (`git branch -D`, `git stash drop`…).
+- Hook `git-guard.py`: `git commit` ammesso solo nelle forme note (`-m`/`--message` ripetuti, un solo `-F`/`--file`, `--amend`, `--amend --no-edit`); le righe con `#` contano nella lunghezza.
+- Hook `git-guard.py`: la forma semplice vale per ogni comando con una regola `ask`, non più solo per commit, push e tag. Bloccati `git -C . reset --hard`, `cd x && git rebase`, una variabile in posizione di comando (`"$GIT" -C x push`), i sottocomandi espansi dalla shell (`git {reset,--hard}`, `git$IFS"push"`, `git @args` e `git ($b)` su PowerShell). Le letture (`git branch -a`, `git stash list`, `grep -rn git dir/`) passano. Tempo lineare anche su input lunghi e ripetuti; review con `code-reviewer`, 311 casi di test.
+- Skill `git-workflow`: branch nuovi con `git switch -c`, perché `git checkout` chiede sempre conferma. `scrivi-skill/references/hook.md`: posizione di comando e tempo lineare. README, `commit` e `sicurezza-claude-code` descrivono l'hook sui comandi git che scrivono.
+
 ## 2026-10-10 (git-workflow: commit da modifiche sovrapposte)
 - Skill `git-workflow`, sezione "Più commit da modifiche sovrapposte": quando i temi toccano gli stessi file, lo stato di ogni tema si fotografa come tree con un indice temporaneo (`GIT_INDEX_FILE`) e dopo l'ok si committa in ordine con `git read-tree`. Usato per i commit dell'health-check e provato in un repo di prova (un file diviso tra due temi, confronto finale visto segnalare un albero diverso).
 

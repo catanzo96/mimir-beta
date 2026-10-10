@@ -1,41 +1,52 @@
 #!/usr/bin/env python3
-"""PreToolUse (Bash e PowerShell): vincoli di Mímir su commit, push e tag lanciati da Claude Code.
+"""PreToolUse (Bash e PowerShell): vincoli di Mímir sui comandi git che scrivono, lanciati da Claude Code.
 
 Blocca (exit 2, motivo su stderr):
 - i commit con attribuzioni a un'AI: trailer come Co-Authored-By con un nome di AI,
   frasi "Generated with/by" o "Generato con/da" seguite da un'AI, link a Claude Code;
 - i commit con intestazione o righe del corpo oltre 72 caratteri (le righe con un URL sono escluse);
+- i commit con argomenti fuori dall'elenco chiuso di parse_commit_args;
 - il force push: -f anche tra opzioni corte raggruppate, --mirror, refspec +ref, --force,
   --force-with-lease, --force-if-includes e le loro abbreviazioni.
 
-Blocca anche ogni commit, push e tag che non sia in forma semplice. La conferma la chiedono le regole
-ask di settings (Bash(git commit:*), PowerShell(git push:*)…), che riconoscono solo il prefisso: forme
-come git -C . commit, FOO=1 git push o git add x && git commit nella sandbox partirebbero senza
-conferma. L'hook non risponde "ask": verificato l'08/10 con Claude Code 2.1.293 (sandbox e modalità
-auto), un "ask" dell'hook è stato ignorato e il commit è partito. Forma semplice: l'intero comando è
-git commit …, git push … o git tag …, con quel prefisso esatto, senza separatori, a capo, $( o
-backtick (per PowerShell senza distinguere le maiuscole, come le sue regole). commit-tree, send-pack e
-git.exe non hanno una regola ask e sono sempre bloccati. Passano senza controllo git tag senza
-argomenti e git tag -l/--list senza opzioni di scrittura, che non scrivono.
+Blocca anche ogni comando git con una regola ask che non sia in forma semplice. La conferma la chiedono
+le regole ask di settings (Bash(git commit:*), Bash(git reset:*), PowerShell(git branch -D:*)…), che
+riconoscono solo il prefisso: forme come git -C . reset --hard, FOO=1 git push o
+cd x && git rebase main nella sandbox partirebbero senza conferma. L'hook non risponde "ask":
+verificato l'08/10 con Claude Code 2.1.293 (sandbox e modalità auto), un "ask" dell'hook è stato
+ignorato e il commit è partito. Forma semplice: l'intero comando inizia con il prefisso esatto di una
+regola ask (ASK_PREFIXES: git commit, git reset, git branch -D, git stash drop…), senza separatori, a
+capo, $( o backtick (per PowerShell senza distinguere le maiuscole, come le sue regole). Per branch,
+switch, stash e reflog l'opzione distruttiva va quindi subito dopo il sottocomando; le loro forme non
+distruttive (git branch -a, git stash list) sono letture e passano anche nei comandi composti, come git
+tag senza argomenti e git tag -l/--list senza opzioni di scrittura. commit-tree, send-pack e git.exe
+non hanno una regola ask e sono sempre bloccati.
 
 Come riconosce i comandi: divide il comando in token con shlex (lineare, niente regex con
 backtracking), separa i comandi semplici su ; & | ( ) e a capo, e cerca un token git (anche
 /usr/bin/git, git.exe, dopo FOO=1, env, sudo, xargs) seguito, dopo le opzioni globali, dal
-sottocomando. Entra negli argomenti di sh/bash/zsh -c, eval, iex/Invoke-Expression e cmd /c, non nei
-messaggi dei commit. Se il comando non si divide (virgolette sbilanciate) o supera MAX_COMMAND, una
-ricerca lineare di git seguito da commit, push o tag decide: se la trova, blocca.
+sottocomando. Dopo il primo git che scrive, il resto del comando semplice sono suoi argomenti. Un
+sottocomando che la shell espande (git $SUB, git {reset,--hard}, git @args, git ($b) su PowerShell) e
+una variabile in posizione di comando seguita da un sottocomando ("$GIT" -C x push) sono bloccati.
+Entra negli argomenti di sh/bash/zsh -c, eval, iex/Invoke-Expression e cmd /c, non nei messaggi dei
+commit. Se il comando non si divide (virgolette sbilanciate), supera MAX_COMMAND o passa da uno
+heredoc, una ricerca lineare per comando semplice di git seguito da un sottocomando che scrive decide:
+se la trova, blocca.
 
 Limiti: è una rete contro errori e injection banali, non contro un avversario determinato. Non vede
 alias di git (anche -c alias.x=push, -c remote.x.push=+ref), alias e variabili di PowerShell, funzioni
-shell, script, make, hook git, comandi passati a ssh, update-ref e fast-import; merge, revert,
-cherry-pick e pull creano commit senza passare da qui. Accanto restano la sandbox (credenziali negate)
-e le regole ask, alle quali l'hook lascia i comandi in forma semplice.
+shell, script, make, hook git, comandi passati a ssh, update-ref e fast-import, un redirect prima del
+sottocomando (git 2>/dev/null push), git ricavato da una sostituzione ($(which git) push) e il secondo
+git di find -exec … {} + -exec git … {} +. Le forme distruttive senza una regola ask (git branch -C,
+stash pop, worktree remove --force, checkout-index -f, gc --prune=now…) passano; merge, revert,
+cherry-pick e pull chiedono conferma ma creano commit senza il controllo del messaggio. Accanto restano la
+sandbox (credenziali negate) e le regole ask, alle quali l'hook lascia i comandi in forma semplice.
 
 Le parole da sole (un file CLAUDE.md, un percorso, "integra l'API di Anthropic") non bloccano il
 commit: conta la forma dell'attribuzione, non l'argomento.
 
-Un errore inatteso blocca (exit 2) solo se il comando sembra un commit, un push o un tag: per Claude
-Code un hook che esce con 1 è un errore non bloccante, e il comando passerebbe senza controllo.
+Un errore inatteso blocca (exit 2) solo se il comando sembra un comando git che scrive: per Claude Code
+un hook che esce con 1 è un errore non bloccante, e il comando passerebbe senza controllo.
 """
 import json
 import os
@@ -217,7 +228,9 @@ def ps_git_expression(tokens):
 
 
 def git_calls(tokens, tool_name, depth=0):
-    """(sottocomando, argomenti) per ogni git commit/commit-tree/push/send-pack/tag nei token.
+    """(sottocomando, argomenti) per ogni git con un sottocomando di WRITE_SUBCOMMANDS nei token.
+
+    Un sottocomando che non si conosce prima che la shell lo espanda dà ("dynamic", []).
 
     Una shell che legge lo script da stdin o da un file (bash <<< …, echo … | sh) dà ("shell", []):
     il chiamante decide con la ricerca lineare su tutto il comando.
@@ -523,8 +536,9 @@ def block_form(reason=""):
           + " e le forme distruttive di branch, switch, stash e reflog) vanno lanciati da soli, in forma "
           "semplice, dalla cartella del repo (git commit -F <file>, git push …, git reset --hard …), così "
           "chiede conferma la regola ask di settings. Niente git -C, opzioni globali, variabili, &&, ;, |, "
-          "redirect, heredoc, $( ) o messaggi su più righe: per un commit scrivi il messaggio in un file con lo strumento Write e usa git commit -F con "
-          "il percorso assoluto che restituisce. commit-tree e send-pack non sono ammessi." + reason,
+          "redirect, heredoc, $( ) o messaggi su più righe: per un commit scrivi il messaggio in un file "
+          "con lo strumento Write e usa git commit -F con il percorso assoluto che restituisce. commit-tree e "
+          "send-pack non sono ammessi." + reason,
           file=sys.stderr)
     return 2
 
@@ -615,7 +629,7 @@ def main():
         sys.stderr.reconfigure(encoding="utf-8")
         raw = sys.stdin.buffer.read().decode("utf-8", errors="replace")
         return check(raw)
-    except Exception as exc:  # confine dell'hook: nessun errore deve far passare un commit, un push o un tag
+    except Exception as exc:  # confine dell'hook: nessun errore deve far passare un comando git che scrive
         if raw is None or loose_git_write(command_of(raw)):
             print(f"Comando bloccato: il controllo git di Mímir è fallito ({type(exc).__name__}: {exc}). "
                   "Riprova o segnala il problema dell'hook.", file=sys.stderr)
