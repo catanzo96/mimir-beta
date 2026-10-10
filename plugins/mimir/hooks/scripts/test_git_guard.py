@@ -3,8 +3,10 @@
 
 Uso: python3 test_git_guard.py [percorso dello script da provare]
 """
+import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -127,6 +129,63 @@ FORM_BLOCK = {
     "echo git push": "echo git push",
     "virgolette sbilanciate": 'git push "origin',
     "due spazi dopo git": "git  push origin main",
+    # i sottocomandi distruttivi con una regola ask: stessa forma semplice di commit, push e tag
+    "-C prima di reset": "git -C . reset --hard",
+    "rebase dopo cd": "cd x && git rebase main",
+    "variabile davanti a merge": "FOO=1 git merge x",
+    "cherry-pick dopo un fetch": "git fetch && git cherry-pick abc",
+    "revert dentro sh -c": "sh -c 'git revert HEAD'",
+    "--no-pager prima di pull": "git --no-pager pull",
+    "am in una pipe": "cat p.patch | git am",
+    "clean dopo ;": "true; git clean -fdx",
+    "restore con redirect": "git restore . 2>&1",
+    "checkout dopo status": "git status && git checkout main",
+    "update-ref con -c": "git -c x=y update-ref -d refs/heads/x",
+    "filter-branch in eval": 'eval "git filter-branch --force"',
+    "prune con env": "env X=1 git prune",
+    "reset nel corpo di bash <<EOF": "bash <<'EOF'\ngit reset --hard\nEOF",
+    "reset in una variabile": '"$GIT" reset --hard',
+    "reset in una variabile dopo sudo -u": 'sudo -u root "$GIT" reset --hard',
+    # branch, switch, stash e reflog: la regola ask riconosce l'opzione distruttiva solo subito dopo
+    "branch -D dopo -q": "git branch -q -D x",
+    "branch -fD raggruppato": "git branch -fD x",
+    "branch --delete dopo cd": "cd x && git branch --delete y",
+    "branch --del abbreviato": "git branch --del x",
+    "switch --force dopo -q": "git switch -q --force main",
+    "switch -C dopo un fetch": "git fetch && git switch -C x",
+    "switch --discard abbreviato": "git switch --discard main",
+    "stash drop con -C": "git -C . stash drop",
+    "stash clear dopo ;": "true; git stash clear",
+    "reflog expire con env": "env X=1 git reflog expire --all",
+    "reflog delete dentro bash -c": "bash -c 'git reflog delete HEAD@{1}'",
+    "variabile come comando dopo un'assegnazione": 'FOO=1 "$GIT" reset --hard',
+    # git 2.43 accetta --attr-source con il valore separato
+    "--attr-source prima di reset": "git --attr-source HEAD reset --hard",
+    "brace expansion del sottocomando": "git {reset,--hard}",
+    "brace expansion di git": "{git,reset} --hard",
+    # variabile come git dopo parole riservate, wrapper e redirect
+    "variabile come git dopo then": 'if true; then "$GIT" push; fi',
+    "variabile come git dopo do": 'for r in a b; do "$GIT" push $r; done',
+    "variabile come git in un gruppo": '{ "$GIT" push; }',
+    "variabile come git dopo !": '! "$GIT" push',
+    "variabile come git dopo timeout": 'timeout 10 "$GIT" push',
+    "variabile come git dopo un redirect": '>/dev/null "$GIT" push',
+    # variabile come git seguita da opzioni globali
+    "variabile come git con -C": '"$GIT" -C repo reset --hard',
+    "variabile come git con --no-pager": "$GIT --no-pager branch -D x",
+    # espansioni che portano l'opzione distruttiva nella stessa parola
+    "branch -D con $IFS": "git${IFS}branch${IFS}-D${IFS}x",
+    "branch -D con $IFS e virgolette": 'git$IFS"branch"$IFS-D$IFS"x"',
+    "push con $IFS e virgolette": 'git$IFS"push"',
+    "stash drop con brace expansion": "{git,stash,drop}",
+    "switch --force con brace expansion": "{git,switch,--force,main}",
+    "reflog expire con brace expansion": "{git,reflog,expire,--all}",
+    # riga continuata con \ nel corpo di un heredoc eseguito
+    "push continuato nel corpo di bash <<EOF": "bash <<EOF\ngit \\\npush origin main\nEOF",
+    # falsi positivi accettati: un comando in una variabile seguito da clean non si distingue da git
+    "make in una variabile e clean": "$MAKE clean",
+    # -committerdate contiene una d: senza = sembra un'opzione distruttiva raggruppata
+    "branch --sort senza =": "git branch --sort -committerdate",
 }
 
 # Bloccati perché gli argomenti di git commit non sono tra le forme ammesse (elenco chiuso): exit 2
@@ -188,6 +247,7 @@ REASON_BLOCK = {
     "heredoc come messaggio": (HEREDOC.format("feat: x\n\nCorpo breve."), "heredoc"),
     "redirect dopo il messaggio": ('git commit -m "feat: x" 2>&1', "redirect"),
     "--amend ripetuto": ('git commit --amend --amend -m "feat: x"', "--amend è ripetuto"),
+    "branch -D dopo -q: indica come riscriverlo": ("git branch -q -D x", "Per branch, switch, stash e reflog"),
 }
 
 # Lasciati alle regole ask di settings (forma semplice) o senza nulla da controllare: exit 0, nessun output
@@ -227,6 +287,57 @@ ALLOW = {
     "status": "git status",
     "cancelletto dentro una parola": "git log --grep issue#12",
     "git come argomento": "cd git && make",
+    # sottocomandi distruttivi in forma semplice: chiede conferma la regola ask
+    "reset": "git reset --hard HEAD~1",
+    "rebase": "git rebase main",
+    "merge": "git merge feature",
+    "cherry-pick": "git cherry-pick abc",
+    "revert": "git revert HEAD",
+    "pull": "git pull --rebase",
+    "am": "git am p.patch",
+    "clean": "git clean -fdx",
+    "restore": "git restore .",
+    "checkout": "git checkout main",
+    "update-ref": "git update-ref -d refs/heads/x",
+    "filter-branch": "git filter-branch --force",
+    "prune": "git prune",
+    "branch -D": "git branch -D x",
+    "branch -d": "git branch -d x",
+    "branch --delete": "git branch --delete x",
+    "branch -M": "git branch -M x",
+    "branch -f": "git branch -f x main",
+    "branch --force": "git branch --force x main",
+    "switch -f": "git switch -f main",
+    "switch --force": "git switch --force main",
+    "switch --discard-changes": "git switch --discard-changes main",
+    "switch -C": "git switch -C x",
+    "stash drop": "git stash drop",
+    "stash clear": "git stash clear",
+    "reflog expire": "git reflog expire --expire=now --all",
+    "reflog delete": "git reflog delete HEAD@{1}",
+    # letture e forme non distruttive: libere anche in un comando composto
+    "branch in un comando composto": "git branch && git status",
+    "branch -a in una pipe": "git branch -a | grep x",
+    "branch -m, rinomina senza forzare": "git -C . branch -m nuovo",
+    "stash list": "git stash list && git log",
+    "stash e stash pop": "git stash && git stash pop",
+    "reflog in una pipe": "git reflog | head",
+    "switch con -C globale": "git -C . switch main",
+    "switch -c dopo un fetch": "git fetch && git switch -c x",
+    "merge-base non è merge": "git merge-base main HEAD && git log",
+    # parole come clean o branch dopo una variabile, in comandi che non sono git o sono letture
+    "make con una variabile e clean": "make -C $DIR clean",
+    "mvn con una variabile e clean": "mvn -f $POM clean verify",
+    "stash list con -C e una variabile": 'git -C "$REPO" stash list',
+    "branch -a con -C e una variabile": "git -C $DIR branch -a",
+    # uno script lanciato con bash non si vede, ma git branch -a e echo clean non scrivono
+    "bash script e branch -a": "bash build.sh && git branch -a",
+    "bash script e clean in un altro comando": "bash build.sh; git status; echo clean",
+    "git e commit come messaggi": "git commit -m git -m commit",
+    # git come argomento di un altro comando, seguito da un percorso
+    "grep di git in una cartella": "grep -rn git plugins/mimir/",
+    "rg di git in più cartelle": "rg -n git skills/ agents/",
+    "apt install git": "apt install -y git libssl-dev:amd64",
     "comando PowerShell con backtick nel tool Bash": "Get-ChildItem -Path C:\\repo `\n  -Filter *.md | Select-Object Name",
 }
 
@@ -245,6 +356,13 @@ PS_FORM_BLOCK = {
     "& git push": "& git push origin main",
     "iex": 'iex "git push origin main"',
     "continuazione con backtick": "git push `\n  origin main",
+    "git.exe reset": "git.exe reset --hard",
+    "& git branch -D": "& git branch -D x",
+    "splat dopo git": "git @args",
+    "array dopo git": 'git @("reset","--hard")',
+    "sottocomando tra parentesi": "git ($b) --hard",
+    "sottocomando tra parentesi dopo -C": "git -C . ($sub) --hard",
+    "sottocomando tra parentesi dopo --no-pager": "git --no-pager ($sub) --hard",
     # su più righe il tokenizzatore trova virgolette sbilanciate: non arriva al controllo degli argomenti
     "here-string pulita": 'git commit -m @"\nfeat: x\n\nCorpo breve.\n"@',
 }
@@ -256,6 +374,8 @@ PS_COMMIT_FORM_BLOCK = {
 PS_ALLOW = {
     "maiuscole: le regole PowerShell non le distinguono": 'Git COMMIT -m "feat: x"',
     "push semplice": "git push origin main",
+    "reset in maiuscolo": "Git RESET --hard",
+    "branch -d": "git branch -d x",
     "comando non git": "Get-ChildItem -Path C:\\repo -Filter *.md",
 }
 
@@ -335,6 +455,9 @@ SLOW = {
     "messaggio con 20000 righe vuote": ('git commit -m "feat: x' + "\n" * 20000 + 'y"', 2),
     # non è un file regolare: bloccato senza leggerlo (e senza restare appeso)
     "commit -F su un file che non finisce": ("git commit -F /dev/zero", 2),
+    # un solo git: gli altri sono suoi argomenti, da leggere una volta sola
+    "git branch ripetuto": ("git branch " * 6500 + "-D x", 2),
+    "git push ripetuto": ("git push " * 6500 + "origin", 0),
 }
 for name, (cmd, code) in SLOW.items():
     start = time.monotonic()
@@ -345,8 +468,30 @@ for name, (cmd, code) in SLOW.items():
         failures += 1
         print(f"FALLITO (tempo: {elapsed:.1f} s, massimo {MAX_SECONDS}): {name}")
 
+# Le forme semplici dell'hook devono essere i prefissi delle regole ask di settings: se divergono, un
+# comando passa senza conferma o viene bloccato anche in forma semplice.
+spec = importlib.util.spec_from_file_location("git_guard", SCRIPT)
+guard = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(guard)
+ROOT = Path(HERE).parents[3]
+ALIGNMENT = [(settings, tool) for settings in ("settings.template.json", "sandbox.settings.json")
+             for tool in ("Bash", "PowerShell")]
+for settings, tool in ALIGNMENT:
+    rules = json.loads(Path(ROOT, settings).read_text(encoding="utf-8"))["permissions"]["ask"]
+    prefixes = {m.group(1) for m in (re.fullmatch(tool + r"\(git (.+):\*\)", rule) for rule in rules) if m}
+    if prefixes != set(guard.ASK_PREFIXES):
+        failures += 1
+        print(f"FALLITO (allineamento {settings}, {tool}): solo nelle regole {sorted(prefixes - set(guard.ASK_PREFIXES))}, "
+              f"solo nell'hook {sorted(set(guard.ASK_PREFIXES) - prefixes)}")
+FORMS = [(sub, form) for sub, forms in guard.ASK_FORMS.items() for form in forms]
+for sub, form in FORMS:
+    if not guard.is_destructive(sub, [form, "x"]):
+        failures += 1
+        print(f"FALLITO (forma distruttiva non riconosciuta): git {sub} {form}")
+
 shutil.rmtree(TMP, ignore_errors=True)
 total = sum(len(c) for c in (CONTENT_BLOCK, FORM_BLOCK, COMMIT_FORM_BLOCK, ALLOW, PS_CONTENT_BLOCK,
-                             PS_FORM_BLOCK, PS_COMMIT_FORM_BLOCK, PS_ALLOW, REASON_BLOCK, BROKEN, SLOW))
+                             PS_FORM_BLOCK, PS_COMMIT_FORM_BLOCK, PS_ALLOW, REASON_BLOCK, BROKEN, SLOW,
+                             ALIGNMENT, FORMS))
 print(f"{total - failures}/{total} casi corretti")
 sys.exit(1 if failures else 0)
