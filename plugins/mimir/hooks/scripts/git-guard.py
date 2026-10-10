@@ -72,6 +72,8 @@ EVALUATORS = {"eval", "iex", "invoke-expression"}
 NESTING = SHELLS | POWERSHELLS | CMDS | EVALUATORS
 QUOTES = "\"'`"
 
+# segnaposto che prende il posto di ogni heredoc nel comando analizzato
+HEREDOC_MARK = "__HEREDOC__"
 # << seguito dal delimitatore, ma non <<< (here-string di bash)
 HEREDOC_START = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)(\w+)\1")
 LOOSE_GIT = re.compile(r"\bgit\b", re.I)
@@ -116,7 +118,7 @@ def heredoc_bodies(cmd):
         starts = heredoc_starts(line)
         delimiters = [m.group(2) for m in starts]
         for m in reversed(starts):
-            line = line[:m.start()] + " __HEREDOC__ " + line[m.end():]
+            line = line[:m.start()] + f" {HEREDOC_MARK} " + line[m.end():]
         kept.append(line)
         if delimiters:
             pending, body = delimiters, []
@@ -265,62 +267,86 @@ class UnreadableMessageFile(Exception):
         self.path, self.reason = path, reason
 
 
-def message_from_args(tokens, bodies, cwd):
-    """Ricostruisce il messaggio da -m/--message, -F/--file e --trailer. None se non determinabile.
+class CommitFormError(Exception):
+    """Gli argomenti di git commit non sono tra le forme ammesse: git li leggerebbe in modi che l'hook non vede."""
 
+
+def read_message_file(value, cwd):
+    """Il testo del file di -F/--file. Solleva CommitFormError o UnreadableMessageFile se non si può leggere."""
+    if value == "-":
+        raise CommitFormError("-F - legge il messaggio da stdin, che l'hook non vede")
+    if "<" in value or ">" in value:
+        raise CommitFormError("il percorso di -F contiene un redirect")
+    # la shell espande variabili, ~ e caratteri jolly, l'hook no: leggerebbe un altro file
+    if "$" in value or value.startswith("~") or any(c in value for c in "*?["):
+        raise UnreadableMessageFile(value, "contiene variabili, ~ o caratteri jolly")
+    path = value if os.path.isabs(value) else os.path.join(cwd, value)
+    # solo file regolari e con un limite: -F /dev/zero non finirebbe mai di leggere
+    if not os.path.isfile(path):
+        raise UnreadableMessageFile(path, "non è un file esistente")
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            text = fh.read(MAX_COMMAND + 1)
+    except OSError:
+        raise UnreadableMessageFile(path, "non si apre") from None
+    if len(text) > MAX_COMMAND:
+        raise UnreadableMessageFile(path, f"supera {MAX_COMMAND} caratteri")
+    return text
+
+
+def parse_commit_args(args, cwd):
+    """Il messaggio di git commit dalle forme ammesse (elenco chiuso), o None per --amend --no-edit.
+
+    Ammessi: -m/--message, anche ripetuti, oppure un solo -F/--file, con il valore nel token dopo o, per
+    le forme lunghe, dopo =; --amend; --no-edit solo come git commit --amend --no-edit. Tutto il resto
+    (valori attaccati, abbreviazioni, altre opzioni, file da aggiungere) solleva CommitFormError: git lo
+    accetterebbe con effetti che il controllo del messaggio non vede (verificato su git 2.43.0).
     Solleva UnreadableMessageFile se il file del messaggio non è un file regolare leggibile.
     """
-    parts, trailers, i = [], [], 0
-    while i < len(tokens):
-        tok = tokens[i]
-        value = None
-        if tok == "--trailer" and i + 1 < len(tokens):
-            trailers.append(tokens[i + 1])
-            i += 2
-            continue
-        if tok.startswith("--trailer="):
-            trailers.append(tok.split("=", 1)[1])
+    messages, files, flags, i = [], [], set(), 0
+    while i < len(args):
+        tok = args[i]
+        if HEREDOC_MARK in args[i:i + 2]:
+            raise CommitFormError("un heredoc non può passare il messaggio")
+        if tok in ("-m", "--message", "-F", "--file"):
+            if i + 1 == len(args):
+                raise CommitFormError(f"{tok} senza valore")
+            # git prende il token dopo anche se inizia con -: -m --amend è il messaggio "--amend"
+            option, value, i = tok, args[i + 1], i + 2
+        elif tok.startswith(("--message=", "--file=")):
+            (option, value), i = tok.split("=", 1), i + 1
+        elif tok in ("--amend", "--no-edit"):
+            if tok in flags:
+                raise CommitFormError(f"{tok} è ripetuto")
+            flags.add(tok)
             i += 1
             continue
-        if tok in ("-m", "--message", "-F", "--file") and i + 1 < len(tokens):
-            value, i = tokens[i + 1], i + 1
-            is_file = tok in ("-F", "--file")
-        elif tok.startswith("--message="):
-            value, is_file = tok.split("=", 1)[1], False
-        elif tok.startswith("--file="):
-            value, is_file = tok.split("=", 1)[1], True
-        elif tok.startswith("-m") and len(tok) > 2:
-            value, is_file = tok[2:], False
-        if value is not None:
-            # here-string di PowerShell (@" … "@): il tokenizzatore la spezza alle righe, il messaggio non è ricostruibile
-            if value.startswith(("@\"", "@'")):
-                return None
-            if not is_file:
-                parts.append(value)
-            elif value == "-":
-                if not bodies:
-                    return None
-                parts.append(bodies[0])
-            else:
-                # la shell espande variabili, ~ e caratteri jolly, l'hook no: leggerebbe un altro file
-                if "$" in value or value.startswith("~") or any(c in value for c in "*?["):
-                    raise UnreadableMessageFile(value, "contiene variabili, ~ o caratteri jolly")
-                path = value if os.path.isabs(value) else os.path.join(cwd, value)
-                # solo file regolari e con un limite: -F /dev/zero non finirebbe mai di leggere
-                if not os.path.isfile(path):
-                    raise UnreadableMessageFile(path, "non è un file esistente")
-                try:
-                    with open(path, encoding="utf-8", errors="replace") as fh:
-                        text = fh.read(MAX_COMMAND + 1)
-                except OSError:
-                    raise UnreadableMessageFile(path, "non si apre") from None
-                if len(text) > MAX_COMMAND:
-                    raise UnreadableMessageFile(path, f"supera {MAX_COMMAND} caratteri")
-                parts.append(text)
-        i += 1
-    if trailers:
-        parts.append("\n".join(trailers))
-    return "\n\n".join(p.strip("\n") for p in parts) if parts else None
+        else:
+            raise CommitFormError(f"l'argomento {tok[:40]!r} non è ammesso")
+        (files if option in ("-F", "--file") else messages).append(value)
+
+    if messages and files:
+        raise CommitFormError("-m e -F insieme")
+    # con più -F git usa solo l'ultimo
+    if len(files) > 1:
+        raise CommitFormError("più di un -F")
+    if "--no-edit" in flags:
+        if "--amend" not in flags or messages or files:
+            raise CommitFormError("--no-edit si usa solo come git commit --amend --no-edit")
+        return None
+    if files:
+        return read_message_file(files[0], cwd)
+    if not messages:
+        raise CommitFormError("manca il messaggio")
+    for value in messages:
+        # l'hook vede il valore dopo le virgolette, non sa se la shell lo espanderà: Cl{au,x}de diventa Claude
+        if any(c in value for c in "$`{}*?[") or value.startswith("~"):
+            raise CommitFormError("il messaggio di -m contiene $, backtick, graffe, caratteri jolly o ~ "
+                                  "iniziale, che la shell può espandere")
+        # here-string di PowerShell (@" … "@): il tokenizzatore la spezza, il messaggio non è quello passato a git
+        if any(line.startswith(("@\"", "@'")) for line in value.split("\n")):
+            raise CommitFormError("il messaggio di -m è una here-string di PowerShell")
+    return "\n\n".join(m.strip("\n") for m in messages)
 
 
 def length_problems(message):
@@ -345,7 +371,14 @@ def commit_problem(commit_args, bodies, cwd, attribution_in_cmd):
     perché con molti commit nello stesso comando ripeterla costerebbe un tempo quadratico.
     """
     try:
-        message = message_from_args(commit_args, bodies, cwd) if commit_args else None
+        message = parse_commit_args(commit_args, cwd)
+    except CommitFormError as exc:
+        return (f"Commit bloccato: {exc}. Le forme ammesse sono git commit -m \"…\" (anche ripetuto) o "
+                "--message=\"…\", oppure un solo -F <file> o --file=<file>, senza altre opzioni né file e "
+                "senza redirect, pipe o altri comandi uniti: i file si aggiungono prima, con git add in un "
+                "comando a parte. Davanti si può mettere --amend; git commit --amend --no-edit riusa il "
+                "messaggio di HEAD. Per un messaggio con $, backtick, graffe, caratteri jolly o su più righe, "
+                "scrivilo con lo strumento Write e usa git commit -F con il percorso assoluto che restituisce.")
     except UnreadableMessageFile as exc:
         return (f"Commit bloccato: il file del messaggio {exc.path[:80]!r} {exc.reason}, quindi non si può "
                 "controllare. Scrivi il messaggio con lo strumento Write e passa a git commit -F il percorso "
@@ -437,7 +470,8 @@ def check(raw):
             print("Force push bloccato: Mímir non lo esegue mai. Se serve davvero, lancialo tu a mano "
                   "nel terminale, fuori da Claude Code.", file=sys.stderr)
             return 2
-        if sub == "commit" or sub == "commit-tree":
+        # commit-tree ha altri argomenti e non ha una regola ask: lo blocca block_form
+        if sub == "commit":
             problem = commit_problem(args, bodies, data.get("cwd") or os.getcwd(), attribution_in_cmd)
             if problem:
                 print(problem, file=sys.stderr)
