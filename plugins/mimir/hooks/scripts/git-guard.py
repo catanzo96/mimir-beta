@@ -55,11 +55,36 @@ ATTRIBUTION = [
     re.compile(r"claude\.(ai|com)/(code|claude-code)", re.I),
 ]
 
-WRITE_SUBCOMMANDS = {"commit", "commit-tree", "push", "send-pack", "tag"}
-# i sottocomandi con una regola ask in settings: solo questi possono passare in forma semplice
-SIMPLE_SUBCOMMANDS = ("commit", "push", "tag")
+# i sottocomandi con una regola ask in settings su git <sottocomando>
+ASK_SUBCOMMANDS = ("commit", "push", "tag", "reset", "rebase", "merge", "cherry-pick", "revert", "pull", "am",
+                   "clean", "restore", "checkout", "update-ref", "filter-branch", "prune")
+# i sottocomandi con una regola ask solo sulle forme distruttive (git branch -D, git stash drop…)
+ASK_FORMS = {
+    "branch": ("-D", "-d", "--delete", "-M", "-f", "--force"),
+    "switch": ("-f", "--force", "--discard-changes", "-C"),
+    "stash": ("drop", "clear"),
+    "reflog": ("expire", "delete"),
+}
+# le stesse opzioni come le accetta git: corte anche raggruppate (-fD), lunghe anche abbreviate (--del)
+DESTRUCTIVE_OPTIONS = {
+    "branch": ("dDMf", ("--delete", "--force")),
+    "switch": ("fC", ("--force", "--discard-changes", "--force-create")),
+}
+WRITE_SUBCOMMANDS = set(ASK_SUBCOMMANDS) | set(ASK_FORMS) | {"commit-tree", "send-pack"}
+# i prefissi delle regole ask: solo un comando che inizia esattamente così può passare
+ASK_PREFIXES = ASK_SUBCOMMANDS + tuple(f"{sub} {form}" for sub, forms in ASK_FORMS.items() for form in forms)
 GIT_NAMES = {"git", "git.exe"}
-GIT_OPTIONS_WITH_VALUE = {"-c", "-C", "--git-dir", "--work-tree", "--namespace", "--config-env"}
+GIT_OPTIONS_WITH_VALUE = {"-c", "-C", "--git-dir", "--work-tree", "--namespace", "--config-env", "--attr-source"}
+# le parole che possono stare prima del comando: FOO=1 env -i "$GIT" push, then timeout 10 "$GIT" push
+ASSIGNMENT = re.compile(r"\w+=")
+REDIRECT = re.compile(r"\d*[<>]")
+NUMBER = re.compile(r"\d[\w.]*$")
+WRAPPERS = {"env", "sudo", "doas", "command", "exec", "nice", "nohup", "time", "xargs", "timeout", "setsid",
+            "stdbuf"}
+KEYWORDS = {"if", "then", "elif", "else", "do", "while", "until", "!", "{"}
+IFS = re.compile(r"\$\{IFS\}|\$IFS")
+# un sottocomando con questi caratteri lo decide la shell: git $SUB, git {reset,--hard}, git @args
+EXPANSION = re.compile(r"[\s$`{}@()*?\[~]")
 PUSH_OPTIONS_WITH_VALUE = {"-o", "--push-option", "--repo", "--receive-pack", "--exec"}
 FORCE_OPTIONS = ("--force", "--force-with-lease", "--force-if-includes")
 TAG_LIST_OPTIONS = {"-l", "--list"}
@@ -77,9 +102,13 @@ HEREDOC_MARK = "__HEREDOC__"
 # << seguito dal delimitatore, ma non <<< (here-string di bash)
 HEREDOC_START = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)(\w+)\1")
 LOOSE_GIT = re.compile(r"\bgit\b", re.I)
-LOOSE_WRITE = re.compile(r"(?<![\w-])(commit|push|tag|send-pack)(?![\w-])", re.I)
+LOOSE_WRITE = re.compile(r"(?<![\w-])(" + "|".join(sorted(WRITE_SUBCOMMANDS)) + r")(?![\w-])", re.I)
 LOOSE_COMMIT = re.compile(r"(?<![\w-])commit(?![\w-])", re.I)
-
+# un comando semplice per la ricerca lineare: il testo tra ; & | e a capo
+LOOSE_SEGMENT = re.compile(r"[^;&|\n]+")
+# le parole che possono rendere distruttivi branch, switch, stash e reflog (-D, --force, drop…); anche
+# attaccate, perché in una parola con espansione seguono } , o $IFS: {git,stash,drop}
+LOOSE_MARKER = re.compile(r"(-[\w-]+|drop|clear|expire|delete)(?![\w-])", re.I)
 
 def arithmetic_spans(line):
     """Intervalli di ((…)) e $((…)) nella riga, dove << è uno shift e non un heredoc; uno non chiuso arriva in fondo."""
@@ -166,6 +195,27 @@ def bare(tok):
     return re.split(r"[\\/]", tok)[-1].lower()
 
 
+def skip_git_options(words, start):
+    """L'indice della prima parola dopo le opzioni globali di git (-C x, --no-pager…)."""
+    j = start
+    while j < len(words) and words[j].startswith("-"):
+        j += 2 if words[j] in GIT_OPTIONS_WITH_VALUE else 1
+    return j
+
+
+def ps_git_expression(tokens):
+    """PowerShell passa a git il valore di un'espressione: git ($b) --hard, git -C . @("reset","--hard")."""
+    # i token fino a end sono opzioni di un git già guardato: ripassarli costerebbe un tempo quadratico
+    end = 0
+    for i, tok in enumerate(tokens):
+        if i < end or bare(tok) not in GIT_NAMES:
+            continue
+        end = skip_git_options(tokens, i + 1)
+        if end < len(tokens) and tokens[end].startswith(("(", "@")):
+            return True
+    return False
+
+
 def git_calls(tokens, tool_name, depth=0):
     """(sottocomando, argomenti) per ogni git commit/commit-tree/push/send-pack/tag nei token.
 
@@ -174,16 +224,32 @@ def git_calls(tokens, tool_name, depth=0):
     """
     calls = []
     for words in simple_commands(tokens):
+        # vero finché le parole sono assegnazioni, wrapper, loro opzioni o il valore dopo un'opzione
+        # (sudo -u root): la parola dopo è il comando
+        prefix, after_option = True, False
+        # dopo il primo git che scrive, il resto del comando semplice sono suoi argomenti (git commit -m git):
+        # guardarli di nuovo come git costerebbe anche un tempo quadratico (git branch git branch …).
+        # Limite accettato: find -exec git branch {} + -exec git push {} + non vede il secondo git
+        git_args = False
+        # le parole fino a qui sono opzioni globali di una variabile già guardata come git ("$GIT" -C x)
+        options_end = 0
         for i, word in enumerate(words):
-            name = bare(word)
-            if name in GIT_NAMES:
-                j = i + 1
-                while j < len(words) and words[j].startswith("-"):
-                    j += 2 if words[j] in GIT_OPTIONS_WITH_VALUE else 1
-                if j < len(words) and bare(words[j]) in WRITE_SUBCOMMANDS:
-                    calls.append((bare(words[j]), words[j + 1:]))
-                elif j < len(words) and ("$" in words[j] or "`" in words[j]):
-                    calls.append(("dynamic", []))  # git $SUB, git ${X:-push}
+            name, at_command = bare(word), prefix
+            prefix = prefix and (ASSIGNMENT.match(word) is not None or name in WRAPPERS or name in KEYWORDS
+                                 or word.startswith("-") or REDIRECT.match(word) is not None
+                                 or NUMBER.match(word) is not None or after_option)
+            after_option = word.startswith("-") or REDIRECT.fullmatch(word) is not None
+            if not git_args and name in GIT_NAMES:
+                j = skip_git_options(words, i + 1)
+                # senza redirect e virgolette, ma con backtick: `echo push` non è un sottocomando
+                sub = re.split(r"[<>]", words[j], maxsplit=1)[0].strip("\"'") if j < len(words) else ""
+                if bare(sub) in WRITE_SUBCOMMANDS:
+                    calls.append((bare(sub), words[j + 1:]))
+                    git_args = True
+                elif EXPANSION.search(re.split(r"[\\/]", sub)[-1]):
+                    # il percorso non conta: in grep -rn git plugins/ git è un argomento
+                    calls.append(("dynamic", []))
+                    git_args = True
                 continue
             if depth < MAX_DEPTH and ("$(" in word or "`" in word):
                 # sostituzione tra virgolette ("$(git push)", "`git push`"): shlex la lascia in un solo token
@@ -192,10 +258,17 @@ def git_calls(tokens, tool_name, depth=0):
                 except ValueError:
                     if loose_git_write(word):
                         calls.append(("shell", []))
-            if "$" in word and ((i + 1 < len(words) and bare(words[i + 1]) in WRITE_SUBCOMMANDS)
-                                or loose_git_write(word)):
-                calls.append(("dynamic", []))  # "$GIT" push, git${IFS}push
-            if depth < MAX_DEPTH and name in NESTING:
+            # "$GIT" -C x push, {git,} push solo in posizione di comando (make -C $DIR clean è altro);
+            # git${IFS}push e {git,reset} ovunque
+            if "$" in word or "{" in word:
+                written = False
+                if at_command and i >= options_end:
+                    options_end = skip_git_options(words, i + 1)
+                    written = options_end < len(words) and bare(words[options_end]) in WRITE_SUBCOMMANDS
+                # git$IFS"push": senza virgolette la parola è git$IFSpush, e push non sembra una parola intera
+                if written or loose_git_write(IFS.sub(" ", word)):
+                    calls.append(("dynamic", []))
+            if not git_args and depth < MAX_DEPTH and name in NESTING:
                 script = nested_script(name, words, i + 1)
                 if script is None:
                     calls.append(("shell", []))
@@ -246,6 +319,24 @@ def is_force_push(args):
         if len(option) >= 4 and option.startswith("--f") and any(full.startswith(option) for full in FORCE_OPTIONS):
             return True
         if re.fullmatch(r"-[A-Za-z0-9]+", arg) and "f" in arg[1:]:
+            return True
+    return False
+
+
+def is_destructive(sub, args):
+    """Branch, switch, stash e reflog in una delle forme per cui settings ha una regola ask."""
+    args = [a.strip("`") for a in args]
+    if sub in ("stash", "reflog"):
+        return any(arg in ASK_FORMS[sub] for arg in args)
+    short, long_options = DESTRUCTIVE_OPTIONS[sub]
+    for arg in args:
+        if arg == "--":
+            break
+        if arg.startswith("--"):
+            option = arg.split("=", 1)[0]
+            if len(option) >= 3 and any(full.startswith(option) for full in long_options):
+                return True
+        elif re.fullmatch(r"-[A-Za-z]+", arg) and any(c in short for c in arg[1:]):
             return True
     return False
 
@@ -394,29 +485,47 @@ def commit_problem(commit_args, cwd):
     return None
 
 
+def is_destructive_word(word):
+    return any(is_destructive(sub, [word]) for sub in ASK_FORMS)
+
+
 def loose_git_write(text):
-    """Ricerca lineare: git seguito più avanti da commit, push, tag o send-pack come parole intere."""
-    match = LOOSE_GIT.search(text)
-    return bool(match and LOOSE_WRITE.search(text, match.end()))
+    """Ricerca lineare, comando semplice per comando semplice: git seguito più avanti da un sottocomando che
+    scrive, come parola intera; branch, switch, stash e reflog solo se più avanti, nello stesso comando
+    semplice, c'è una parola che può renderli distruttivi (-D, --force, drop…)."""
+    # una riga continuata (\ a capo in bash, ` a capo in PowerShell) resta nello stesso comando semplice
+    text = text.replace("\\\n", " ").replace("`\n", " ")
+    for segment in LOOSE_SEGMENT.finditer(text):
+        git = LOOSE_GIT.search(text, segment.start(), segment.end())
+        if not git:
+            continue
+        # la posizione dell'ultima parola distruttiva basta a dire se ce n'è una dopo ogni sottocomando
+        last_marker = max((m.start() for m in LOOSE_MARKER.finditer(text, git.end(), segment.end())
+                           if is_destructive_word(m.group(1))), default=-1)
+        for write in LOOSE_WRITE.finditer(text, git.end(), segment.end()):
+            if write.group(1).lower() not in ASK_FORMS or last_marker > write.start():
+                return True
+    return False
 
 
 def is_simple_form(cmd, tokens, tool_name):
-    """L'intero comando è git commit/push/tag con il prefisso esatto delle regole ask di settings."""
+    """L'intero comando inizia con il prefisso esatto di una regola ask di settings (git commit, git branch -D…)."""
     text = cmd.strip()
     if "\n" in text or "$(" in text or "`" in text or any(is_separator(tok) for tok in tokens):
         return False
     # le regole PowerShell non distinguono le maiuscole, quelle Bash sì
     flags = re.I if tool_name == "PowerShell" else 0
-    return re.match(r"git (?:" + "|".join(SIMPLE_SUBCOMMANDS) + r")(?: |$)", text, flags) is not None
+    return re.match(r"git (?:" + "|".join(map(re.escape, ASK_PREFIXES)) + r")(?: |$)", text, flags) is not None
 
 
 def block_form(reason=""):
-    print("Comando git bloccato: commit, push e tag vanno lanciati da soli, in forma semplice, dalla cartella "
-          "del repo (git commit -F <file>, git commit -m \"…\", git push …, git tag …), così chiede conferma "
-          "la regola ask di settings. Niente git -C, opzioni globali, variabili, &&, ;, |, redirect, heredoc, "
-          "$( ) o messaggi su più righe: scrivi il messaggio in un file con lo strumento Write e usa "
-          "git commit -F con il percorso assoluto che restituisce. "
-          "commit-tree e send-pack non sono ammessi." + reason, file=sys.stderr)
+    print("Comando git bloccato: i comandi git che chiedono conferma (" + ", ".join(ASK_SUBCOMMANDS)
+          + " e le forme distruttive di branch, switch, stash e reflog) vanno lanciati da soli, in forma "
+          "semplice, dalla cartella del repo (git commit -F <file>, git push …, git reset --hard …), così "
+          "chiede conferma la regola ask di settings. Niente git -C, opzioni globali, variabili, &&, ;, |, "
+          "redirect, heredoc, $( ) o messaggi su più righe: per un commit scrivi il messaggio in un file con lo strumento Write e usa git commit -F con "
+          "il percorso assoluto che restituisce. commit-tree e send-pack non sono ammessi." + reason,
+          file=sys.stderr)
     return 2
 
 
@@ -443,6 +552,8 @@ def check(raw):
 
     # il corpo di un heredoc può essere uno script eseguito (bash <<EOF): nel dubbio è una scrittura
     writes = ["heredoc"] if any(loose_git_write(body) for body in bodies) else []
+    if tool_name == "PowerShell" and ps_git_expression(tokens):
+        writes.append("dynamic")
     shell_checked = False
 
     for sub, args in calls:
@@ -469,13 +580,18 @@ def check(raw):
                 return 2
         if sub == "tag" and is_tag_listing(args):
             continue
+        if sub in ASK_FORMS and not is_destructive(sub, args):
+            continue
         writes.append(sub)
 
     if not writes:
         return 0
-    if len(calls) == 1 and writes == [calls[0][0]] and writes[0] in SIMPLE_SUBCOMMANDS \
+    if len(calls) == 1 and writes == [calls[0][0]] and (writes[0] in ASK_SUBCOMMANDS or writes[0] in ASK_FORMS) \
             and is_simple_form(cmd, tokens, tool_name):
         return 0  # ci pensa la regola ask di settings
+    if any(sub in ASK_FORMS for sub in writes):
+        return block_form(" Per branch, switch, stash e reflog l'opzione distruttiva va subito dopo il "
+                          "sottocomando, da sola (git branch -D x, git switch --force main, git stash drop).")
     return block_form()
 
 
