@@ -81,7 +81,7 @@ Si applica insieme a `java` e `clean-code`, e ad `architettura-esagonale` se il 
 ## Osservabilità
 - Health: `quarkus-smallrye-health` (`/q/health/live`, `/ready`, `/started`); readiness che dipende da risorse esterne, liveness no.
 - Metriche: `quarkus-micrometer` (con registry, es. Prometheus) sono il percorso collaudato; OpenTelemetry in `quarkus-opentelemetry` per tracce e log. Esiste `quarkus-micrometer-opentelemetry` per usare Micrometer e OpenTelemetry insieme con output OTLP unificato. Verifica nella guida della versione quale combinazione è supportata.
-- Log: JSON con `quarkus-logging-json` negli ambienti aggregati; mai segreti o dati personali nei log, MDC per correlazione.
+- Log: JSON con `quarkus-logging-json` negli ambienti aggregati, MDC per correlazione.
 - Gli endpoint `/q/*` (health, metrics, openapi) vanno protetti o esposti su un'interfaccia di gestione separata (`quarkus.management.enabled=true`), non lasciati aperti.
 
 ## Verifica

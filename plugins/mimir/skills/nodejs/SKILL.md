@@ -48,7 +48,7 @@ Feature utili (dalla documentazione ufficiale):
 ## Configurazione
 - Variabili d'ambiente lette e validate **una volta** all'avvio in un modulo di configurazione tipizzato (schema del progetto: Zod, Valibot, Joi…); se manca qualcosa il processo non parte. `process.env` non si legge sparso nel codice.
 - I valori sono stringhe: converti e valida (`"false"` è truthy).
-- Segreti mai nel repository né nei log; `.env` in `.gitignore`.
+- `.env` in `.gitignore`.
 
 ## Logging
 - Log strutturato in JSON con la libreria del progetto (pino, winston): livello, messaggio costante e campi a parte, non stringhe concatenate.

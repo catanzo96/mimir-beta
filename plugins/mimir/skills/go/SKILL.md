@@ -67,7 +67,7 @@ Feature utili per versione:
 - Per i principi generali vedi `clean-code/references/test.md`.
 
 ## Sicurezza e log
-- `log/slog` (1.21+) con campi strutturati se il progetto lo usa; mai dati sensibili. Query con parametri (`db.QueryContext(ctx, sql, args...)`), mai `fmt.Sprintf` in SQL. `os/exec` con argomenti separati, mai `sh -c` con input esterni. Percorsi da input confinati con `os.Root` (1.24+) o controlli espliciti. Altre indicazioni: `clean-code/references/sicurezza.md`.
+- `log/slog` (1.21+) con campi strutturati se il progetto lo usa. Query con parametri (`db.QueryContext(ctx, sql, args...)`), mai `fmt.Sprintf` in SQL. `os/exec` con argomenti separati, mai `sh -c` con input esterni. Percorsi da input confinati con `os.Root` (1.24+) o controlli espliciti. Altre indicazioni: `clean-code/references/sicurezza.md`.
 - Segreti e configurazione da ambiente, validati all'avvio.
 - `crypto/rand` per valori di sicurezza, mai `math/rand`.
 
