@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-10 (terze parti: censimento di THIRD_PARTY.md)
+- `THIRD_PARTY.md` completato con un confronto sistematico fonte per fonte sui file di design (skills di Emil Kowalski, taste-skill, impeccable; controllati anche i repo di Matt Pocock ed ECC).
+- `design-ui/SKILL.md`: da taste-skill anche lettura della richiesta, base e verifica; da impeccable anche le superfici (`mode-*.md`, `operate.md`), copy e stati (`clarify.md`).
+- `pagine-marketing.md` e `anti-pattern.md` anche da impeccable; `rifacimento.md` soprattutto dal §11 di taste-skill; `design-reviewer` anche da `impeccable-finish-reviewer.md` (solo l'idea).
+- Skills di Emil: `mobile-web.md` è una traduzione; `catalogo.md` si divide tra `break-ui/SKILL.md` (firme dei guasti) e `CATALOG.md`; `prototipi-ui` anche da `PICKER.md`; `apple-design` e `RECIPES.md` tra le fonti di `animazioni-ui`.
+- Nuova sezione "Valutati e non inclusi" (Matt Pocock, ECC, `typeset.md`, `live.md`, `harden.md`). La riscrittura o l'eliminazione dei file elencati resta aperta prima della pubblicazione.
+
 ## 2026-10-10 (git-guard: comandi git distruttivi)
 - Regole `ask` in `settings.template.json` e `sandbox.settings.json` per reset, rebase, merge, cherry-pick, revert, pull, am, clean, restore, checkout, update-ref, filter-branch, prune e per le forme distruttive di branch, switch, stash e reflog (`git branch -D`, `git stash drop`…).
 - Hook `git-guard.py`: `git commit` ammesso solo nelle forme note (`-m`/`--message` ripetuti, un solo `-F`/`--file`, `--amend`, `--amend --no-edit`); le righe con `#` contano nella lunghezza.
