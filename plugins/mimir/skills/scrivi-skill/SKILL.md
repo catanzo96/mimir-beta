@@ -43,7 +43,9 @@ Nel dubbio, `mimir` solo se serve davvero anche fuori dal lavoro.
 - Non ripetere le regole sempre attive: dalle per scontate o rimanda.
 - Coerenza con le regole: italiano, commit e push solo con approvazione, nessuna attribuzione all'AI, verificato ≠ plausibile, nessun file di metodo creato nei repo dei progetti se non richiesto.
 - Niente dati di aziende o clienti: il metodo qui, i dati nei progetti.
-- Da fonti esterne prendi idee e strutture, non testo: riscrivi con parole tue.
+- Da fonti esterne prendi idee, non testo né forma. Stesso ordine delle sezioni, stessi esempi, stesse costanti o la stessa selezione non ovvia di voci (la scelta editoriale della fonte) fanno un adattamento anche con parole tue. Un elenco di buone pratiche note non è derivato; fanno eccezione anche i valori di standard pubblici (WCAG, Core Web Vitals), citati con la loro fonte.
+  - Prima di dichiarare un testo scritto da zero, confrontalo con la fonte, sezione per sezione, con il controllo di somiglianza. Per riscrivere un file derivato usa il metodo a stanza pulita. Entrambi sono in `references/fonti-esterne.md`, da leggere prima di usare una fonte esterna.
+  - Ciò che resta derivato va in `THIRD_PARTY.md`, con fonte, licenza e file d'origine.
 
 ## Agent
 Servono quando occorre un contesto isolato (molta lettura che non va tenuta nella conversazione), lavoro in parallelo, tool ristretti o un modello diverso da quello della sessione.

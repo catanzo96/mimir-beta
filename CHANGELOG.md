@@ -1,6 +1,7 @@
 # Changelog
 
-## 2026-10-10 (terze parti: censimento di THIRD_PARTY.md)
+## 2026-10-10 (terze parti: censimento di THIRD_PARTY.md e regola sulle fonti esterne)
+- Skill `scrivi-skill`: da fonti esterne si prendono idee, non testo né forma; ordine delle sezioni, esempi, costanti e selezione non ovvia di voci fanno un adattamento anche con parole proprie (eccezioni: buone pratiche note, valori di standard pubblici citati). Nuovo `references/fonti-esterne.md`: cosa è derivato, stanza pulita (chi estrae legge solo la fonte; chi scrive dalla fonte riceve solo l'elenco dei concetti, sceglie cosa tenere e non legge nessun file ancora in `THIRD_PARTY.md`; se il controllo è rosso riceve solo gli aspetti da cambiare), registro. Lo script di somiglianza è da completare; nel frattempo il confronto lo fa un subagent.
 - `THIRD_PARTY.md` completato con un confronto sistematico fonte per fonte sui file di design (skills di Emil Kowalski, taste-skill, impeccable; controllati anche i repo di Matt Pocock ed ECC).
 - `design-ui/SKILL.md`: da taste-skill anche lettura della richiesta, base e verifica; da impeccable anche le superfici (`mode-*.md`, `operate.md`), copy e stati (`clarify.md`).
 - `pagine-marketing.md` e `anti-pattern.md` anche da impeccable; `rifacimento.md` soprattutto dal §11 di taste-skill; `design-reviewer` anche da `impeccable-finish-reviewer.md` (solo l'idea).
