@@ -78,6 +78,9 @@ for candidate in python3 python "py -3"; do
     # set -u fallisce nel bash 3.2 di macOS
     run=("${cmd[@]}")
     run[0]="$dir/${found##*/}"
+    # -I anche nel controllo della versione: senza, PYTHONPATH, le altre variabili PYTHON* e lo user site
+    # caricano codice all'avvio, prima dello script
+    run+=(-I)
     if "${run[@]}" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' </dev/null >/dev/null 2>&1; then
       exec "${run[@]}" "$script" 3<&-
     fi

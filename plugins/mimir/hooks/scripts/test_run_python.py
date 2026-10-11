@@ -64,7 +64,8 @@ fake(FAKE_PY, "py", f'[ "$1" = -3 ] || exit 1\nshift\nexec "{REAL}" "$@"')
 # un python3 piantato nel progetto (.venv/bin attivato, node_modules/.bin, .): supera il controllo della
 # versione ma non esegue lo script, così un test vede se il wrapper l'ha scelto
 PROJECT = os.path.join(TMP, "progetto")
-PLANTED = "if [ \"$1\" = -c ]; then exec \"" + REAL + "\" \"$@\"; fi\necho piantato >&2\nexit 7"
+# -c in qualsiasi posizione: prima ci possono essere opzioni del wrapper (-I)
+PLANTED = "for a; do [ \"$a\" = -c ] && exec \"" + REAL + "\" \"$@\"; done\necho piantato >&2\nexit 7"
 for folder in (os.path.join(PROJECT, ".venv", "bin"), PROJECT):
     os.makedirs(folder, exist_ok=True)
     fake(folder, "python3", PLANTED)
@@ -121,13 +122,32 @@ if os.name != "nt":
         else:
             print(f"saltato: python3 in {base}, cartella non disponibile")
 os.makedirs(PROJECT + "2")
+# moduli piantati dove Python li cerca senza -I: un json.py e un sitecustomize.py in PYTHONPATH (il primo prima
+# della libreria standard, il secondo caricato all'avvio, anche nel controllo della versione) e un
+# usercustomize.py nello user site (un json.py lì verrebbe dopo la libreria standard); ognuno lascia il suo
+# nome in LOADED
+IMPORTS_SCRIPT = os.path.join(TMP, "importa.py")
+with open(IMPORTS_SCRIPT, "w", encoding="utf-8") as fh:
+    fh.write("import json, sys\nsys.stdout.write(sys.stdin.read())\nsys.exit(3)\n")
+LOADED = os.path.join(TMP, "caricati.txt")
+PLANTED_PATH = os.path.join(TMP, "pythonpath")
+# lo user site da PYTHONUSERBASE e non da una home finta: su Windows deriva da APPDATA, e il test
+# scriverebbe nello user site vero
+USER_BASE = os.path.join(TMP, "userbase")
+USER_SITE = subprocess.run([REAL, "-c", "import site; print(site.getusersitepackages())"],
+                           env={**os.environ, "PYTHONUSERBASE": USER_BASE},
+                           capture_output=True, text=True, check=True).stdout.strip()
+for folder, module in ((PLANTED_PATH, "json"), (PLANTED_PATH, "sitecustomize"), (USER_SITE, "usercustomize")):
+    os.makedirs(folder, exist_ok=True)
+    with open(os.path.join(folder, module + ".py"), "w", encoding="utf-8") as fh:
+        fh.write(f"with open({LOADED!r}, 'a', encoding='utf-8') as fh:\n    fh.write({module!r} + ' ')\n")
 
 
-def run(path_dir, args, stdin, env_extra=None, cwd=CWD):
+def run(path_dir, args, stdin, env_extra=None, cwd=CWD, script=SCRIPT):
     # CLAUDE_PROJECT_DIR e TMPDIR della sessione che lancia i test non devono contare: solo quelle del caso
     env = {k: v for k, v in os.environ.items() if k not in ("CLAUDE_PROJECT_DIR", "TMPDIR")}
     env.update(PATH=path_dir, **(env_extra or {}))
-    return subprocess.run([BASH, WRAPPER, *args, SCRIPT], input=stdin.encode("utf-8"),
+    return subprocess.run([BASH, WRAPPER, *args, script], input=stdin.encode("utf-8"),
                           capture_output=True, env=env, timeout=30, cwd=cwd)
 
 
@@ -257,6 +277,25 @@ for folder in SANDBOX_TMP:
     check(f"python3 in {folder!r}, temporanea della sandbox, scartato",
           run(os.pathsep.join([folder, FAKE]), ["--fail-closed"], commit, {"CLAUDE_PROJECT_DIR": PROJECT}),
           3, stdout=commit)
+# -I: né PYTHONPATH né lo user site entrano nell'interprete, sia nel controllo della versione sia nello script
+def remove_loaded():
+    if os.path.exists(LOADED):
+        os.remove(LOADED)
+
+
+for source, env_extra in (("PYTHONPATH", {"PYTHONPATH": PLANTED_PATH}), ("user site", {"PYTHONUSERBASE": USER_BASE})):
+    # controllo positivo: senza -I i moduli devono caricarsi, altrimenti il caso non distingue (user site
+    # spento in un venv o con PYTHONNOUSERSITE)
+    remove_loaded()
+    subprocess.run([REAL, "-c", "pass"], env={**os.environ, **env_extra}, check=True, timeout=30)
+    if not os.path.exists(LOADED):
+        print(f"saltato: moduli piantati in {source}, non si caricano nemmeno senza -I")
+        continue
+    remove_loaded()
+    name = f"moduli piantati in {source} non caricati"
+    check(name, run(FAKE, ["--fail-closed"], commit, env_extra, script=IMPORTS_SCRIPT), 3, stdout=commit)
+    if os.path.exists(LOADED):
+        failures.append(f"{name}: caricati {Path(LOADED).read_text(encoding='utf-8').split()}")
 
 if failures:
     print("FALLITI:")
