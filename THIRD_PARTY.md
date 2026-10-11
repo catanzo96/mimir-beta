@@ -2,7 +2,7 @@
 
 Alcuni file di Mímir sono traduzioni o adattamenti in italiano di opere di terzi, usati secondo la loro licenza. Gli altri file sono sotto la licenza MIT di Mímir ([LICENSE](LICENSE)).
 
-L'elenco viene da un confronto sistematico del 10/10, fonte per fonte e file per file, sui file di design (`design-ui`, `animazioni-ui`, `ui-casi-limite`, `prototipi-ui`, agent `design-reviewer`): ordine delle sezioni, frasi tradotte, esempi e costanti. Va svuotato, riscrivendo o eliminando i file, oppure giustificato voce per voce prima che il repo diventi pubblico.
+L'elenco viene da un confronto sistematico del 10/10, fonte per fonte e file per file, sui file di design (`design-ui`, `animazioni-ui`, `ui-casi-limite`, `prototipi-ui`, agent `design-reviewer`): ordine delle sezioni, frasi tradotte, esempi e costanti. Dall'11/10 i file riscritti a stanza pulita escono dall'elenco: il primo è `design-reviewer`. Va svuotato, riscrivendo o eliminando i file, oppure giustificato voce per voce prima che il repo diventi pubblico.
 
 ## skills di Emil Kowalski
 
@@ -46,7 +46,6 @@ L'elenco viene da un confronto sistematico del 10/10, fonte per fonte e file per
 | `plugins/mimir/skills/design-ui/SKILL.md` | `skill/reference/craft-floor.md` (default da rifiutare, verifica, elementi del browser, tema, copy); `skill/reference/mode-operate.md`, `mode-read.md`, `mode-persuade.md`, `operate.md` (superfici: lavorare, leggere, convincere); `skill/reference/clarify.md` (copy e stati); `skill/SKILL.src.md` (giri di correzione) | adattamento, con parti tradotte |
 | `plugins/mimir/skills/design-ui/references/pagine-marketing.md` | `skill/reference/mode-persuade.md` (azione principale nella forma funzionante) | traduzione di un punto |
 | `plugins/mimir/skills/design-ui/references/anti-pattern.md` | `skill/reference/craft-floor.md` (selezione delle voci) | adattamento |
-| `plugins/mimir/agents/design-reviewer.md` | `skill/reference/critique.md` (euristiche, carico cognitivo, due utenti, cosa funziona, gravità); `skill/agents/impeccable-finish-reviewer.md` (solo l'idea del revisore a contesto separato che confronta con i default da rifiutare; nessuna frase in comune) | adattamento |
 
 ## Valutati e non inclusi
 Sovrapposizioni di sola idea, senza frasi, struttura o costanti in comune; restano qui perché un controllo futuro non le rifaccia da capo.

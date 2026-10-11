@@ -30,6 +30,8 @@ Per riscrivere un file derivato, o scrivere da zero un tema su cui hai letto una
 - niente esempi, frasi citate o costanti, salvo i valori di standard pubblici con la loro fonte;
 - raggruppato per tema, non nell'ordine della fonte.
 
+Prima di passare l'elenco a chi scrive, chi orchestra lo rilegge. Se conserva una sequenza di passi, una classificazione o un elenco chiuso della fonte (le sue fasi, le sue categorie, i suoi profili), lo scompone in concetti sciolti o lo fa rifare: chi scrive tende a ricostruire la forma che riceve, e sul `design-reviewer` è stata questa la causa del primo rosso.
+
 **Chi scrive** dalla fonte riceve solo l'elenco dei concetti. Riceve anche il bisogno di Mímir e il percorso di `scrivi-skill/SKILL.md` per le convenzioni.
 - Il bisogno lo scrive chi orchestra, che spesso ha letto fonte e file derivato: lo formula da scopo, utenti e skill confinanti (a cosa serve il file, chi lo usa, cosa lascia alle altre skill), senza riportare sezioni o struttura del file attuale.
 - Non legge la fonte, né il file che sta sostituendo, né nessun altro file ancora elencato in `THIRD_PARTY.md`: sono tutti derivati. Riscrivendo `design-reviewer`, per esempio, non apre `design-ui/SKILL.md`.
@@ -77,6 +79,9 @@ Il resoconto del revisore e l'output dello script citano passaggi e titoli della
 |---|---|---|
 | Derivati noti | 2 rossi su 2 (una traduzione senza costanti, un adattamento di sola selezione) | 4 rossi su 13: vede solo i derivati ricchi di costanti |
 | Testi indipendenti sullo stesso tema | 7 verdi su 7 | 5 verdi su 7: i due rossi erano valori pubblici (0.998 di WWDC, curva del drawer di iOS, LCP 2,5 s) |
+
+Osservazioni sul campo, dalle riscritture a stanza pulita (dall'11/10; casi singoli senza un esito noto in partenza, quindi fuori dalla tabella):
+- `design-reviewer`: il revisore ha dato rosso al primo giro, perché l'elenco dei concetti aveva conservato la sequenza e le classificazioni di una fonte, e verde al secondo e al terzo, dopo le correzioni della review. Lo script ha dato verde a tutti i giri, anche a quello bocciato dal revisore.
 
 **Limiti.**
 - Un verde non prova l'originalità e un rosso dello script non prova la derivazione: è un segnale per chi rivede.

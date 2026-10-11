@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-11 (terze parti: riscrittura a stanza pulita di design-reviewer)
+- Agent `design-reviewer` riscritto a stanza pulita, gate verde al secondo giro: sette domande, dal compito principale ai dati veri; scostamenti dalla richiesta nei due sensi; gravità ed esito come in `code-reviewer`; dichiara ciò che non ha visto, perché non ha un browser. Esce da `THIRD_PARTY.md`.
+- `fonti-esterne.md` §3: chi orchestra rilegge l'elenco dei concetti e scompone le sequenze, le classificazioni e gli elenchi chiusi della fonte prima di passarlo a chi scrive.
+- `fonti-esterne.md` §4: nuove osservazioni sul campo dalle riscritture, separate dalla tabella di validazione. Su `design-reviewer` lo script ha dato verde anche al giro che il revisore ha bocciato.
+
 ## 2026-10-10 (terze parti: censimento di THIRD_PARTY.md e regola sulle fonti esterne)
 - Skill `scrivi-skill`: da fonti esterne si prendono idee, non testo né forma; ordine delle sezioni, esempi, costanti e selezione non ovvia di voci fanno un adattamento anche con parole proprie (eccezioni: buone pratiche note, valori di standard pubblici citati). Nuovo `references/fonti-esterne.md`: cosa è derivato, stanza pulita (chi estrae legge solo la fonte; chi scrive dalla fonte riceve solo l'elenco dei concetti, sceglie cosa tenere e non legge nessun file ancora in `THIRD_PARTY.md`; se il controllo è rosso riceve solo gli aspetti da cambiare), registro.
 - Controllo di somiglianza (`fonti-esterne.md` §4): il gate è un revisore bilingue `sonnet` alla cieca, con il brief nel reference (2 derivati rossi, 7 testi indipendenti verdi); `scrivi-skill/scripts/somiglianza.py` è un segnale che riporta costanti rare, codice identico e ordine delle sezioni, con i valori comuni definiti per famiglie e `--ignora` per i valori pubblici, da citare nel commit. Limiti dichiarati: vede solo costanti e codice (4 derivati su 13), e un valore raro può essere pubblico (2 falsi rossi su 7). Test in `test_somiglianza.py`, aggiunto a `run_tests.py`.
