@@ -42,3 +42,5 @@ Per landing, siti di prodotto, pagine di eventi e portfolio. Una pagina così vi
 - Font: pochi pesi, caricati con `font-display` adeguato e precaricati se servono al primo schermo.
 - Meta: `title`, `description`, immagine e testi di anteprima per i social, favicon, `lang` della pagina.
 - Link legali (privacy, cookie se dovuti, note legali) nel piè di pagina.
+
+_Derivato da impeccable di Paul Bakaus (Apache-2.0), tradotto e modificato per Mímir; dettagli in THIRD_PARTY.md del plugin._
