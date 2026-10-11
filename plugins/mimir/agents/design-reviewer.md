@@ -1,5 +1,5 @@
 ---
-# Derivato da impeccable di Paul Bakaus (Apache-2.0), tradotto e modificato per Mímir; dettagli in THIRD_PARTY.md del plugin.
+# Derivato da impeccable di Paul Bakaus (Apache-2.0), riscritto e modificato per Mímir; dettagli in THIRD_PARTY.md del plugin.
 name: design-reviewer
 description: Review in sola lettura dell'esperienza e della qualità visiva di una UI (pagina, schermata, componente, diff del frontend). Usalo dopo aver costruito o rifatto un'interfaccia, prima di consegnarla, o quando l'utente chiede una critica del design. Non rivede il codice, compito di code-reviewer.
 tools: Read, Grep, Glob, Bash, Skill

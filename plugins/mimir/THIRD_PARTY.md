@@ -1,8 +1,8 @@
 # Materiale di terzi
 
-Alcuni file di questo plugin sono traduzioni o adattamenti in italiano di opere di terzi, usati secondo la loro licenza. Gli altri file sono sotto la licenza MIT di Mímir ([LICENSE](../../LICENSE) nel repository). I percorsi qui sotto sono relativi alla cartella del plugin.
+Alcuni file di questo plugin sono traduzioni o adattamenti in italiano di opere di terzi, usati secondo la loro licenza. Gli altri file sono sotto la licenza MIT di Mímir (file `LICENSE` nella radice del repository). I percorsi qui sotto sono relativi alla cartella del plugin.
 
-L'elenco viene da un confronto sistematico del 10/10, fonte per fonte e file per file, sui file di design (`design-ui`, `animazioni-ui`, `ui-casi-limite`, `prototipi-ui`, agent `design-reviewer`): ordine delle sezioni, frasi tradotte, esempi e costanti. Le fonti hanno licenze permissive, quindi i file derivati restano con questa attribuzione; quelli derivati da fonti Apache-2.0 portano anche l'avviso di modifica in testa al file. Le regole sono in `skills/scrivi-skill/references/fonti-esterne.md` (§5).
+L'elenco viene da un confronto sistematico del 10/10, fonte per fonte e file per file, sui file di design (`design-ui`, `animazioni-ui`, `ui-casi-limite`, `prototipi-ui`, agent `design-reviewer`): ordine delle sezioni, frasi tradotte, esempi e costanti. Le fonti hanno licenze permissive, quindi i file derivati restano con questa attribuzione; quelli derivati da fonti Apache-2.0 portano anche l'avviso di modifica nel file. Le regole sono in `skills/scrivi-skill/references/fonti-esterne.md` (§5).
 
 ## skills di Emil Kowalski
 
@@ -38,7 +38,7 @@ L'elenco viene da un confronto sistematico del 10/10, fonte per fonte e file per
 
 - **Fonte**: https://github.com/pbakaus/impeccable
 - **Licenza**: Apache License 2.0, Copyright 2025 Paul Bakaus. Testo in [LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt). Il `NOTICE.md` di impeccable riguarda solo `skill/reference/ios.md` e `android.md`, che Mímir non usa.
-- **Modifiche**: testo tradotto in italiano, ridotto e riorganizzato dentro procedure di Mímir. Ogni file elencato porta l'avviso di modifica (punto 4(b) della licenza) come commento nella prima riga del frontmatter.
+- **Modifiche**: testo tradotto in italiano, ridotto e riorganizzato dentro procedure di Mímir. Ogni file elencato porta l'avviso di modifica (punto 4(b) della licenza) come commento nella prima riga del frontmatter o, nei file senza frontmatter, come riga in corsivo in fondo.
 - **File derivati**:
 
 | File di Mímir | Origine | Tipo |

@@ -40,9 +40,9 @@ Prima di passare l'elenco a chi scrive, chi orchestra lo rilegge. Se conserva un
 - L'elenco è materiale da cui scegliere, non un indice da coprire. Decide cosa tenere, togliere o aggiungere in base ai bisogni di Mímir; se lo copre tutto, riproduce la selezione della fonte e il controllo la segnala.
 - Sceglie ordine, esempi e valori propri.
 
-Il divieto di lettura è solo un'istruzione nel brief: la verifica è il controllo di somiglianza (§4), che deve dare verde sul file scritto.
+Il divieto di lettura è solo un'istruzione nel brief: la verifica è il controllo di somiglianza (§4): sul file scritto serve il verde del revisore e la conferma dell'utente sull'inventario.
 
-Se il gate è rosso, o lo script segnala costanti, codice o ordine che non si spiegano con valori pubblici, chi scrive riceve solo gli aspetti da cambiare ("l'ordine delle sezioni coincide", "tre costanti coincidono"), mai i passaggi della fonte, e riscrive quelle parti dall'elenco. Dopo tre giri ancora rossi il file resta derivato: senza una licenza che lo permetta non si usa, e si decide con l'utente se eliminarlo.
+Se il revisore dà rosso, o lo script segnala costanti, codice o ordine che non si spiegano con valori pubblici, chi scrive riceve solo gli aspetti da cambiare ("l'ordine delle sezioni coincide", "tre costanti coincidono"), mai i passaggi della fonte, e riscrive quelle parti dall'elenco. Dopo tre giri ancora rossi il file resta derivato: senza una licenza che lo permetta non si usa, e si decide con l'utente se eliminarlo.
 
 ## 4. Controllo di somiglianza
 Due strumenti con ruoli diversi: un revisore che rileva e uno script che segnala. Nessuno dei due prova che un testo non sia derivato: dicono dove serve una voce in `THIRD_PARTY.md` e dove guardare.
@@ -129,4 +129,6 @@ Ciò che è derivato va nel `THIRD_PARTY.md` del plugin che contiene il file (`p
 
 Una voce esce dal registro solo se il file viene eliminato, oppure se il revisore del §4 dà verde e l'utente, visto l'inventario, conferma che la voce non serve. Una fonte senza più voci esce con la sua licenza; le sue voci in "Valutati e non inclusi" restano, perché documentano un controllo fatto.
 
-Una fonte senza licenza, o con una licenza che non ammette opere derivate, non si registra: il file si riscrive con la stanza pulita (§3), e il revisore deve dare verde, oppure si elimina.
+Copyleft, share-alike e non commerciale (GPL, CC BY-SA, CC BY-NC) contano come licenze non permissive finché non decide l'utente.
+
+Una fonte senza licenza, o con una licenza che non ammette opere derivate, non si registra: il file si riscrive con la stanza pulita (§3), con il verde del revisore e la conferma dell'utente, oppure si elimina.
