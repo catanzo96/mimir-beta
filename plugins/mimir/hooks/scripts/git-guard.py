@@ -23,7 +23,8 @@ git rm --cached, git worktree list) passano anche nei comandi composti, come git
 tag senza argomenti e git tag -l/--list senza opzioni di scrittura. commit-tree, send-pack e git.exe
 non hanno una regola ask e sono sempre bloccati.
 
-Come riconosce i comandi: divide il comando in token con shlex (niente regex con backtracking), separa i comandi semplici su ; & | ( ) e a capo, e cerca un token git (anche
+Come riconosce i comandi: divide il comando in token con shlex (niente regex con backtracking), separa i
+comandi semplici su ; & | ( ) e a capo, e cerca un token git (anche
 /usr/bin/git, git.exe, dopo FOO=1, env, sudo, xargs) seguito, dopo le opzioni globali, dal
 sottocomando. Dopo il primo git che scrive, il resto del comando semplice sono suoi argomenti. Un
 sottocomando che la shell espande (git $SUB, git {reset,--hard}, git @args, git ($b) su PowerShell) e
@@ -38,16 +39,18 @@ qualsiasi comando, anche innocuo, prima del timeout di hooks.json.
 Limiti: è una rete contro errori e injection banali, non contro un avversario determinato. Non vede
 alias di git (anche -c alias.x=push, -c remote.x.push=+ref), alias e variabili di PowerShell, funzioni
 shell, script, make, hook git, comandi passati a ssh, update-ref e fast-import, un redirect prima del
-sottocomando (git 2>/dev/null push), git ricavato da una sostituzione ($(which git) push) e il secondo
-git di find -exec … {} + -exec git … {} +. Le forme distruttive senza una regola ask passano: git
-branch -C e fetch +ref (recuperabili dalla reflog), stash pop, remote prune, symbolic-ref, read-tree
---reset (senza -u perde solo lo stage) e gc --prune=now (distrugge solo ciò che la reflog non tiene più,
-e reflog expire chiede conferma); merge, revert, cherry-pick e pull chiedono conferma ma creano commit
-senza il controllo del messaggio; il messaggio di git tag -m/-F non è controllato (un'attribuzione passa
-con la sola regola ask); git push origin :ref e --delete cancellano un branch remoto con la sola regola
-ask. Su PowerShell la virgola (-m a,b) e lo splatting negli argomenti di -m non sono provati (niente pwsh
-nella prova). Accanto restano la sandbox (credenziali negate) e le regole ask, alle quali l'hook lascia
-i comandi in forma semplice.
+sottocomando (git 2>/dev/null push), git ricavato da una sostituzione ($(which git) push), il secondo
+git di find -exec … {} + -exec git … {} + e il comando tra virgolette di git submodule foreach '…' e
+git bisect run '…'; non riconosce un'attribuzione scritta con caratteri a larghezza zero o omoglifi
+(la a cirillica in Claude). Le forme distruttive senza una regola ask passano: git branch -C e fetch
++ref (recuperabili dalla reflog), stash pop, remote prune, symbolic-ref, submodule deinit -f, mv -f,
+read-tree --reset (senza -u perde solo lo stage) e gc --prune=now (distrugge solo ciò che la reflog non
+tiene più, e reflog expire chiede conferma); merge, revert, cherry-pick e pull chiedono conferma ma
+creano commit senza il controllo del messaggio; il messaggio di git tag -m/-F non è controllato
+(un'attribuzione passa con la sola regola ask); git push origin :ref e --delete cancellano un branch
+remoto con la sola regola ask. Su PowerShell la virgola (-m a,b) e lo splatting negli argomenti di -m
+non sono provati (niente pwsh nella prova). Accanto restano la sandbox (credenziali negate) e le regole
+ask, alle quali l'hook lascia i comandi in forma semplice.
 
 Le parole da sole (un file CLAUDE.md, un percorso, "integra l'API di Anthropic") non bloccano il
 commit: conta la forma dell'attribuzione, non l'argomento.
