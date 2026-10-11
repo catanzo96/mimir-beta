@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-11 (terze parti: attribuzione dentro il plugin)
+- `THIRD_PARTY.md` e `LICENSES/` spostati in `plugins/mimir/`, perché il marketplace distribuisce solo la cartella del plugin; nella root resta un rimando. Percorsi delle tabelle relativi al plugin e introduzione riscritta: le fonti hanno licenze permissive, i file derivati restano con l'attribuzione.
+- Agent `design-reviewer` rientra in `THIRD_PARTY.md`, sotto impeccable (la voce del 2026-10-11 sulla riscrittura diceva che ne usciva): riscritto da un elenco dei concetti, ne conserva idee e selezione.
+- Avviso di modifica Apache-2.0 4(b) nei quattro file derivati da impeccable: commento YAML nel frontmatter di `design-ui/SKILL.md` e `agents/design-reviewer.md`, riga in corsivo in fondo a `pagine-marketing.md` e `anti-pattern.md`, che non hanno frontmatter (regola aggiunta in `fonti-esterne.md` §5).
+
 ## 2026-10-11 (terze parti: taratura del controllo di somiglianza, attribuire invece di riscrivere)
 - `fonti-esterne.md` §4: il revisore bilingue diventa un rivelatore, non un gate di chiusura. Rosso: serve la voce in `THIRD_PARTY.md`; verde: la voce si omette solo dopo un controllo dell'utente. Nuovo brief (v3.3) con inventario delle corrispondenze (fatti, idee comuni, parafrasi, esempi) e soglie fisse su parafrasi, traduzione, esempi, selezione e ordine. Taratura documentata: il brief precedente lasciava passare gli adattamenti in prosa (2 derivati su 6); il nuovo dà rosso a tutti i 12 derivati noti, ma anche a 4 degli 8 testi scritti da un modello senza vedere le fonti, perché un modello riprende selezione, ordine ed esempi delle fonti diffuse. Costo: circa 1,73 M token.
 - `fonti-esterne.md` §3 e §5, `scrivi-skill`: con una licenza permissiva (MIT, Apache-2.0, CC BY 4.0) il file derivato resta, con l'attribuzione nel `THIRD_PARTY.md` del plugin; per Apache-2.0 avviso di modifica (4(b)) come commento YAML nel frontmatter, per CC BY indicazione delle modifiche. La stanza pulita resta solo per le fonti senza licenza o con una licenza che non ammette opere derivate. Tolte le osservazioni sul campo del §4, superate dalla taratura.

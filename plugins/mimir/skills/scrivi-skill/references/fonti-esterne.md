@@ -123,7 +123,7 @@ Lo script è stato validato il 10/10 su 13 derivati di design (4 rossi: vede sol
 Ciò che è derivato va nel `THIRD_PARTY.md` del plugin che contiene il file (`plugins/<plugin>/THIRD_PARTY.md`): il marketplace distribuisce solo la cartella del plugin, ed è lì che deve arrivare l'attribuzione.
 - Fonte (URL del repo) e licenza, con il testo della licenza nel registro o in `LICENSES/` del plugin.
 - Per ogni file di Mímir: file d'origine (con la sezione, se è una parte) e tipo (per esempio "traduzione con modifiche", "adattamento", "adattamento, con parti tradotte").
-- Apache-2.0: ogni file derivato porta l'avviso di modifica (punto 4(b) della licenza), come commento YAML nella prima riga del frontmatter: `# Derivato da <progetto> di <autore> (Apache-2.0), tradotto e modificato per Mímir; dettagli in THIRD_PARTY.md del plugin.` Se la fonte ha un `NOTICE` che riguarda i file usati, il suo testo va nel registro.
+- Apache-2.0: ogni file derivato porta l'avviso di modifica (punto 4(b) della licenza), come commento YAML nella prima riga del frontmatter: `# Derivato da <progetto> di <autore> (Apache-2.0), tradotto e modificato per Mímir; dettagli in THIRD_PARTY.md del plugin.` Nei file senza frontmatter (per esempio in `references/`) lo stesso testo va in corsivo nell'ultima riga. Se la fonte ha un `NOTICE` che riguarda i file usati, il suo testo va nel registro.
 - CC BY 4.0: autore, titolo o URL, licenza e l'indicazione che il testo è stato modificato.
 - Le sovrapposizioni di sola idea valutate e scartate vanno in "Valutati e non inclusi", così un controllo futuro non le rifà da capo.
 

@@ -1,4 +1,5 @@
 ---
+# Derivato da impeccable di Paul Bakaus (Apache-2.0), tradotto e modificato per Mímir; dettagli in THIRD_PARTY.md del plugin.
 name: design-ui
 description: Qualità visiva delle interfacce web. Usala quando crei o rivedi l'aspetto di pagine, schermate e componenti (layout, tipografia, colore, stati, copy) o rifai la grafica di un'interfaccia esistente.
 when_to_use: 'Es.: "fai una landing per…", "rendi più professionale questa pagina", "rifai la grafica della dashboard", "sembra fatta con l''AI". Struttura e stato dell''app: architettura-frontend.'
