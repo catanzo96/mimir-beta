@@ -31,11 +31,9 @@ una variabile in posizione di comando seguita da un sottocomando ("$GIT" -C x pu
 Entra negli argomenti di sh/bash/zsh -c, eval, iex/Invoke-Expression e cmd /c, non nei messaggi dei
 commit. Se il comando non si divide (virgolette sbilanciate), supera MAX_COMMAND o passa da uno
 heredoc, una ricerca lineare per comando semplice di git seguito da un sottocomando che scrive decide:
-se la trova, blocca. Il corpo dell'heredoc non si guarda solo quando l'intero comando è cat o tee che lo
-scrive in un file, con il delimitatore tra virgolette (forma chiusa in writes_heredoc_to_file, solo
-bash). Alcuni input costruiti restano lenti (molti << sulla stessa riga, git -c ripetuto, molti commit -F
-su un messaggio grande): un'analisi che supera MAX_ANALYSIS_SECONDS blocca qualsiasi comando, anche
-innocuo, prima del timeout di hooks.json.
+se la trova, blocca. Alcuni input costruiti restano lenti (molti << sulla stessa riga, git -c
+ripetuto, molti commit -F su un messaggio grande): un'analisi che supera MAX_ANALYSIS_SECONDS blocca
+qualsiasi comando, anche innocuo, prima del timeout di hooks.json.
 
 Limiti: è una rete contro errori e injection banali, non contro un avversario determinato. Non vede
 alias di git (anche -c alias.x=push, -c remote.x.push=+ref), alias e variabili di PowerShell, funzioni
@@ -143,12 +141,9 @@ LOOSE_SEGMENT = re.compile(r"[^;&|\n]+")
 # le parole che possono rendere distruttivi i sottocomandi di ASK_FORMS (-D, --force, drop, remove…); anche
 # attaccate, perché in una parola con espansione seguono } , o $IFS: {git,stash,drop}
 LOOSE_MARKER = re.compile(r"(-[\w-]+|drop|clear|expire|delete|remove)(?![\w-])", re.I)
-# nomi di file di cat e tee con un heredoc: elenco chiuso, senza # (commento), $ e graffe (espansioni),
-# backslash o caratteri jolly, che possono far leggere alla shell il comando in un altro modo
-PLAIN_FILE = re.compile(r"[\w./~+-]+")
-# redirect di cat verso un file: >f e >>f, oppure > e >> con il file nella parola dopo
-FILE_REDIRECT = re.compile(r">>?([\w./~+-]*)")
-TEE_APPEND = {"-a", "--append"}
+# aggiunto al motivo quando a far bloccare è il corpo di un heredoc
+HEREDOC_HINT = ("Per scrivere un file usa Write (file nuovo) o Edit (modifica o aggiunta in fondo), non cat/tee "
+                "con un heredoc.")
 
 def arithmetic_spans(line):
     """Intervalli di ((…)) e $((…)) nella riga, dove << è uno shift e non un heredoc; uno non chiuso arriva in fondo."""
@@ -173,24 +168,23 @@ def heredoc_starts(line):
 
 
 def heredoc_bodies(cmd):
-    """Corpi degli heredoc, per ciascuno se il delimitatore è tutto tra virgolette ('EOF' o "EOF": la shell
-    non espande il corpo), e comando senza di essi, riga per riga; un heredoc non chiuso arriva in fondo.
+    """Corpi degli heredoc e comando senza di essi, riga per riga; un heredoc non chiuso arriva in fondo.
 
     Quadratico con molti << sulla stessa riga (ogni segnaposto ricostruisce la riga): 1-2,6 s al limite di
     MAX_COMMAND, accettato.
     """
-    bodies, quoted, kept, pending, body = [], [], [], [], None
+    bodies, kept, pending, body = [], [], [], None
     for line in cmd.split("\n"):
         if body is not None:
-            if line.strip() == pending[0][0]:
+            if line.strip() == pending[0]:
                 bodies.append("\n".join(body))
-                quoted.append(pending.pop(0)[1])
+                pending.pop(0)
                 body = [] if pending else None
             else:
                 body.append(line)
             continue
         starts = heredoc_starts(line)
-        delimiters = [(m.group(2), m.group(1) != "") for m in starts]
+        delimiters = [m.group(2) for m in starts]
         for m in reversed(starts):
             line = line[:m.start()] + f" {HEREDOC_MARK} " + line[m.end():]
         kept.append(line)
@@ -198,8 +192,7 @@ def heredoc_bodies(cmd):
             pending, body = delimiters, []
     if body is not None:
         bodies.append("\n".join(body))
-        quoted.append(pending[0][1])
-    return bodies, quoted, "\n".join(kept)
+    return bodies, "\n".join(kept)
 
 
 def split_command(text, tool_name):
@@ -577,49 +570,6 @@ def is_simple_form(cmd, tokens, tool_name):
     return re.match(r"git (?:" + "|".join(map(re.escape, ASK_PREFIXES)) + r")(?: |$)", text, flags) is not None
 
 
-def redirects_to_files(words):
-    """Vero se words sono solo redirect > o >> verso un file, almeno uno, attaccati al file o separati."""
-    i = 0
-    while i < len(words):
-        redirect = FILE_REDIRECT.fullmatch(words[i])
-        if not redirect:
-            return False
-        if not redirect.group(1):
-            if i + 1 == len(words) or not PLAIN_FILE.fullmatch(words[i + 1]):
-                return False
-            i += 1
-        i += 1
-    return bool(words)
-
-
-def tee_to_files(words):
-    """Vero se words sono nomi di file, almeno uno, con al più -a o --append davanti."""
-    files = words[1:] if words[:1] and words[0] in TEE_APPEND else words
-    return bool(files) and all(PLAIN_FILE.fullmatch(f) and not f.startswith("-") for f in files)
-
-
-def writes_heredoc_to_file(quoted, flat, tokens, tool_name):
-    """Vero se l'intero comando è cat o tee che scrive l'unico heredoc in un file: il corpo è testo, non uno script.
-
-    Forma chiusa di un solo comando semplice di bash: un solo heredoc, con il delimitatore tra virgolette
-    (senza, la shell esegue $( ) e backtick del corpo); cat con soli redirect > o >> verso file, tee con soli
-    nomi di file e al più -a/--append; nomi di file da PLAIN_FILE. Un separatore (anche la ( di >(…) e
-    <(…)), $( o un backtick la escludono, anche tra virgolette, dove la shell li espande ancora; un
-    segnaposto tra virgolette, dopo # o dentro ${…} è un << che la shell non legge come heredoc.
-    """
-    words = list(tokens)
-    while words and set(words[-1]) == {"\n"}:
-        words.pop()
-    if tool_name != "Bash" or quoted != [True] or "$(" in flat or "`" in flat \
-            or any(is_separator(word) for word in words) or words.count(HEREDOC_MARK) != 1:
-        return False
-    command = [word for word in words if word != HEREDOC_MARK]
-    if not command:
-        return False
-    name, args = command[0], command[1:]
-    return redirects_to_files(args) if name == "cat" else name == "tee" and tee_to_files(args)
-
-
 def block_form(reason=""):
     print("Comando git bloccato: i comandi git che chiedono conferma (" + ", ".join(ASK_SUBCOMMANDS)
           + " e le forme distruttive di " + ", ".join(ASK_FORMS) + ") vanno lanciati da soli, in forma "
@@ -639,7 +589,7 @@ def check(raw):
 
     if len(cmd) > MAX_COMMAND:
         return block_form(" (Comando troppo lungo per l'analisi.)") if loose_git_write(cmd) else 0
-    bodies, quoted, flat = heredoc_bodies(cmd)
+    bodies, flat = heredoc_bodies(cmd)
     try:
         tokens = split_command(flat, tool_name)
         calls = git_calls(tokens, tool_name)
@@ -653,10 +603,10 @@ def check(raw):
             return 2
         return block_form(" (Comando non analizzabile: virgolette sbilanciate.)")
 
-    # il corpo di un heredoc può essere uno script eseguito (bash <<EOF): nel dubbio è una scrittura, tranne
-    # quando cat o tee, da soli, lo scrivono in un file
-    writes = ["heredoc"] if any(loose_git_write(body) for body in bodies) \
-        and not writes_heredoc_to_file(quoted, flat, tokens, tool_name) else []
+    # il corpo di un heredoc può essere uno script eseguito (bash <<EOF): nel dubbio è una scrittura, anche
+    # quando cat o tee lo scrivono in un file, perché ogni esenzione provata è stata aggirata da un modo in cui
+    # bash legge il comando diversamente da qui (delimitatore non quotato, # e ${…}, riga continuata)
+    writes = ["heredoc"] if any(loose_git_write(body) for body in bodies) else []
     if tool_name == "PowerShell" and ps_git_expression(tokens):
         writes.append("dynamic")
     shell_checked = False
@@ -694,12 +644,13 @@ def check(raw):
     if len(calls) == 1 and writes == [calls[0][0]] and (writes[0] in ASK_SUBCOMMANDS or writes[0] in ASK_FORMS) \
             and is_simple_form(cmd, tokens, tool_name):
         return 0  # ci pensa la regola ask di settings
+    hint = " " + HEREDOC_HINT if "heredoc" in writes else ""
     if any(sub in ASK_FORMS for sub in writes):
         return block_form(" Per " + ", ".join(ASK_FORMS) + " l'opzione distruttiva va subito dopo il "
                           "sottocomando, da sola e non raggruppata: git branch -fD x diventa git branch -D -f x, "
                           "git rm -rf x diventa git rm -f -r x (anche git switch --force main, git stash drop, "
-                          "git worktree remove x).")
-    return block_form()
+                          "git worktree remove x)." + hint)
+    return block_form(hint)
 
 
 def command_of(raw):

@@ -47,6 +47,7 @@ LONG = "feat(core): " + "x" * 70
 HEREDOC = "git commit -F - <<'EOF'\n{}\nEOF"
 # heredoc con un testo che cita sottocomandi git che scrivono: {} è il comando che lo apre
 TEXT_HEREDOC = "{}\nnota: git push -f e git reset --hard restano vietati\nEOF"
+HEREDOC_HINT = "Per scrivere un file usa Write (file nuovo) o Edit (modifica o aggiunta in fondo), non cat/tee con un heredoc."
 
 # Bloccati per il contenuto: attribuzioni, righe oltre 72, force push (exit 2)
 CONTENT_BLOCK = {
@@ -227,7 +228,27 @@ FORM_BLOCK = {
     "checkout-index -af raggruppato": "git checkout-index -af",
     "checkout-index --force con env": "env X=1 git checkout-index --force -a",
     "reflog drop con env": "env X=1 git reflog drop",
-    # il corpo di un heredoc è solo testo scritto in un file soltanto con cat o tee da soli: il resto si guarda
+    # il corpo di un heredoc si guarda sempre, anche quando cat o tee lo scrivono in un file: ogni forma chiusa
+    # di esenzione è stata aggirata da un modo in cui bash legge il comando diversamente dall'hook
+    "heredoc in cat >> verso un file (falso positivo del 10/10)": TEXT_HEREDOC.format("cat >> note.md <<'EOF'"),
+    "heredoc in cat > verso un file, delimitatore tra virgolette doppie": TEXT_HEREDOC.format('cat > f <<"EOF"'),
+    "heredoc in cat con il redirect dopo": TEXT_HEREDOC.format("cat <<'EOF' > f"),
+    "heredoc quotato con $( ) e backtick nel corpo": "cat > f <<'EOF'\n$(git push -f) e `git reset --hard`\nEOF",
+    "heredoc in tee verso un file con ~ e +": TEXT_HEREDOC.format("tee ~/note+1.md <<'EOF'"),
+    "heredoc in cat con >> dopo": TEXT_HEREDOC.format("cat <<'EOF' >> f"),
+    "heredoc in cat con redirect attaccati": TEXT_HEREDOC.format("cat >f<<'EOF'"),
+    "heredoc in cat con <<-": TEXT_HEREDOC.format("cat <<-'EOF' > f"),
+    "heredoc in cat con un a capo finale": TEXT_HEREDOC.format("cat <<'EOF' > f") + "\n",
+    "heredoc in tee verso un file": TEXT_HEREDOC.format("tee f <<'EOF'"),
+    "heredoc in tee verso due file": TEXT_HEREDOC.format("tee f g <<'EOF'"),
+    "heredoc in tee -a": TEXT_HEREDOC.format("tee -a f <<'EOF'"),
+    "heredoc in tee --append": TEXT_HEREDOC.format("tee --append f <<'EOF'"),
+    # riga dell'heredoc continuata con \: bash esegue la riga dopo come seguito del comando, il corpo è vuoto
+    "continuazione dopo l'heredoc in cat": "cat > out.txt <<'EOF' \\\n; git push -f\nEOF\n",
+    "continuazione dopo l'heredoc in cat, reset": "cat > out.txt <<'EOF' \\\n; git reset --hard\nEOF\n",
+    "continuazione dopo l'heredoc in cat con <<-": "cat > out.txt <<-'EOF' \\\n; git push -f\nEOF\n",
+    "continuazione senza a capo finale": "cat > out.txt <<'EOF' \\\n; git push -f\nEOF\n>/dev/null",
+    "continuazione dopo l'heredoc in tee": 'tee out.txt <<"EOF" \\\n&& git push -f\nEOF\n',
     "heredoc in cat verso una pipe": TEXT_HEREDOC.format("cat <<'EOF' | sh"),
     "heredoc in cat senza redirect": TEXT_HEREDOC.format("cat <<'EOF'"),
     "heredoc in cat verso stderr": TEXT_HEREDOC.format("cat <<'EOF' 2>f"),
@@ -331,6 +352,10 @@ REASON_BLOCK = {
     "rm -rf: indica come riscriverlo": ("git rm -rf x", "git rm -f -r"),
     # gli argomenti del commit non si tagliano al primo < o >: il messaggio va controllato tutto
     "attribuzione dopo > in un -m": ('git commit -m "fix: a > b" -m "nota > generated with Claude"', "attribuzione"),
+    # a far bloccare è il corpo: il motivo indica gli strumenti per scrivere un file, in entrambi i rami del blocco
+    "heredoc in un file: indica Write o Edit": (TEXT_HEREDOC.format("cat >> note.md <<'EOF'"), HEREDOC_HINT),
+    "heredoc in un file con una forma distruttiva: indica Write o Edit": (
+        "git branch -fD x && " + TEXT_HEREDOC.format("cat > f <<'EOF'"), HEREDOC_HINT),
 }
 
 # Lasciati alle regole ask di settings (forma semplice) o senza nulla da controllare: exit 0, nessun output
@@ -439,22 +464,8 @@ ALLOW = {
     "rg di git in più cartelle": "rg -n git skills/ agents/",
     "apt install git": "apt install -y git libssl-dev:amd64",
     "comando PowerShell con backtick nel tool Bash": "Get-ChildItem -Path C:\\repo `\n  -Filter *.md | Select-Object Name",
-    # heredoc che cat o tee, da soli, scrivono in un file: il corpo è testo, non uno script
-    "heredoc in cat >> verso un file (falso positivo del 10/10)": TEXT_HEREDOC.format("cat >> note.md <<'EOF'"),
-    "heredoc in cat > verso un file, delimitatore tra virgolette doppie": TEXT_HEREDOC.format('cat > f <<"EOF"'),
-    "heredoc in cat con il redirect dopo": TEXT_HEREDOC.format("cat <<'EOF' > f"),
-    "heredoc quotato con $( ) e backtick nel corpo": "cat > f <<'EOF'\n$(git push -f) e `git reset --hard`\nEOF",
-    "heredoc in tee verso un file con ~ e +": TEXT_HEREDOC.format("tee ~/note+1.md <<'EOF'"),
     # confine di parola: opus dentro opuscolo non è un nome di modello
     "opuscolo nel messaggio": 'git commit -m "docs: scritto con un opuscolo di esempio"',
-    "heredoc in cat con >> dopo": TEXT_HEREDOC.format("cat <<'EOF' >> f"),
-    "heredoc in cat con redirect attaccati": TEXT_HEREDOC.format("cat >f<<'EOF'"),
-    "heredoc in cat con <<-": TEXT_HEREDOC.format("cat <<-'EOF' > f"),
-    "heredoc in cat con un a capo finale": TEXT_HEREDOC.format("cat <<'EOF' > f") + "\n",
-    "heredoc in tee verso un file": TEXT_HEREDOC.format("tee f <<'EOF'"),
-    "heredoc in tee verso due file": TEXT_HEREDOC.format("tee f g <<'EOF'"),
-    "heredoc in tee -a": TEXT_HEREDOC.format("tee -a f <<'EOF'"),
-    "heredoc in tee --append": TEXT_HEREDOC.format("tee --append f <<'EOF'"),
 }
 
 # comandi del tool PowerShell
