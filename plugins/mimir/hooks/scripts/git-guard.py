@@ -42,15 +42,19 @@ sottocomando (git 2>/dev/null push), git ricavato da una sostituzione ($(which g
 git di find -exec … {} + -exec git … {} +. Le forme distruttive senza una regola ask passano: git
 branch -C e fetch +ref (recuperabili dalla reflog), stash pop, remote prune, symbolic-ref, read-tree
 --reset (senza -u perde solo lo stage) e gc --prune=now (distrugge solo ciò che la reflog non tiene più,
-e reflog expire chiede conferma); merge, revert,
-cherry-pick e pull chiedono conferma ma creano commit senza il controllo del messaggio. Accanto restano la
-sandbox (credenziali negate) e le regole ask, alle quali l'hook lascia i comandi in forma semplice.
+e reflog expire chiede conferma); merge, revert, cherry-pick e pull chiedono conferma ma creano commit
+senza il controllo del messaggio; il messaggio di git tag -m/-F non è controllato (un'attribuzione passa
+con la sola regola ask); git push origin :ref e --delete cancellano un branch remoto con la sola regola
+ask. Su PowerShell la virgola (-m a,b) e lo splatting negli argomenti di -m non sono provati (niente pwsh
+nella prova). Accanto restano la sandbox (credenziali negate) e le regole ask, alle quali l'hook lascia
+i comandi in forma semplice.
 
 Le parole da sole (un file CLAUDE.md, un percorso, "integra l'API di Anthropic") non bloccano il
 commit: conta la forma dell'attribuzione, non l'argomento.
 
 Un errore inatteso blocca (exit 2) solo se il comando sembra un comando git che scrive: per Claude Code
-un hook che esce con 1 è un errore non bloccante, e il comando passerebbe senza controllo.
+un hook che esce con 1 è un errore non bloccante, e il comando passerebbe senza controllo. Un errore
+prima di main (sintassi, import) non passa da qui: Python esce con 1 e il comando passa.
 """
 import json
 import os
