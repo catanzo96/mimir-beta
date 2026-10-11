@@ -522,20 +522,20 @@ BROKEN = {
 }
 
 
-def run_raw(payload):
+def run_raw(payload, script=SCRIPT):
     """(exit, stdout, stderr) dell'hook; exit "timeout" oltre HOOK_TIMEOUT."""
     # byte UTF-8 come li manda Claude Code, indipendenti dalla codifica di default del sistema
     try:
-        res = subprocess.run([sys.executable, SCRIPT], input=payload.encode("utf-8"), capture_output=True,
+        res = subprocess.run([sys.executable, script], input=payload.encode("utf-8"), capture_output=True,
                              timeout=HOOK_TIMEOUT)
     except subprocess.TimeoutExpired:
         return "timeout", "", ""
     return res.returncode, res.stdout.decode("utf-8").strip(), res.stderr.decode("utf-8")
 
 
-def run(command, tool="Bash"):
+def run(command, tool="Bash", script=SCRIPT):
     return run_raw(json.dumps({"tool_name": tool, "tool_input": {"command": command}, "cwd": TMP},
-                              ensure_ascii=False))
+                              ensure_ascii=False), script)
 
 
 failures = 0
@@ -624,6 +624,18 @@ for name, (tool, cmd) in TOO_SLOW.items():
     if elapsed >= HOOK_TIMEOUT:
         failures += 1
         print(f"FALLITO (tempo: {elapsed:.1f} s, timeout dell'hook {HOOK_TIMEOUT}): {name}")
+
+# Il blocco dei casi sopra può arrivare dalla forma invece che dal timer. Qui il blocco può venire solo dal
+# timer: una copia dell'hook con una soglia di 0,05 s riceve un comando innocuo (nessun git che scrive, exit
+# 0 senza timer) ma lento da analizzare, qualche decimo di secondo
+TIMER_COPY = os.path.join(TMP, "git-guard-timer.py")
+with open(SCRIPT, encoding="utf-8") as fh:
+    source = fh.read()
+assert source.count("MAX_ANALYSIS_SECONDS = 6\n") == 1, "soglia del timer non trovata nell'hook"
+with open(TIMER_COPY, "w", encoding="utf-8") as fh:
+    fh.write(source.replace("MAX_ANALYSIS_SECONDS = 6\n", "MAX_ANALYSIS_SECONDS = 0.05\n"))
+expect("tempo massimo interno", "comando innocuo oltre la soglia", run("git -c " * 3000 + "; ls", script=TIMER_COPY),
+       2, "troppo complesso")
 
 # Le forme semplici dell'hook devono essere i prefissi delle regole ask di settings: se divergono, un
 # comando passa senza conferma o viene bloccato anche in forma semplice.
