@@ -243,6 +243,13 @@ class PureFunctions(unittest.TestCase):
         # una coppia valida json la compone in un carattere vero
         self.assertEqual(install.parse_settings('{"a": "\\ud83d\\ude00"}', "settings.json"), {"a": "\U0001F600"})
 
+    def test_settings_con_nan_o_infinity_rifiutati(self):
+        # json.loads li accetta, json.dumps li riscrive così: settings.json non sarebbe più JSON
+        for text in ('{"a": NaN}', '{"a": [Infinity]}', '{"a": {"b": -Infinity}}'):
+            with self.assertRaises(install.InstallError, msg=text):
+                install.parse_settings(text, "settings.json")
+        self.assertEqual(install.parse_settings('{"a": 0.03, "b": "NaN"}', "settings.json"), {"a": 0.03, "b": "NaN"})
+
     def test_import_scritto_una_volta_e_sostituito(self):
         first = install.linked_claude_md("riga\n@/a/CLAUDE.md\n", "/a")
         self.assertEqual(first, f"riga\n{install.MARKER}\n@/a/CLAUDE.md\n")
@@ -446,6 +453,15 @@ class Installer(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout)
         self.assertIn("nessuna modifica", result.stderr)
         self.assertFalse((self.box.home / ".claude" / "CLAUDE.md").exists(), "CLAUDE.md scritto prima dell'errore")
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_template_con_nan_nessuna_modifica(self):
+        mimir = self.box.mimir()
+        write(mimir / "settings.template.json", '{"attribution": {"commit": NaN}}')
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
         self.assertEqual(self.box.snapshot(), before)
 
     def test_settings_utente_con_valore_non_scrivibile_in_utf8_nessuna_modifica(self):

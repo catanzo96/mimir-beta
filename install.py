@@ -192,9 +192,14 @@ def read_mimir_file(path):
         raise InstallError(f"{path} non è in UTF-8 ({exc})") from exc
 
 
+def reject_constant(name):
+    """json.loads accetta NaN e Infinity, ma json.dumps li riscriverebbe tali e quali: JSON non valido."""
+    raise ValueError(f"{name} non è JSON standard")
+
+
 def parse_settings(text, path):
     try:
-        data = json.loads(text)
+        data = json.loads(text, parse_constant=reject_constant)
     except ValueError as exc:
         raise InstallError(f"{path} non è JSON valido ({exc})") from exc
     if not isinstance(data, dict):
