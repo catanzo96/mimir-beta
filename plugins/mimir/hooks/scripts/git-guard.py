@@ -22,8 +22,7 @@ distruttive (git branch -a, git stash list) sono letture e passano anche nei com
 tag senza argomenti e git tag -l/--list senza opzioni di scrittura. commit-tree, send-pack e git.exe
 non hanno una regola ask e sono sempre bloccati.
 
-Come riconosce i comandi: divide il comando in token con shlex (lineare, niente regex con
-backtracking), separa i comandi semplici su ; & | ( ) e a capo, e cerca un token git (anche
+Come riconosce i comandi: divide il comando in token con shlex (niente regex con backtracking), separa i comandi semplici su ; & | ( ) e a capo, e cerca un token git (anche
 /usr/bin/git, git.exe, dopo FOO=1, env, sudo, xargs) seguito, dopo le opzioni globali, dal
 sottocomando. Dopo il primo git che scrive, il resto del comando semplice sono suoi argomenti. Un
 sottocomando che la shell espande (git $SUB, git {reset,--hard}, git @args, git ($b) su PowerShell) e
@@ -31,7 +30,9 @@ una variabile in posizione di comando seguita da un sottocomando ("$GIT" -C x pu
 Entra negli argomenti di sh/bash/zsh -c, eval, iex/Invoke-Expression e cmd /c, non nei messaggi dei
 commit. Se il comando non si divide (virgolette sbilanciate), supera MAX_COMMAND o passa da uno
 heredoc, una ricerca lineare per comando semplice di git seguito da un sottocomando che scrive decide:
-se la trova, blocca.
+se la trova, blocca. Alcuni input costruiti restano lenti (molti << sulla stessa riga, git -c
+ripetuto, molti commit -F su un messaggio grande): un'analisi che supera MAX_ANALYSIS_SECONDS blocca
+qualsiasi comando, anche innocuo, prima del timeout di hooks.json.
 
 Limiti: è una rete contro errori e injection banali, non contro un avversario determinato. Non vede
 alias di git (anche -c alias.x=push, -c remote.x.push=+ref), alias e variabili di PowerShell, funzioni
@@ -53,9 +54,13 @@ import os
 import re
 import shlex
 import sys
+import threading
 
 MAX_LINE = 72
 MAX_COMMAND = 100_000
+# oltre il timeout di hooks.json (10 s) Claude Code lascia passare il comando: l'analisi che supera questa
+# soglia blocca; il margine copre macchine lente e l'avvio di Python e di run-python.sh
+MAX_ANALYSIS_SECONDS = 6
 MAX_DEPTH = 3
 
 AI = r"(claude|anthropic|openai|chatgpt|gpt-?\d|copilot|gemini|cursor|codeium|tabnine|\bai\b|assistant|assistente|llm)"
@@ -144,7 +149,11 @@ def heredoc_starts(line):
 
 
 def heredoc_bodies(cmd):
-    """Corpi degli heredoc e comando senza di essi, riga per riga (lineare); un heredoc non chiuso arriva in fondo."""
+    """Corpi degli heredoc e comando senza di essi, riga per riga; un heredoc non chiuso arriva in fondo.
+
+    Quadratico con molti << sulla stessa riga (ogni segnaposto ricostruisce la riga): 1-2,6 s al limite di
+    MAX_COMMAND, accettato.
+    """
     bodies, kept, pending, body = [], [], [], None
     for line in cmd.split("\n"):
         if body is not None:
@@ -241,7 +250,8 @@ def git_calls(tokens, tool_name, depth=0):
         # (sudo -u root): la parola dopo è il comando
         prefix, after_option = True, False
         # dopo il primo git che scrive, il resto del comando semplice sono suoi argomenti (git commit -m git):
-        # guardarli di nuovo come git costerebbe anche un tempo quadratico (git branch git branch …).
+        # guardarli di nuovo come git costerebbe anche un tempo quadratico (git branch git branch …); resta
+        # quadratico git -c git -c …, dove ogni git è il valore dell'opzione prima (lo ferma il tempo massimo).
         # Limite accettato: find -exec git branch {} + -exec git push {} + non vede il secondo git
         git_args = False
         # le parole fino a qui sono opzioni globali di una variabile già guardata come git ("$GIT" -C x)
@@ -621,12 +631,26 @@ def command_of(raw):
     return match.group(1) if match else raw
 
 
+def give_up():
+    """Allo scadere di MAX_ANALYSIS_SECONDS: blocca qualsiasi comando, anche uno che sarebbe stato innocuo."""
+    print("Comando bloccato: troppo complesso da analizzare nel tempo dell'hook. Spezzalo in comandi più "
+          "semplici.", file=sys.stderr)
+    sys.stderr.flush()
+    # dal thread del timer: sys.exit chiuderebbe solo il thread
+    os._exit(2)
+
+
 def main():
     raw = None
     try:
         # Su Windows la codifica di default della console non è UTF-8: motivi e messaggi si rovinerebbero.
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
+        # un thread e non signal.alarm, che su Windows non esiste; scatta tra un'istruzione Python e l'altra,
+        # non dentro una sola chiamata C lunga
+        timer = threading.Timer(MAX_ANALYSIS_SECONDS, give_up)
+        timer.daemon = True
+        timer.start()
         raw = sys.stdin.buffer.read().decode("utf-8", errors="replace")
         return check(raw)
     except Exception as exc:  # confine dell'hook: nessun errore deve far passare un comando git che scrive

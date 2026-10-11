@@ -468,6 +468,31 @@ for name, (cmd, code) in SLOW.items():
         failures += 1
         print(f"FALLITO (tempo: {elapsed:.1f} s, massimo {MAX_SECONDS}): {name}")
 
+# Input che l'analisi non chiude in tempo (review del passo 4): il tempo massimo interno dell'hook li blocca
+# prima del timeout di hooks.json. Su una macchina molto veloce l'analisi può finire prima della soglia: il
+# blocco arriva allora dalla forma (push nel composto), senza il motivo del tempo
+HEAVY_FILE = "msg-pesante.txt"
+with open(os.path.join(TMP, HEAVY_FILE), "w", encoding="utf-8") as fh:
+    fh.write("feat: x\n\n" + "riga corta di testo\n" * 4500)
+TOO_SLOW = {
+    # ogni git è il valore dell'opzione prima: la ricerca delle opzioni riparte a ogni git
+    "git -c ripetuto e push": ("Bash", "git -c " * 14284 + "; git push"),
+    "git -C ripetuto e push, PowerShell": ("PowerShell", "git -C " * 14284 + "; git push"),
+    # ogni commit rilegge e controlla un messaggio valido da 90 KB; sotto MAX_COMMAND, oltre il quale
+    # decide la ricerca lineare
+    "git commit -F ripetuto su un messaggio grande e push":
+        ("Bash", f"git commit -F {HEAVY_FILE}; " * 3000 + "git push"),
+}
+assert all(len(cmd) <= 100_000 for _, cmd in TOO_SLOW.values())
+for name, (tool, cmd) in TOO_SLOW.items():
+    start = time.monotonic()
+    result = run(cmd, tool)
+    elapsed = time.monotonic() - start
+    expect("tempo massimo interno", name, result, 2)
+    if elapsed >= HOOK_TIMEOUT:
+        failures += 1
+        print(f"FALLITO (tempo: {elapsed:.1f} s, timeout dell'hook {HOOK_TIMEOUT}): {name}")
+
 # Le forme semplici dell'hook devono essere i prefissi delle regole ask di settings: se divergono, un
 # comando passa senza conferma o viene bloccato anche in forma semplice.
 spec = importlib.util.spec_from_file_location("git_guard", SCRIPT)
@@ -510,6 +535,6 @@ for sub, form in FORMS:
 shutil.rmtree(TMP, ignore_errors=True)
 total = sum(len(c) for c in (CONTENT_BLOCK, FORM_BLOCK, COMMIT_FORM_BLOCK, ALLOW, PS_CONTENT_BLOCK,
                              PS_FORM_BLOCK, PS_COMMIT_FORM_BLOCK, PS_ALLOW, REASON_BLOCK, BROKEN, SLOW,
-                             ALIGNMENT, GH_RULES, GH_CREDENTIALS, FORMS))
+                             TOO_SLOW, ALIGNMENT, GH_RULES, GH_CREDENTIALS, FORMS))
 print(f"{total - failures}/{total} casi corretti")
 sys.exit(1 if failures else 0)
