@@ -31,9 +31,11 @@ una variabile in posizione di comando seguita da un sottocomando ("$GIT" -C x pu
 Entra negli argomenti di sh/bash/zsh -c, eval, iex/Invoke-Expression e cmd /c, non nei messaggi dei
 commit. Se il comando non si divide (virgolette sbilanciate), supera MAX_COMMAND o passa da uno
 heredoc, una ricerca lineare per comando semplice di git seguito da un sottocomando che scrive decide:
-se la trova, blocca. Alcuni input costruiti restano lenti (molti << sulla stessa riga, git -c
-ripetuto, molti commit -F su un messaggio grande): un'analisi che supera MAX_ANALYSIS_SECONDS blocca
-qualsiasi comando, anche innocuo, prima del timeout di hooks.json.
+se la trova, blocca. Il corpo dell'heredoc non si guarda solo quando l'intero comando è cat o tee che lo
+scrive in un file (forma chiusa in writes_heredoc_to_file, solo bash). Alcuni input costruiti restano
+lenti (molti << sulla stessa riga, git -c ripetuto, molti commit -F su un messaggio grande): un'analisi
+che supera MAX_ANALYSIS_SECONDS blocca qualsiasi comando, anche innocuo, prima del timeout di
+hooks.json.
 
 Limiti: è una rete contro errori e injection banali, non contro un avversario determinato. Non vede
 alias di git (anche -c alias.x=push, -c remote.x.push=+ref), alias e variabili di PowerShell, funzioni
@@ -139,6 +141,9 @@ LOOSE_SEGMENT = re.compile(r"[^;&|\n]+")
 # le parole che possono rendere distruttivi i sottocomandi di ASK_FORMS (-D, --force, drop, remove…); anche
 # attaccate, perché in una parola con espansione seguono } , o $IFS: {git,stash,drop}
 LOOSE_MARKER = re.compile(r"(-[\w-]+|drop|clear|expire|delete|remove)(?![\w-])", re.I)
+# redirect di cat verso un file: >f e >>f, oppure > e >> con il file nella parola dopo
+FILE_REDIRECT = re.compile(r">>?([^<>]*)")
+TEE_APPEND = {"-a", "--append"}
 
 def arithmetic_spans(line):
     """Intervalli di ((…)) e $((…)) nella riga, dove << è uno shift e non un heredoc; uno non chiuso arriva in fondo."""
@@ -565,6 +570,48 @@ def is_simple_form(cmd, tokens, tool_name):
     return re.match(r"git (?:" + "|".join(map(re.escape, ASK_PREFIXES)) + r")(?: |$)", text, flags) is not None
 
 
+def redirects_to_files(words):
+    """Vero se words sono solo redirect > o >> verso un file, almeno uno, attaccati al file o separati."""
+    i = 0
+    while i < len(words):
+        redirect = FILE_REDIRECT.fullmatch(words[i])
+        if not redirect:
+            return False
+        if not redirect.group(1):
+            if i + 1 == len(words) or re.search(r"[<>]", words[i + 1]):
+                return False
+            i += 1
+        i += 1
+    return bool(words)
+
+
+def tee_to_files(words):
+    """Vero se words sono nomi di file, almeno uno, con al più -a o --append davanti."""
+    files = words[1:] if words[:1] and words[0] in TEE_APPEND else words
+    return bool(files) and not any(f.startswith("-") or re.search(r"[<>]", f) for f in files)
+
+
+def writes_heredoc_to_file(bodies, flat, tokens, tool_name):
+    """Vero se l'intero comando è cat o tee che scrive l'unico heredoc in un file: il corpo è testo, non uno script.
+
+    Forma chiusa di un solo comando semplice di bash: cat con soli redirect > o >> verso file, tee con soli
+    nomi di file e al più -a/--append. Un separatore (anche la ( di >(…) e <(…)), $( o un backtick la
+    escludono, anche tra virgolette, dove la shell li espande ancora; un segnaposto tra virgolette è un
+    << che la shell non legge come heredoc.
+    """
+    words = list(tokens)
+    while words and set(words[-1]) == {"\n"}:
+        words.pop()
+    if tool_name != "Bash" or len(bodies) != 1 or "$(" in flat or "`" in flat \
+            or any(is_separator(word) for word in words) or words.count(HEREDOC_MARK) != 1:
+        return False
+    command = [word for word in words if word != HEREDOC_MARK]
+    if not command:
+        return False
+    name, args = command[0], command[1:]
+    return redirects_to_files(args) if name == "cat" else name == "tee" and tee_to_files(args)
+
+
 def block_form(reason=""):
     print("Comando git bloccato: i comandi git che chiedono conferma (" + ", ".join(ASK_SUBCOMMANDS)
           + " e le forme distruttive di " + ", ".join(ASK_FORMS) + ") vanno lanciati da soli, in forma "
@@ -598,8 +645,10 @@ def check(raw):
             return 2
         return block_form(" (Comando non analizzabile: virgolette sbilanciate.)")
 
-    # il corpo di un heredoc può essere uno script eseguito (bash <<EOF): nel dubbio è una scrittura
-    writes = ["heredoc"] if any(loose_git_write(body) for body in bodies) else []
+    # il corpo di un heredoc può essere uno script eseguito (bash <<EOF): nel dubbio è una scrittura, tranne
+    # quando cat o tee, da soli, lo scrivono in un file
+    writes = ["heredoc"] if any(loose_git_write(body) for body in bodies) \
+        and not writes_heredoc_to_file(bodies, flat, tokens, tool_name) else []
     if tool_name == "PowerShell" and ps_git_expression(tokens):
         writes.append("dynamic")
     shell_checked = False

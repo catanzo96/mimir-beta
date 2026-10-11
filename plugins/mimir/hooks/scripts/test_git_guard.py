@@ -45,6 +45,8 @@ shutil.copyfile(DIRTY_FILE, WIN_FILE)
 
 LONG = "feat(core): " + "x" * 70
 HEREDOC = "git commit -F - <<'EOF'\n{}\nEOF"
+# heredoc con un testo che cita sottocomandi git che scrivono: {} è il comando che lo apre
+TEXT_HEREDOC = "{}\nnota: git push -f e git reset --hard restano vietati\nEOF"
 
 # Bloccati per il contenuto: attribuzioni, righe oltre 72, force push (exit 2)
 CONTENT_BLOCK = {
@@ -218,6 +220,35 @@ FORM_BLOCK = {
     "checkout-index -af raggruppato": "git checkout-index -af",
     "checkout-index --force con env": "env X=1 git checkout-index --force -a",
     "reflog drop con env": "env X=1 git reflog drop",
+    # il corpo di un heredoc è solo testo scritto in un file soltanto con cat o tee da soli: il resto si guarda
+    "heredoc in cat verso una pipe": TEXT_HEREDOC.format("cat <<'EOF' | sh"),
+    "heredoc in cat senza redirect": TEXT_HEREDOC.format("cat <<'EOF'"),
+    "heredoc in cat verso stderr": TEXT_HEREDOC.format("cat <<'EOF' 2>f"),
+    "heredoc in cat con un'opzione": TEXT_HEREDOC.format("cat -v <<'EOF' > f"),
+    "heredoc in cat con un file in ingresso": TEXT_HEREDOC.format("cat a <<'EOF' > f"),
+    "heredoc in /bin/cat": TEXT_HEREDOC.format("/bin/cat <<'EOF' > f"),
+    "heredoc in cat con una variabile davanti": TEXT_HEREDOC.format("X=1 cat <<'EOF' > f"),
+    "heredoc in cat verso una sostituzione di processo": TEXT_HEREDOC.format("cat <<'EOF' > >(sh)"),
+    # la parola del redirect si espande con lo stdin già sull'heredoc: python3 esegue il corpo
+    "heredoc in cat verso un file da $( )": TEXT_HEREDOC.format('cat <<\'EOF\' > "$(python3)"'),
+    "heredoc in cat verso un file da backtick": TEXT_HEREDOC.format("cat <<'EOF' > `python3`"),
+    "heredoc in cat seguito da ;": TEXT_HEREDOC.format("cat <<'EOF' > f; sh f"),
+    "heredoc in cat seguito da &&": TEXT_HEREDOC.format("cat <<'EOF' > f && sh f"),
+    "heredoc in cat seguito da un comando a capo": TEXT_HEREDOC.format("cat <<'EOF' > f") + "\n./f",
+    "heredoc in cat dentro $( )": 'echo "$(' + TEXT_HEREDOC.format("cat <<'EOF'") + '\n)"',
+    "due heredoc in cat": "cat <<'A' <<'EOF' > f\nuno\nA\nnota: git push -f\nEOF",
+    "heredoc in tee verso una sostituzione di processo": TEXT_HEREDOC.format("tee >(sh) <<'EOF'"),
+    "heredoc in tee con un file da backtick": TEXT_HEREDOC.format("tee `python3` <<'EOF'"),
+    "heredoc in tee verso una pipe": TEXT_HEREDOC.format("tee f <<'EOF' | python3"),
+    # bash legge un solo heredoc (EOF, vuoto) ed esegue le righe dopo; l'analisi vede due corpi
+    "heredoc in tee con un << tra virgolette": "tee \"x<<A\" <<'EOF'\nEOF\ngit push -f\nA",
+    "heredoc in tee con -p": TEXT_HEREDOC.format("tee -p f <<'EOF'"),
+    "heredoc in tee con -a dopo il file": TEXT_HEREDOC.format("tee f -a <<'EOF'"),
+    "heredoc in tee con un redirect": TEXT_HEREDOC.format("tee f <<'EOF' > /dev/null"),
+    "heredoc in sudo tee": TEXT_HEREDOC.format("sudo tee f <<'EOF'"),
+    # << che la shell non legge come heredoc: le righe dopo sono comandi
+    "<< tra virgolette in cat": TEXT_HEREDOC.format('cat > "x <<EOF"'),
+    "<< dopo un backslash in cat": TEXT_HEREDOC.format("cat > x \\<<EOF"),
 }
 
 # Bloccati perché gli argomenti di git commit non sono tra le forme ammesse (elenco chiuso): exit 2
@@ -391,6 +422,18 @@ ALLOW = {
     "rg di git in più cartelle": "rg -n git skills/ agents/",
     "apt install git": "apt install -y git libssl-dev:amd64",
     "comando PowerShell con backtick nel tool Bash": "Get-ChildItem -Path C:\\repo `\n  -Filter *.md | Select-Object Name",
+    # heredoc che cat o tee, da soli, scrivono in un file: il corpo è testo, non uno script
+    "heredoc in cat >> verso un file (falso positivo del 10/10)": TEXT_HEREDOC.format("cat >> note.md <<'EOF'"),
+    "heredoc in cat > verso un file": TEXT_HEREDOC.format("cat > f <<EOF"),
+    "heredoc in cat con il redirect dopo": TEXT_HEREDOC.format("cat <<EOF > f"),
+    "heredoc in cat con >> dopo": TEXT_HEREDOC.format("cat <<'EOF' >> f"),
+    "heredoc in cat con redirect attaccati": TEXT_HEREDOC.format("cat >f<<'EOF'"),
+    "heredoc in cat con <<-": TEXT_HEREDOC.format("cat <<-EOF > f"),
+    "heredoc in cat con un a capo finale": TEXT_HEREDOC.format("cat <<'EOF' > f") + "\n",
+    "heredoc in tee verso un file": TEXT_HEREDOC.format("tee f <<'EOF'"),
+    "heredoc in tee verso due file": TEXT_HEREDOC.format("tee f g <<'EOF'"),
+    "heredoc in tee -a": TEXT_HEREDOC.format("tee -a f <<'EOF'"),
+    "heredoc in tee --append": TEXT_HEREDOC.format("tee --append f <<'EOF'"),
 }
 
 # comandi del tool PowerShell
@@ -419,6 +462,8 @@ PS_FORM_BLOCK = {
     "sottocomando tra parentesi dopo --no-pager": "git --no-pager ($sub) --hard",
     # su più righe il tokenizzatore trova virgolette sbilanciate: non arriva al controllo degli argomenti
     "here-string pulita": 'git commit -m @"\nfeat: x\n\nCorpo breve.\n"@',
+    # gli heredoc sono di bash: in PowerShell il corpo si guarda sempre
+    "heredoc in cat verso un file": TEXT_HEREDOC.format("cat > f <<'EOF'"),
 }
 PS_COMMIT_FORM_BLOCK = {
     "here-string su una riga": "git commit -m @'feat: x'@",
