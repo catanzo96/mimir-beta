@@ -17,8 +17,9 @@ verificato l'08/10 con Claude Code 2.1.293 (sandbox e modalità auto), un "ask" 
 ignorato e il commit è partito. Forma semplice: l'intero comando inizia con il prefisso esatto di una
 regola ask (ASK_PREFIXES: git commit, git reset, git branch -D, git stash drop…), senza separatori, a
 capo, $( o backtick (per PowerShell senza distinguere le maiuscole, come le sue regole). Per branch,
-switch, stash e reflog l'opzione distruttiva va quindi subito dopo il sottocomando; le loro forme non
-distruttive (git branch -a, git stash list) sono letture e passano anche nei comandi composti, come git
+switch, rm, checkout-index, stash, reflog e worktree l'opzione distruttiva (o la parola: drop, remove)
+va quindi subito dopo il sottocomando; le loro forme non distruttive (git branch -a, git stash list,
+git rm --cached, git worktree list) passano anche nei comandi composti, come git
 tag senza argomenti e git tag -l/--list senza opzioni di scrittura. commit-tree, send-pack e git.exe
 non hanno una regola ask e sono sempre bloccati.
 
@@ -38,8 +39,10 @@ Limiti: è una rete contro errori e injection banali, non contro un avversario d
 alias di git (anche -c alias.x=push, -c remote.x.push=+ref), alias e variabili di PowerShell, funzioni
 shell, script, make, hook git, comandi passati a ssh, update-ref e fast-import, un redirect prima del
 sottocomando (git 2>/dev/null push), git ricavato da una sostituzione ($(which git) push) e il secondo
-git di find -exec … {} + -exec git … {} +. Le forme distruttive senza una regola ask (git branch -C,
-stash pop, worktree remove --force, checkout-index -f, gc --prune=now…) passano; merge, revert,
+git di find -exec … {} + -exec git … {} +. Le forme distruttive senza una regola ask passano: git
+branch -C e fetch +ref (recuperabili dalla reflog), stash pop, remote prune, symbolic-ref, read-tree
+--reset (senza -u perde solo lo stage) e gc --prune=now (distrugge solo ciò che la reflog non tiene più,
+e reflog expire chiede conferma); merge, revert,
 cherry-pick e pull chiedono conferma ma creano commit senza il controllo del messaggio. Accanto restano la
 sandbox (credenziali negate) e le regole ask, alle quali l'hook lascia i comandi in forma semplice.
 
@@ -74,17 +77,24 @@ ATTRIBUTION = [
 # i sottocomandi con una regola ask in settings su git <sottocomando>
 ASK_SUBCOMMANDS = ("commit", "push", "tag", "reset", "rebase", "merge", "cherry-pick", "revert", "pull", "am",
                    "clean", "restore", "checkout", "update-ref", "filter-branch", "prune")
-# i sottocomandi con una regola ask solo sulle forme distruttive (git branch -D, git stash drop…)
+# i sottocomandi con una regola ask solo sulle forme distruttive (git branch -D, git stash drop…);
+# worktree remove intero: anche senza --force cancella i file ignorati (sonda dell'11/10, git 2.43.0)
 ASK_FORMS = {
     "branch": ("-D", "-d", "--delete", "-M", "-f", "--force"),
     "switch": ("-f", "--force", "--discard-changes", "-C"),
+    "rm": ("-f", "--force"),
+    "checkout-index": ("-f", "--force"),
     "stash": ("drop", "clear"),
-    "reflog": ("expire", "delete"),
+    "reflog": ("expire", "delete", "drop"),
+    "worktree": ("remove",),
 }
-# le stesse opzioni come le accetta git: corte anche raggruppate (-fD), lunghe anche abbreviate (--del)
+# le stesse opzioni come le accetta git: corte anche raggruppate (-fD), lunghe anche abbreviate (--del);
+# gli altri sottocomandi di ASK_FORMS hanno una parola (drop, remove…)
 DESTRUCTIVE_OPTIONS = {
     "branch": ("dDMf", ("--delete", "--force")),
     "switch": ("fC", ("--force", "--discard-changes", "--force-create")),
+    "rm": ("f", ("--force",)),
+    "checkout-index": ("f", ("--force",)),
 }
 WRITE_SUBCOMMANDS = set(ASK_SUBCOMMANDS) | set(ASK_FORMS) | {"commit-tree", "send-pack"}
 # i prefissi delle regole ask: solo un comando che inizia esattamente così può passare
@@ -122,9 +132,9 @@ LOOSE_WRITE = re.compile(r"(?<![\w-])(" + "|".join(sorted(WRITE_SUBCOMMANDS)) + 
 LOOSE_COMMIT = re.compile(r"(?<![\w-])commit(?![\w-])", re.I)
 # un comando semplice per la ricerca lineare: il testo tra ; & | e a capo
 LOOSE_SEGMENT = re.compile(r"[^;&|\n]+")
-# le parole che possono rendere distruttivi branch, switch, stash e reflog (-D, --force, drop…); anche
+# le parole che possono rendere distruttivi i sottocomandi di ASK_FORMS (-D, --force, drop, remove…); anche
 # attaccate, perché in una parola con espansione seguono } , o $IFS: {git,stash,drop}
-LOOSE_MARKER = re.compile(r"(-[\w-]+|drop|clear|expire|delete)(?![\w-])", re.I)
+LOOSE_MARKER = re.compile(r"(-[\w-]+|drop|clear|expire|delete|remove)(?![\w-])", re.I)
 
 def arithmetic_spans(line):
     """Intervalli di ((…)) e $((…)) nella riga, dove << è uno shift e non un heredoc; uno non chiuso arriva in fondo."""
@@ -357,9 +367,9 @@ def is_force_push(args):
 
 
 def is_destructive(sub, args):
-    """Branch, switch, stash e reflog in una delle forme per cui settings ha una regola ask."""
+    """Un sottocomando di ASK_FORMS in una delle forme per cui settings ha una regola ask."""
     args = [a.strip("`") for a in args]
-    if sub in ("stash", "reflog"):
+    if sub not in DESTRUCTIVE_OPTIONS:
         return any(arg in ASK_FORMS[sub] for arg in args)
     short, long_options = DESTRUCTIVE_OPTIONS[sub]
     for arg in args:
@@ -524,8 +534,8 @@ def is_destructive_word(word):
 
 def loose_git_write(text):
     """Ricerca lineare, comando semplice per comando semplice: git seguito più avanti da un sottocomando che
-    scrive, come parola intera; branch, switch, stash e reflog solo se più avanti, nello stesso comando
-    semplice, c'è una parola che può renderli distruttivi (-D, --force, drop…)."""
+    scrive, come parola intera; quelli di ASK_FORMS (branch, rm, stash…) solo se più avanti, nello stesso
+    comando semplice, c'è una parola che può renderli distruttivi (-D, --force, drop, remove…)."""
     # una riga continuata (\ a capo in bash, ` a capo in PowerShell) resta nello stesso comando semplice
     text = text.replace("\\\n", " ").replace("`\n", " ")
     for segment in LOOSE_SEGMENT.finditer(text):
@@ -553,7 +563,7 @@ def is_simple_form(cmd, tokens, tool_name):
 
 def block_form(reason=""):
     print("Comando git bloccato: i comandi git che chiedono conferma (" + ", ".join(ASK_SUBCOMMANDS)
-          + " e le forme distruttive di branch, switch, stash e reflog) vanno lanciati da soli, in forma "
+          + " e le forme distruttive di " + ", ".join(ASK_FORMS) + ") vanno lanciati da soli, in forma "
           "semplice, dalla cartella del repo (git commit -F <file>, git push …, git reset --hard …), così "
           "chiede conferma la regola ask di settings. Niente git -C, opzioni globali, variabili, &&, ;, |, "
           "redirect, heredoc, $( ) o messaggi su più righe: per un commit scrivi il messaggio in un file "
@@ -624,8 +634,10 @@ def check(raw):
             and is_simple_form(cmd, tokens, tool_name):
         return 0  # ci pensa la regola ask di settings
     if any(sub in ASK_FORMS for sub in writes):
-        return block_form(" Per branch, switch, stash e reflog l'opzione distruttiva va subito dopo il "
-                          "sottocomando, da sola (git branch -D x, git switch --force main, git stash drop).")
+        return block_form(" Per " + ", ".join(ASK_FORMS) + " l'opzione distruttiva va subito dopo il "
+                          "sottocomando, da sola e non raggruppata: git branch -fD x diventa git branch -D -f x, "
+                          "git rm -rf x diventa git rm -f -r x (anche git switch --force main, git stash drop, "
+                          "git worktree remove x).")
     return block_form()
 
 

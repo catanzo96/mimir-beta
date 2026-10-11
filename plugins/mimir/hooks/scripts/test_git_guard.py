@@ -206,6 +206,18 @@ FORM_BLOCK = {
     "reset --hard con redirect attaccato dopo ls": "ls && git reset --hard>/dev/null",
     "clean -fd con redirect attaccato dopo ls": "ls && git clean -fd>x",
     "checkout -f con redirect attaccato dopo ls": "ls && git checkout -f>x",
+    # worktree remove, rm, checkout-index e reflog drop: la regola ask riconosce la forma solo subito dopo
+    "worktree remove dopo ls": "ls && git worktree remove ../wt",
+    "worktree remove con -C": "git -C . worktree remove --force ../wt",
+    "worktree remove nel corpo di bash <<EOF": "bash <<'EOF'\ngit worktree remove ../wt\nEOF",
+    "rm -rf raggruppato": "git rm -rf x",
+    "rm -f dopo -r": "git rm -r -f x",
+    "rm --force dopo ls": "ls && git rm --force x",
+    "rm --forc abbreviato": "git rm --forc x",
+    "checkout-index -f dopo -a": "git checkout-index -a -f",
+    "checkout-index -af raggruppato": "git checkout-index -af",
+    "checkout-index --force con env": "env X=1 git checkout-index --force -a",
+    "reflog drop con env": "env X=1 git reflog drop",
 }
 
 # Bloccati perché gli argomenti di git commit non sono tra le forme ammesse (elenco chiuso): exit 2
@@ -267,7 +279,8 @@ REASON_BLOCK = {
     "heredoc come messaggio": (HEREDOC.format("feat: x\n\nCorpo breve."), "heredoc"),
     "redirect dopo il messaggio": ('git commit -m "feat: x" 2>&1', "redirect"),
     "--amend ripetuto": ('git commit --amend --amend -m "feat: x"', "--amend è ripetuto"),
-    "branch -D dopo -q: indica come riscriverlo": ("git branch -q -D x", "Per branch, switch, stash e reflog"),
+    "branch -D dopo -q: indica come riscriverlo": ("git branch -q -D x", "l'opzione distruttiva va subito dopo"),
+    "rm -rf: indica come riscriverlo": ("git rm -rf x", "git rm -f -r"),
     # gli argomenti del commit non si tagliano al primo < o >: il messaggio va controllato tutto
     "attribuzione dopo > in un -m": ('git commit -m "fix: a > b" -m "nota > generated with Claude"', "attribuzione"),
 }
@@ -340,6 +353,12 @@ ALLOW = {
     "stash clear": "git stash clear",
     "reflog expire": "git reflog expire --expire=now --all",
     "reflog delete": "git reflog delete HEAD@{1}",
+    "worktree remove": "git worktree remove ../wt",
+    "rm -f": "git rm -f -r x",
+    "rm --force": "git rm --force x",
+    "checkout-index -f": "git checkout-index -f -a",
+    "checkout-index --force": "git checkout-index --force -a",
+    "reflog drop": "git reflog drop",
     # letture e forme non distruttive: libere anche in un comando composto
     "branch in un comando composto": "git branch && git status",
     "branch -a in una pipe": "git branch -a | grep x",
@@ -350,6 +369,14 @@ ALLOW = {
     "switch con -C globale": "git -C . switch main",
     "switch -c dopo un fetch": "git fetch && git switch -c x",
     "merge-base non è merge": "git merge-base main HEAD && git log",
+    "worktree list e add": "git worktree list && git worktree add ../wt",
+    "worktree list nel corpo di bash <<EOF": "bash <<'EOF'\ngit worktree list\nEOF",
+    "rm senza -f": "ls && git rm --cached x",
+    "checkout-index senza -f": "git checkout-index -a && ls",
+    "reflog show": "git reflog show && ls",
+    # limiti documentati: read-tree --reset senza -u perde solo lo stage, gc solo ciò che la reflog non tiene
+    "read-tree di git-workflow": 'GIT_INDEX_FILE="$I" git read-tree HEAD',
+    "gc.auto in git config": "git config gc.auto 0 && ls",
     # parole come clean o branch dopo una variabile, in comandi che non sono git o sono letture
     "make con una variabile e clean": "make -C $DIR clean",
     "mvn con una variabile e clean": "mvn -f $POM clean verify",
@@ -384,6 +411,7 @@ PS_FORM_BLOCK = {
     "continuazione con backtick": "git push `\n  origin main",
     "git.exe reset": "git.exe reset --hard",
     "& git branch -D": "& git branch -D x",
+    "& git worktree remove": "& git worktree remove ../wt",
     "splat dopo git": "git @args",
     "array dopo git": 'git @("reset","--hard")',
     "sottocomando tra parentesi": "git ($b) --hard",
@@ -402,6 +430,7 @@ PS_ALLOW = {
     "push semplice": "git push origin main",
     "reset in maiuscolo": "Git RESET --hard",
     "branch -d": "git branch -d x",
+    "rm -f": "git rm -f x",
     "comando non git": "Get-ChildItem -Path C:\\repo -Filter *.md",
 }
 

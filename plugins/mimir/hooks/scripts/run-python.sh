@@ -105,11 +105,13 @@ if (( fail_closed )); then
   # valore JSON di "command" (caratteri normali o sequenze di escape) con git e poi un sottocomando di
   # WRITE_SUBCOMMANDS di git-guard.py non attaccato a lettere, cifre, _ o - (così --tags, committer e
   # merge-base non contano); tabulazione, a capo e virgolette nel JSON sono \t, \n e \", e valgono come
-  # separatori. Branch, switch, stash e reflog si bloccano anche in lettura: senza Python non si distinguono
+  # separatori. Branch, switch, rm, checkout-index, stash, reflog e worktree si bloccano anche nelle forme
+  # che non distruggono: senza Python non si distinguono (anche un rm della shell dopo git status)
   json_char='([^"\\]|\\.)'
   separator='(\\[tn"]|[^[:alnum:]_-])'
   subcommands='commit(-tree)?|push|tag|send-pack|reset|rebase|merge|cherry-pick|revert|pull|am|clean'
-  subcommands+='|restore|checkout|update-ref|filter-branch|prune|branch|switch|stash|reflog'
+  subcommands+='|restore|checkout|checkout-index|update-ref|filter-branch|prune|branch|switch|rm|stash'
+  subcommands+='|reflog|worktree'
   git_write="\"command\"[[:space:]]*:[[:space:]]*\"${json_char}*git${json_char}*${separator}(${subcommands})([^[:alnum:]_-]|\$)"
   shopt -s nocasematch
   if [[ "$input" =~ $git_write ]]; then
