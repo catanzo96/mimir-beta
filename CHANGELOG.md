@@ -2,6 +2,7 @@
 
 ## 2026-10-11 (terze parti: attribuzione dentro il plugin)
 - `THIRD_PARTY.md` e `LICENSES/` spostati in `plugins/mimir/`, perché il marketplace distribuisce solo la cartella del plugin; nella root resta un rimando. Percorsi delle tabelle relativi al plugin e introduzione riscritta: le fonti hanno licenze permissive, i file derivati restano con l'attribuzione.
+- Agent `design-reviewer`: torna il perimetro di ripiego perso nella riscrittura (se il brief non lo indica, modifiche non committate al frontend, poi il branch rispetto al branch base, come in `code-reviewer`).
 - Agent `design-reviewer` rientra in `THIRD_PARTY.md`, sotto impeccable (la voce del 2026-10-11 sulla riscrittura diceva che ne usciva): riscritto da un elenco dei concetti, ne conserva idee e selezione.
 - Avviso di modifica Apache-2.0 4(b) nei quattro file derivati da impeccable: commento YAML nel frontmatter di `design-ui/SKILL.md` e `agents/design-reviewer.md`, riga in corsivo in fondo a `pagine-marketing.md` e `anti-pattern.md`, che non hanno frontmatter (regola aggiunta in `fonti-esterne.md` §5).
 
