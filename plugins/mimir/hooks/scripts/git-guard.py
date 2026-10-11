@@ -17,13 +17,14 @@ verificato l'08/10 con Claude Code 2.1.293 (sandbox e modalità auto), un "ask" 
 ignorato e il commit è partito. Forma semplice: l'intero comando inizia con il prefisso esatto di una
 regola ask (ASK_PREFIXES: git commit, git reset, git branch -D, git stash drop…), senza separatori, a
 capo, $( o backtick (per PowerShell senza distinguere le maiuscole, come le sue regole). Per branch,
-switch, stash e reflog l'opzione distruttiva va quindi subito dopo il sottocomando; le loro forme non
-distruttive (git branch -a, git stash list) sono letture e passano anche nei comandi composti, come git
+switch, rm, checkout-index, stash, reflog e worktree l'opzione distruttiva (o la parola: drop, remove)
+va quindi subito dopo il sottocomando; le loro forme non distruttive (git branch -a, git stash list,
+git rm --cached, git worktree list) passano anche nei comandi composti, come git
 tag senza argomenti e git tag -l/--list senza opzioni di scrittura. commit-tree, send-pack e git.exe
 non hanno una regola ask e sono sempre bloccati.
 
-Come riconosce i comandi: divide il comando in token con shlex (lineare, niente regex con
-backtracking), separa i comandi semplici su ; & | ( ) e a capo, e cerca un token git (anche
+Come riconosce i comandi: divide il comando in token con shlex (niente regex con backtracking), separa i
+comandi semplici su ; & | ( ) e a capo, e cerca un token git (anche
 /usr/bin/git, git.exe, dopo FOO=1, env, sudo, xargs) seguito, dopo le opzioni globali, dal
 sottocomando. Dopo il primo git che scrive, il resto del comando semplice sono suoi argomenti. Un
 sottocomando che la shell espande (git $SUB, git {reset,--hard}, git @args, git ($b) su PowerShell) e
@@ -31,34 +32,50 @@ una variabile in posizione di comando seguita da un sottocomando ("$GIT" -C x pu
 Entra negli argomenti di sh/bash/zsh -c, eval, iex/Invoke-Expression e cmd /c, non nei messaggi dei
 commit. Se il comando non si divide (virgolette sbilanciate), supera MAX_COMMAND o passa da uno
 heredoc, una ricerca lineare per comando semplice di git seguito da un sottocomando che scrive decide:
-se la trova, blocca.
+se la trova, blocca. Alcuni input costruiti restano lenti (molti << sulla stessa riga, git -c
+ripetuto, molti commit -F su un messaggio grande): un'analisi che supera MAX_ANALYSIS_SECONDS blocca
+qualsiasi comando, anche innocuo, prima del timeout di hooks.json.
 
 Limiti: è una rete contro errori e injection banali, non contro un avversario determinato. Non vede
 alias di git (anche -c alias.x=push, -c remote.x.push=+ref), alias e variabili di PowerShell, funzioni
 shell, script, make, hook git, comandi passati a ssh, update-ref e fast-import, un redirect prima del
-sottocomando (git 2>/dev/null push), git ricavato da una sostituzione ($(which git) push) e il secondo
-git di find -exec … {} + -exec git … {} +. Le forme distruttive senza una regola ask (git branch -C,
-stash pop, worktree remove --force, checkout-index -f, gc --prune=now…) passano; merge, revert,
-cherry-pick e pull chiedono conferma ma creano commit senza il controllo del messaggio. Accanto restano la
-sandbox (credenziali negate) e le regole ask, alle quali l'hook lascia i comandi in forma semplice.
+sottocomando (git 2>/dev/null push), git ricavato da una sostituzione ($(which git) push), il secondo
+git di find -exec … {} + -exec git … {} + e il comando tra virgolette di git submodule foreach '…' e
+git bisect run '…'; non riconosce un'attribuzione scritta con caratteri a larghezza zero o omoglifi
+(la a cirillica in Claude). Le forme distruttive senza una regola ask passano: git branch -C e fetch
++ref (recuperabili dalla reflog), stash pop, remote prune, symbolic-ref, submodule deinit -f, mv -f,
+read-tree --reset (senza -u perde solo lo stage) e gc --prune=now (distrugge solo ciò che la reflog non
+tiene più, e reflog expire chiede conferma); merge, revert, cherry-pick e pull chiedono conferma ma
+creano commit senza il controllo del messaggio; il messaggio di git tag -m/-F non è controllato
+(un'attribuzione passa con la sola regola ask); git push origin :ref e --delete cancellano un branch
+remoto con la sola regola ask. Su PowerShell la virgola (-m a,b) e lo splatting negli argomenti di -m
+non sono provati (niente pwsh nella prova). Accanto restano la sandbox (credenziali negate) e le regole
+ask, alle quali l'hook lascia i comandi in forma semplice.
 
 Le parole da sole (un file CLAUDE.md, un percorso, "integra l'API di Anthropic") non bloccano il
 commit: conta la forma dell'attribuzione, non l'argomento.
 
 Un errore inatteso blocca (exit 2) solo se il comando sembra un comando git che scrive: per Claude Code
-un hook che esce con 1 è un errore non bloccante, e il comando passerebbe senza controllo.
+un hook che esce con 1 è un errore non bloccante, e il comando passerebbe senza controllo. Un errore
+prima di main (sintassi, import) non passa da qui: Python esce con 1 e il comando passa.
 """
 import json
 import os
 import re
 import shlex
 import sys
+import threading
 
 MAX_LINE = 72
 MAX_COMMAND = 100_000
+# oltre il timeout di hooks.json (10 s) Claude Code lascia passare il comando: l'analisi che supera questa
+# soglia blocca; il margine copre macchine lente e l'avvio di Python e di run-python.sh
+MAX_ANALYSIS_SECONDS = 6
 MAX_DEPTH = 3
 
-AI = r"(claude|anthropic|openai|chatgpt|gpt-?\d|copilot|gemini|cursor|codeium|tabnine|\bai\b|assistant|assistente|llm)"
+# i nomi dei modelli con il confine di parola: opus non deve prendere opuscolo
+AI = (r"(claude|anthropic|openai|chatgpt|gpt-?\d|copilot|gemini|cursor|codeium|tabnine|\bai\b|assistant|assistente"
+      r"|llm|\b(?:sonnet|opus|haiku|fable)\b)")
 ATTRIBUTION = [
     re.compile(r"^[ \t]*(co-authored-by|co-developed-by|assisted-by|generated-by)\s*:.*" + AI, re.I | re.M),
     re.compile(r"(generated|created|written)\s+(with|by|using)\b[^\n]{0,40}" + AI, re.I),
@@ -69,17 +86,24 @@ ATTRIBUTION = [
 # i sottocomandi con una regola ask in settings su git <sottocomando>
 ASK_SUBCOMMANDS = ("commit", "push", "tag", "reset", "rebase", "merge", "cherry-pick", "revert", "pull", "am",
                    "clean", "restore", "checkout", "update-ref", "filter-branch", "prune")
-# i sottocomandi con una regola ask solo sulle forme distruttive (git branch -D, git stash drop…)
+# i sottocomandi con una regola ask solo sulle forme distruttive (git branch -D, git stash drop…);
+# worktree remove intero: anche senza --force cancella i file ignorati (sonda dell'11/10, git 2.43.0)
 ASK_FORMS = {
     "branch": ("-D", "-d", "--delete", "-M", "-f", "--force"),
     "switch": ("-f", "--force", "--discard-changes", "-C"),
+    "rm": ("-f", "--force"),
+    "checkout-index": ("-f", "--force"),
     "stash": ("drop", "clear"),
-    "reflog": ("expire", "delete"),
+    "reflog": ("expire", "delete", "drop"),
+    "worktree": ("remove",),
 }
-# le stesse opzioni come le accetta git: corte anche raggruppate (-fD), lunghe anche abbreviate (--del)
+# le stesse opzioni come le accetta git: corte anche raggruppate (-fD), lunghe anche abbreviate (--del);
+# gli altri sottocomandi di ASK_FORMS hanno una parola (drop, remove…)
 DESTRUCTIVE_OPTIONS = {
     "branch": ("dDMf", ("--delete", "--force")),
     "switch": ("fC", ("--force", "--discard-changes", "--force-create")),
+    "rm": ("f", ("--force",)),
+    "checkout-index": ("f", ("--force",)),
 }
 WRITE_SUBCOMMANDS = set(ASK_SUBCOMMANDS) | set(ASK_FORMS) | {"commit-tree", "send-pack"}
 # i prefissi delle regole ask: solo un comando che inizia esattamente così può passare
@@ -117,9 +141,12 @@ LOOSE_WRITE = re.compile(r"(?<![\w-])(" + "|".join(sorted(WRITE_SUBCOMMANDS)) + 
 LOOSE_COMMIT = re.compile(r"(?<![\w-])commit(?![\w-])", re.I)
 # un comando semplice per la ricerca lineare: il testo tra ; & | e a capo
 LOOSE_SEGMENT = re.compile(r"[^;&|\n]+")
-# le parole che possono rendere distruttivi branch, switch, stash e reflog (-D, --force, drop…); anche
+# le parole che possono rendere distruttivi i sottocomandi di ASK_FORMS (-D, --force, drop, remove…); anche
 # attaccate, perché in una parola con espansione seguono } , o $IFS: {git,stash,drop}
-LOOSE_MARKER = re.compile(r"(-[\w-]+|drop|clear|expire|delete)(?![\w-])", re.I)
+LOOSE_MARKER = re.compile(r"(-[\w-]+|drop|clear|expire|delete|remove)(?![\w-])", re.I)
+# aggiunto al motivo quando a far bloccare è il corpo di un heredoc
+HEREDOC_HINT = ("Per scrivere un file usa Write (file nuovo) o Edit (modifica o aggiunta in fondo), non cat/tee "
+                "con un heredoc.")
 
 def arithmetic_spans(line):
     """Intervalli di ((…)) e $((…)) nella riga, dove << è uno shift e non un heredoc; uno non chiuso arriva in fondo."""
@@ -144,7 +171,11 @@ def heredoc_starts(line):
 
 
 def heredoc_bodies(cmd):
-    """Corpi degli heredoc e comando senza di essi, riga per riga (lineare); un heredoc non chiuso arriva in fondo."""
+    """Corpi degli heredoc e comando senza di essi, riga per riga; un heredoc non chiuso arriva in fondo.
+
+    Quadratico con molti << sulla stessa riga (ogni segnaposto ricostruisce la riga): 1-2,6 s al limite di
+    MAX_COMMAND, accettato.
+    """
     bodies, kept, pending, body = [], [], [], None
     for line in cmd.split("\n"):
         if body is not None:
@@ -241,7 +272,8 @@ def git_calls(tokens, tool_name, depth=0):
         # (sudo -u root): la parola dopo è il comando
         prefix, after_option = True, False
         # dopo il primo git che scrive, il resto del comando semplice sono suoi argomenti (git commit -m git):
-        # guardarli di nuovo come git costerebbe anche un tempo quadratico (git branch git branch …).
+        # guardarli di nuovo come git costerebbe anche un tempo quadratico (git branch git branch …); resta
+        # quadratico git -c git -c …, dove ogni git è il valore dell'opzione prima (lo ferma il tempo massimo).
         # Limite accettato: find -exec git branch {} + -exec git push {} + non vede il secondo git
         git_args = False
         # le parole fino a qui sono opzioni globali di una variabile già guardata come git ("$GIT" -C x)
@@ -257,7 +289,14 @@ def git_calls(tokens, tool_name, depth=0):
                 # senza redirect e virgolette, ma con backtick: `echo push` non è un sottocomando
                 sub = re.split(r"[<>]", words[j], maxsplit=1)[0].strip("\"'") if j < len(words) else ""
                 if bare(sub) in WRITE_SUBCOMMANDS:
-                    calls.append((bare(sub), words[j + 1:]))
+                    args = words[j + 1:]
+                    # la shell toglie il redirect attaccato (push -f>/dev/null): git riceve -f. Il commit resta
+                    # intero perché si controlla il testo di -m, che shlex lascia senza virgolette ("a > b"
+                    # tagliato nasconderebbe un'attribuzione); lo protegge parse_commit_args, che ammette solo
+                    # forme chiuse e rifiuta un -F con < o >
+                    if bare(sub) != "commit":
+                        args = [re.split(r"[<>]", arg, maxsplit=1)[0] for arg in args]
+                    calls.append((bare(sub), args))
                     git_args = True
                 elif EXPANSION.search(re.split(r"[\\/]", sub)[-1]):
                     # il percorso non conta: in grep -rn git plugins/ git è un argomento
@@ -319,7 +358,10 @@ def is_force_push(args):
     for arg in (a.strip("`") for a in args):
         if skip:
             skip = False
-            continue
+            # -o">x" -f, tagliato al redirect, sembra -o -f: un valore che inizia con - si guarda come opzione
+            # (fail-closed: blocca anche git push -o -f, dove per git -f è il valore)
+            if not arg.startswith("-"):
+                continue
         option = arg.split("=", 1)[0].lower()
         if option in PUSH_OPTIONS_WITH_VALUE:
             skip = "=" not in arg
@@ -337,9 +379,9 @@ def is_force_push(args):
 
 
 def is_destructive(sub, args):
-    """Branch, switch, stash e reflog in una delle forme per cui settings ha una regola ask."""
+    """Un sottocomando di ASK_FORMS in una delle forme per cui settings ha una regola ask."""
     args = [a.strip("`") for a in args]
-    if sub in ("stash", "reflog"):
+    if sub not in DESTRUCTIVE_OPTIONS:
         return any(arg in ASK_FORMS[sub] for arg in args)
     short, long_options = DESTRUCTIVE_OPTIONS[sub]
     for arg in args:
@@ -504,8 +546,8 @@ def is_destructive_word(word):
 
 def loose_git_write(text):
     """Ricerca lineare, comando semplice per comando semplice: git seguito più avanti da un sottocomando che
-    scrive, come parola intera; branch, switch, stash e reflog solo se più avanti, nello stesso comando
-    semplice, c'è una parola che può renderli distruttivi (-D, --force, drop…)."""
+    scrive, come parola intera; quelli di ASK_FORMS (branch, rm, stash…) solo se più avanti, nello stesso
+    comando semplice, c'è una parola che può renderli distruttivi (-D, --force, drop, remove…)."""
     # una riga continuata (\ a capo in bash, ` a capo in PowerShell) resta nello stesso comando semplice
     text = text.replace("\\\n", " ").replace("`\n", " ")
     for segment in LOOSE_SEGMENT.finditer(text):
@@ -533,7 +575,7 @@ def is_simple_form(cmd, tokens, tool_name):
 
 def block_form(reason=""):
     print("Comando git bloccato: i comandi git che chiedono conferma (" + ", ".join(ASK_SUBCOMMANDS)
-          + " e le forme distruttive di branch, switch, stash e reflog) vanno lanciati da soli, in forma "
+          + " e le forme distruttive di " + ", ".join(ASK_FORMS) + ") vanno lanciati da soli, in forma "
           "semplice, dalla cartella del repo (git commit -F <file>, git push …, git reset --hard …), così "
           "chiede conferma la regola ask di settings. Niente git -C, opzioni globali, variabili, &&, ;, |, "
           "redirect, heredoc, $( ) o messaggi su più righe: per un commit scrivi il messaggio in un file "
@@ -564,7 +606,9 @@ def check(raw):
             return 2
         return block_form(" (Comando non analizzabile: virgolette sbilanciate.)")
 
-    # il corpo di un heredoc può essere uno script eseguito (bash <<EOF): nel dubbio è una scrittura
+    # il corpo di un heredoc può essere uno script eseguito (bash <<EOF): nel dubbio è una scrittura, anche
+    # quando cat o tee lo scrivono in un file, perché ogni esenzione provata è stata aggirata da un modo in cui
+    # bash legge il comando diversamente da qui (delimitatore non quotato, # e ${…}, riga continuata)
     writes = ["heredoc"] if any(loose_git_write(body) for body in bodies) else []
     if tool_name == "PowerShell" and ps_git_expression(tokens):
         writes.append("dynamic")
@@ -603,10 +647,13 @@ def check(raw):
     if len(calls) == 1 and writes == [calls[0][0]] and (writes[0] in ASK_SUBCOMMANDS or writes[0] in ASK_FORMS) \
             and is_simple_form(cmd, tokens, tool_name):
         return 0  # ci pensa la regola ask di settings
+    hint = " " + HEREDOC_HINT if "heredoc" in writes else ""
     if any(sub in ASK_FORMS for sub in writes):
-        return block_form(" Per branch, switch, stash e reflog l'opzione distruttiva va subito dopo il "
-                          "sottocomando, da sola (git branch -D x, git switch --force main, git stash drop).")
-    return block_form()
+        return block_form(" Per " + ", ".join(ASK_FORMS) + " l'opzione distruttiva va subito dopo il "
+                          "sottocomando, da sola e non raggruppata: git branch -fD x diventa git branch -D -f x, "
+                          "git rm -rf x diventa git rm -f -r x (anche git switch --force main, git stash drop, "
+                          "git worktree remove x)." + hint)
+    return block_form(hint)
 
 
 def command_of(raw):
@@ -621,12 +668,26 @@ def command_of(raw):
     return match.group(1) if match else raw
 
 
+def give_up():
+    """Allo scadere di MAX_ANALYSIS_SECONDS: blocca qualsiasi comando, anche uno che sarebbe stato innocuo."""
+    print("Comando bloccato: troppo complesso da analizzare nel tempo dell'hook. Spezzalo in comandi più "
+          "semplici.", file=sys.stderr)
+    sys.stderr.flush()
+    # dal thread del timer: sys.exit chiuderebbe solo il thread
+    os._exit(2)
+
+
 def main():
     raw = None
     try:
         # Su Windows la codifica di default della console non è UTF-8: motivi e messaggi si rovinerebbero.
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
+        # un thread e non signal.alarm, che su Windows non esiste; scatta tra un'istruzione Python e l'altra,
+        # non dentro una sola chiamata C lunga
+        timer = threading.Timer(MAX_ANALYSIS_SECONDS, give_up)
+        timer.daemon = True
+        timer.start()
         raw = sys.stdin.buffer.read().decode("utf-8", errors="replace")
         return check(raw)
     except Exception as exc:  # confine dell'hook: nessun errore deve far passare un comando git che scrive

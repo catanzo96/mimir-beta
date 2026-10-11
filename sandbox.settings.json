@@ -46,6 +46,14 @@
         {
           "path": "~/.gnupg",
           "mode": "deny"
+        },
+        {
+          "path": "~/.config/gh/hosts.yml",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/hub",
+          "mode": "deny"
         }
       ]
     },
@@ -77,6 +85,8 @@
       "Read(~/.docker/config.json)",
       "Read(~/.gradle/gradle.properties)",
       "Read(~/.gnupg/**)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(~/.config/hub)",
       "Read(~/.claude.json)",
       "Read(**/.env)",
       "Read(**/.env.*)"
@@ -112,6 +122,12 @@
       "Bash(git stash clear:*)",
       "Bash(git reflog expire:*)",
       "Bash(git reflog delete:*)",
+      "Bash(git reflog drop:*)",
+      "Bash(git rm -f:*)",
+      "Bash(git rm --force:*)",
+      "Bash(git checkout-index -f:*)",
+      "Bash(git checkout-index --force:*)",
+      "Bash(git worktree remove:*)",
       "PowerShell(git commit:*)",
       "PowerShell(git push:*)",
       "PowerShell(git tag:*)",
@@ -142,6 +158,16 @@
       "PowerShell(git stash clear:*)",
       "PowerShell(git reflog expire:*)",
       "PowerShell(git reflog delete:*)",
+      "PowerShell(git reflog drop:*)",
+      "PowerShell(git rm -f:*)",
+      "PowerShell(git rm --force:*)",
+      "PowerShell(git checkout-index -f:*)",
+      "PowerShell(git checkout-index --force:*)",
+      "PowerShell(git worktree remove:*)",
+      "Bash(gh:*)",
+      "Bash(hub:*)",
+      "PowerShell(gh:*)",
+      "PowerShell(hub:*)",
       "Bash(dangerouslyDisableSandbox:true)"
     ]
   },
