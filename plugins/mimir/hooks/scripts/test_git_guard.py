@@ -100,6 +100,13 @@ CONTENT_BLOCK = {
     "-f dopo -o con redirect tra virgolette": 'git push -o">x" -f',
     # falso positivo accettato (fail-closed): per git -f qui è il valore di -o
     "-f come valore di -o": "git push -o -f",
+    # nomi dei modelli senza il nome del prodotto
+    "Co-Authored-By con Opus": 'git commit -m "feat: x" -m "Co-Authored-By: Opus 4.1 <a@b.it>"',
+    "Co-Authored-By con Sonnet": 'git commit -m "feat: x" -m "Co-Authored-By: Sonnet 5.5 <a@b.it>"',
+    "Generated with Haiku": 'git commit -m "feat: x" -m "Generated with Haiku 5.5"',
+    "Generato con Fable": 'git commit -m "feat: x" -m "Generato con Fable 5.1"',
+    # << con backslash: non è un heredoc per l'hook, le righe dopo si leggono come comandi
+    "heredoc con <<\\EOF in cat": TEXT_HEREDOC.format("cat > f <<\\EOF"),
 }
 
 # Bloccati per la forma: commit, push e tag che la regola ask a prefisso non riconoscerebbe (exit 2)
@@ -249,6 +256,16 @@ FORM_BLOCK = {
     # << che la shell non legge come heredoc: le righe dopo sono comandi
     "<< tra virgolette in cat": TEXT_HEREDOC.format('cat > "x <<EOF"'),
     "<< dopo un backslash in cat": TEXT_HEREDOC.format("cat > x \\<<EOF"),
+    "<< dopo # in tee": "tee a # <<'EOF'\ngit push -f origin main\nEOF",
+    "<< dentro ${x//…} in tee": "tee ${x//<<'EOF'/}\ngit push -f origin main\nEOF",
+    "<< dentro ${x:-…} in tee": "tee a ${x:-<<'EOF'}\ngit push -f origin main\nEOF",
+    # delimitatore senza virgolette: la shell espande $( ) e backtick del corpo prima di scriverlo
+    "heredoc non quotato in cat con $( ) nel corpo": "cat > f <<EOF\n$(git push -f origin main)\nEOF",
+    "heredoc non quotato in cat con backtick nel corpo": "cat > f <<EOF\n`git push -f origin main`\nEOF",
+    "heredoc non quotato in tee con $( ) nel corpo": "tee f <<EOF\n$(git reset --hard HEAD~3)\nEOF",
+    "heredoc non quotato in cat con testo": TEXT_HEREDOC.format("cat > f <<EOF"),
+    "heredoc non quotato in cat con <<-": TEXT_HEREDOC.format("cat <<-EOF > f"),
+    "heredoc quotato solo in parte in cat": TEXT_HEREDOC.format('cat > f <<E"OF"'),
 }
 
 # Bloccati perché gli argomenti di git commit non sono tra le forme ammesse (elenco chiuso): exit 2
@@ -424,11 +441,15 @@ ALLOW = {
     "comando PowerShell con backtick nel tool Bash": "Get-ChildItem -Path C:\\repo `\n  -Filter *.md | Select-Object Name",
     # heredoc che cat o tee, da soli, scrivono in un file: il corpo è testo, non uno script
     "heredoc in cat >> verso un file (falso positivo del 10/10)": TEXT_HEREDOC.format("cat >> note.md <<'EOF'"),
-    "heredoc in cat > verso un file": TEXT_HEREDOC.format("cat > f <<EOF"),
-    "heredoc in cat con il redirect dopo": TEXT_HEREDOC.format("cat <<EOF > f"),
+    "heredoc in cat > verso un file, delimitatore tra virgolette doppie": TEXT_HEREDOC.format('cat > f <<"EOF"'),
+    "heredoc in cat con il redirect dopo": TEXT_HEREDOC.format("cat <<'EOF' > f"),
+    "heredoc quotato con $( ) e backtick nel corpo": "cat > f <<'EOF'\n$(git push -f) e `git reset --hard`\nEOF",
+    "heredoc in tee verso un file con ~ e +": TEXT_HEREDOC.format("tee ~/note+1.md <<'EOF'"),
+    # confine di parola: opus dentro opuscolo non è un nome di modello
+    "opuscolo nel messaggio": 'git commit -m "docs: scritto con un opuscolo di esempio"',
     "heredoc in cat con >> dopo": TEXT_HEREDOC.format("cat <<'EOF' >> f"),
     "heredoc in cat con redirect attaccati": TEXT_HEREDOC.format("cat >f<<'EOF'"),
-    "heredoc in cat con <<-": TEXT_HEREDOC.format("cat <<-EOF > f"),
+    "heredoc in cat con <<-": TEXT_HEREDOC.format("cat <<-'EOF' > f"),
     "heredoc in cat con un a capo finale": TEXT_HEREDOC.format("cat <<'EOF' > f") + "\n",
     "heredoc in tee verso un file": TEXT_HEREDOC.format("tee f <<'EOF'"),
     "heredoc in tee verso due file": TEXT_HEREDOC.format("tee f g <<'EOF'"),
