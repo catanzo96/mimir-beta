@@ -88,6 +88,16 @@ CONTENT_BLOCK = {
     "dentro powershell -Command con opzioni": 'powershell -NoProfile -ExecutionPolicy Bypass -Command "git push -f"',
     "dentro bash -o pipefail -c": "bash -o pipefail -c 'git push -f'",
     "sostituzione tra virgolette in un'assegnazione": 'X="$(git push -f)"',
+    # redirect attaccato all'opzione: la shell lo toglie, git riceve -f
+    "-f con redirect attaccato": "git push -f>/dev/null",
+    "--force con redirect attaccato": "git push --force>log",
+    "-f con redirect in ingresso attaccato": "git push -f</dev/null",
+    "--force-with-lease con redirect attaccato": "git push --force-with-lease>x",
+    "+ref con redirect attaccato": "git push origin +main>/dev/null",
+    # con le virgolette git riceve -o con il valore >x attaccato, e -f è un force push
+    "-f dopo -o con redirect tra virgolette": 'git push -o">x" -f',
+    # falso positivo accettato (fail-closed): per git -f qui è il valore di -o
+    "-f come valore di -o": "git push -o -f",
 }
 
 # Bloccati per la forma: commit, push e tag che la regola ask a prefisso non riconoscerebbe (exit 2)
@@ -186,6 +196,16 @@ FORM_BLOCK = {
     "make in una variabile e clean": "$MAKE clean",
     # -committerdate contiene una d: senza = sembra un'opzione distruttiva raggruppata
     "branch --sort senza =": "git branch --sort -committerdate",
+    # redirect attaccato all'opzione distruttiva, dove la regola ask non scatta
+    "branch -D con redirect attaccato dopo il nome": "git branch x -D>y",
+    "switch -f con redirect attaccato dopo il branch": "git switch main -f>x",
+    "stash drop con redirect attaccato e -c": "git -c a=b stash drop>x",
+    "reflog expire con redirect attaccato e -c": "git -c a=b reflog expire>x --all",
+    "branch -D con redirect attaccato dopo ls": "ls && git branch -D>y x",
+    "branch -D con redirect attaccato al nome dopo ls": "ls && git branch -D x>y",
+    "reset --hard con redirect attaccato dopo ls": "ls && git reset --hard>/dev/null",
+    "clean -fd con redirect attaccato dopo ls": "ls && git clean -fd>x",
+    "checkout -f con redirect attaccato dopo ls": "ls && git checkout -f>x",
 }
 
 # Bloccati perché gli argomenti di git commit non sono tra le forme ammesse (elenco chiuso): exit 2
@@ -248,6 +268,8 @@ REASON_BLOCK = {
     "redirect dopo il messaggio": ('git commit -m "feat: x" 2>&1', "redirect"),
     "--amend ripetuto": ('git commit --amend --amend -m "feat: x"', "--amend è ripetuto"),
     "branch -D dopo -q: indica come riscriverlo": ("git branch -q -D x", "Per branch, switch, stash e reflog"),
+    # gli argomenti del commit non si tagliano al primo < o >: il messaggio va controllato tutto
+    "attribuzione dopo > in un -m": ('git commit -m "fix: a > b" -m "nota > generated with Claude"', "attribuzione"),
 }
 
 # Lasciati alle regole ask di settings (forma semplice) o senza nulla da controllare: exit 0, nessun output
@@ -256,6 +278,9 @@ ALLOW = {
     "push -u": "git push -u origin feature",
     "push --dry-run": "git push --dry-run",
     "push -o con valore che inizia con +": "git push -o +x origin main",
+    "push con redirect attaccato al branch": "git push origin main>/dev/null",
+    "push con redirect separato": "git push origin main 2>/dev/null",
+    "tag -l con redirect attaccato in un comando composto": "git tag -l>x && ls",
     "tag leggero": "git tag v1",
     "tag annotato": 'git tag -a v1 -m "rilascio"',
     "tag cancellato": "git tag -d v1",
@@ -350,6 +375,7 @@ PS_CONTENT_BLOCK = {
     "git.exe push --FORCE": "git.exe push --FORCE",
     "& 'git' push --force": "& 'git' push --force",
     "git.exe con intestazione lunga": f'git.exe commit -m "{LONG}"',
+    "-f con redirect attaccato": "git push -f>$null",
 }
 PS_FORM_BLOCK = {
     "git.exe, senza regola ask": "git.exe push origin main",

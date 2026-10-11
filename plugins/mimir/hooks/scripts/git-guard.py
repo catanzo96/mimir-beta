@@ -267,7 +267,14 @@ def git_calls(tokens, tool_name, depth=0):
                 # senza redirect e virgolette, ma con backtick: `echo push` non è un sottocomando
                 sub = re.split(r"[<>]", words[j], maxsplit=1)[0].strip("\"'") if j < len(words) else ""
                 if bare(sub) in WRITE_SUBCOMMANDS:
-                    calls.append((bare(sub), words[j + 1:]))
+                    args = words[j + 1:]
+                    # la shell toglie il redirect attaccato (push -f>/dev/null): git riceve -f. Il commit resta
+                    # intero perché si controlla il testo di -m, che shlex lascia senza virgolette ("a > b"
+                    # tagliato nasconderebbe un'attribuzione); lo protegge parse_commit_args, che ammette solo
+                    # forme chiuse e rifiuta un -F con < o >
+                    if bare(sub) != "commit":
+                        args = [re.split(r"[<>]", arg, maxsplit=1)[0] for arg in args]
+                    calls.append((bare(sub), args))
                     git_args = True
                 elif EXPANSION.search(re.split(r"[\\/]", sub)[-1]):
                     # il percorso non conta: in grep -rn git plugins/ git è un argomento
@@ -329,7 +336,10 @@ def is_force_push(args):
     for arg in (a.strip("`") for a in args):
         if skip:
             skip = False
-            continue
+            # -o">x" -f, tagliato al redirect, sembra -o -f: un valore che inizia con - si guarda come opzione
+            # (fail-closed: blocca anche git push -o -f, dove per git -f è il valore)
+            if not arg.startswith("-"):
+                continue
         option = arg.split("=", 1)[0].lower()
         if option in PUSH_OPTIONS_WITH_VALUE:
             skip = "=" not in arg
