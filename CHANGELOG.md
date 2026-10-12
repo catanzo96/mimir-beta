@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-12 (terze parti 2: registri per plugin)
+- La sezione "Skill, agent e regole" del 2026-10-10 è divisa nel registro del plugin che contiene il file: le voci di `mimir` in `plugins/mimir/THIRD_PARTY.md` (sezione "Skill e agent", percorsi relativi al plugin), quelle di `brokkr` nel nuovo `plugins/brokkr/THIRD_PARTY.md`, quella di `rules/working-style.md` nel `THIRD_PARTY.md` della root, che rimanda ai registri dei plugin. Ogni registro ha i testi MIT delle sue fonti e le voci di "Valutati e non inclusi" dei suoi file.
+- Nuova fonte openclaw (MIT, OpenClaw Foundation): la sezione "Spike" di `pianificazione` è più vicina a `skills/spike/SKILL.md` di openclaw che alla spike di hermes-agent (spazio temporaneo di default, codice da non unire alla produzione, smentita utile); adattamento nel dubbio, probabile origine comune. La riga della spike di hermes-agent dice che la licenza di get-shit-done è MIT secondo hermes-agent.
+
 ## 2026-10-11 (terze parti: attribuzione dentro il plugin)
 - `THIRD_PARTY.md` e `LICENSES/` spostati in `plugins/mimir/`, perché il marketplace distribuisce solo la cartella del plugin; nella root resta un rimando. Percorsi delle tabelle relativi al plugin e introduzione riscritta: le fonti hanno licenze permissive, i file derivati restano con l'attribuzione.
 - Agent `design-reviewer`: torna il perimetro di ripiego perso nella riscrittura (se il brief non lo indica, modifiche non committate al frontend, poi il branch rispetto al branch base, come in `code-reviewer`).
@@ -40,9 +44,9 @@
 
 ## 2026-10-10 (terze parti 2: censimento di skill, agent e regole)
 - `THIRD_PARTY.md`, nuova sezione "Skill, agent e regole": il resto di Mímir (skill non di design di `mimir`, skill di `brokkr`, agent, `rules/`, `CLAUDE.md`, `profile.example.md`, testi degli hook) confrontato con il metodo di `fonti-esterne.md`, ogni derivazione ricontrollata a mano sulle righe dei due file.
-- 32 righe di derivazione su 28 file di 18 skill, agent e regole: Matt Pocock 8, superpowers 3, ECC 11, hermes-agent 10. Per le skill di hermes-agent con un autore dichiarato (Rafael Zendron, Willard Moore, Ben Barclay, Teknium, spike da get-shit-done) la riga lo indica; licenze MIT, testi in fondo al file. Da openclaw, system-design-primer e developer-roadmap nessuna derivazione.
+- 32 righe di derivazione su 28 file di 18 skill, agent e regole: Matt Pocock 8, superpowers 3, ECC 11, hermes-agent 10. Per le skill di hermes-agent con un autore dichiarato (Rafael Zendron, Willard Moore, Ben Barclay, Teknium, spike da get-shit-done) la riga lo indica; licenze MIT, testi in fondo al file. Da system-design-primer e developer-roadmap nessuna derivazione; da openclaw la sezione "Spike" di `pianificazione`, aggiunta il 2026-10-12 (voce sopra).
 - Limite dichiarato nel registro: nelle fonti grandi le controparti sono state cercate per nome e descrizione dei file, più una ricerca di 26 frasi e costanti distintive di otto file.
-- Nove voci in "Valutati e non inclusi": quattro casi al limite e cinque note per fonte con solo temi in comune. La riscrittura o l'eliminazione dei file registrati resta aperta prima della pubblicazione.
+- Nove voci in "Valutati e non inclusi": quattro casi al limite e cinque note per fonte con solo temi in comune. I file registrati restano con l'attribuzione, come prevede `fonti-esterne.md` §5 per le licenze permissive.
 
 ## 2026-10-10 (terze parti: censimento di THIRD_PARTY.md e regola sulle fonti esterne)
 - Skill `scrivi-skill`: da fonti esterne si prendono idee, non testo né forma; ordine delle sezioni, esempi, costanti e selezione non ovvia di voci fanno un adattamento anche con parole proprie (eccezioni: buone pratiche note, valori di standard pubblici citati). Nuovo `references/fonti-esterne.md`: cosa è derivato, stanza pulita (chi estrae legge solo la fonte; chi scrive dalla fonte riceve solo l'elenco dei concetti, sceglie cosa tenere e non legge nessun file ancora in `THIRD_PARTY.md`; se il controllo è rosso riceve solo gli aspetti da cambiare), registro.
