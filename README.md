@@ -28,6 +28,8 @@ Lancia sempre `install.sh` o `install.ps1`. Le opzioni sono le stesse, scritte i
 - `--yes` e `-Yes` rispondono sì alle conferme (con `install.ps1`, non a WSL);
 - `--skip-system` e `-SkipSystem` saltano i passi di sistema: sudo su Linux, winget e WSL su Windows. Lo script avvia `install.py` con `python -I`: la cartella di Mímir è scrivibile dalla sandbox e l'installer gira fuori, quindi non deve importare moduli piantati accanto a sé.
 
+Lancia l'installer subito dopo il clone: prima della prima installazione la protezione non c'è, e una sessione di Claude nella cartella può modificare i file che l'installer usa fuori dalla sandbox. Se hai già aperto sessioni, controlla prima con `git status --ignored` e `git diff HEAD`, e leggi `profile/profile.md` e `inbox.md` se esistono: git li ignora, l'installer li tiene come sono e `profile.md` entra in ogni sessione. L'installer rifiuta un `settings.template.json` con chiavi diverse da `attribution`, `skillListingBudgetFraction` e `permissions` (solo `ask` e `deny`); il tuo `~/.claude/settings.json` può avere qualsiasi chiave. Il controllo copre solo il template: non protegge da installer, launcher, hook o regole modificati.
+
 Si può rilanciare senza danni. Prima legge e valida i file; se uno non è valido si ferma senza modificare nulla. Poi scrive, con un backup, solo ciò che cambia:
 - crea `profile/profile.md` e `inbox.md` dagli esempi, se mancano;
 - importa le regole di Mímir in `~/.claude/CLAUDE.md`;
@@ -38,13 +40,16 @@ Si può rilanciare senza danni. Prima legge e valida i file; se uno non è valid
   - se Mímir si sposta, toglie le voci del percorso vecchio;
 - aggiunge a `.git/info/exclude` i file vuoti che la sandbox crea nel repo;
 - registra il marketplace `mimir`;
-- su Linux e WSL2 installa `bubblewrap` e `socat` (apt-get, dnf, pacman o zypper) e, se AppArmor lo richiede, il profilo per `bwrap`. Lo fa con sudo e dopo una conferma. Se qualcosa non riesce, continua con il resto ma esce con un errore.
+- su Linux e WSL2 installa `bubblewrap` e `socat` (apt-get, dnf, pacman o zypper) e, se AppArmor lo richiede, il profilo per `bwrap`. Lo fa con sudo e dopo una conferma che mostra i comandi. Se qualcosa non riesce, continua con il resto ma esce con un errore.
+  - con apt-get aggiorna prima gli indici; se `apt-get update` fallisce, installa con quelli presenti;
+  - il profilo si carica con `systemctl reload apparmor` o, senza systemd o se non riesce, con `apparmor_parser -r`;
+  - se non si carica, l'installer toglie il profilo appena scritto, così al lancio successivo riprova. Un `/etc/apparmor.d/bwrap` che c'era già, anche come symlink, non si tocca.
 
-Dalla cartella di Mímir l'installer non segue i symlink: rifiuta esempi, template ed `exclude` che sono symlink e non crea un file personale al posto di un symlink. La cartella è scrivibile dalla sandbox, e un symlink porterebbe un segreto in un file leggibile o una scrittura fuori. In `~/.claude`, che la sandbox non scrive, i symlink (per esempio verso un repo di dotfiles) si seguono.
+Dalla cartella di Mímir l'installer non segue i symlink: rifiuta esempi, template ed `exclude` che sono symlink e non crea un file personale al posto di un symlink. Lo stesso vale per le cartelle intermedie: se `profile/` o `.git/info`, risolte, non sono esattamente quelle attese (un symlink verso fuori o verso un'altra cartella di Mímir), si ferma senza modifiche. Se cambiano durante l'installazione, salta quei file ed esce con un errore. La cartella è scrivibile dalla sandbox, e un symlink porterebbe un segreto in un file leggibile o una scrittura fuori. In `~/.claude`, che la sandbox non scrive, i symlink (per esempio verso un repo di dotfiles) si seguono.
 
 Test: `python3 -I test_install.py`, che usa copie di Mímir in una cartella temporanea e non tocca `~/.claude`. I test di `install.ps1`, e quelli di `bin/claude-mimir.ps1` in `test_claude_mimir.py`, girano se trovano PowerShell (`MIMIR_TEST_PWSH`, `pwsh` o `powershell`); altrimenti vengono saltati. Tutte le suite insieme, compresi i test degli hook: `python3 -I .github/scripts/run_tests.py`.
 
-La cartella può stare ovunque: launcher e script ricavano il percorso dalla propria posizione. Fuori dal repo Claude Code vuole percorsi assoluti (marketplace, import in `~/.claude/CLAUDE.md`): se sposti la cartella, rilancia `install.sh` e li riallinea.
+La cartella può stare ovunque: launcher e script ricavano il percorso dalla propria posizione. Il percorso però non deve contenere `*`, `?`, `[` o, per prudenza, `]`, `\` e caratteri di controllo (a capo, tab, DEL, C1), e deve essere UTF-8 valido: l'installer si ferma senza modifiche, perché Claude Code leggerebbe il percorso come un pattern nelle regole `Edit(…)` e, su Linux e WSL2, salterebbe le voci di `denyWrite` con `*`, `?` o `[`. Le parentesi tonde vanno bene. Fuori dal repo Claude Code vuole percorsi assoluti (marketplace, import in `~/.claude/CLAUDE.md`): se sposti la cartella, rilancia `install.sh` e li riallinea.
 
 ### CI
 `.github/workflows/ci.yml` gira a ogni push e pull request, senza API key, con permessi in sola lettura e azioni fissate a uno SHA:

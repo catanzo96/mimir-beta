@@ -7,6 +7,8 @@ finto nel PATH: il repo vero, ~/.claude e la CLI di Claude Code non vengono tocc
 La cartella di Mímir è scrivibile dalla sandbox: con -I non si importano moduli piantati accanto al
 test, e install.py si carica dal sorgente, senza sys.path e senza la cache .pyc.
 """
+import contextlib
+import io
 import json
 import os
 import shutil
@@ -193,6 +195,157 @@ class PureFunctions(unittest.TestCase):
             with self.assertRaises(install.InstallError, msg=name):
                 install.read_mimir_file(folder / name)
 
+    @unittest.skipIf(os.name == "nt", "symlink: su Windows un non amministratore non li crea")
+    def test_scrittura_salta_le_cartelle_spostate_fuori_dopo_la_lettura(self):
+        # la sandbox può sostituire una cartella con un symlink tra lettura e scrittura
+        folder = Path(tempfile.mkdtemp(prefix="mimir-write-test-")).resolve()
+        self.addCleanup(shutil.rmtree, str(folder), ignore_errors=True)
+        mimir, outside = folder / "mimir", folder / "fuori"
+        (mimir / ".git").mkdir(parents=True)
+        outside.mkdir()
+        (mimir / "profile").symlink_to(outside)
+        (mimir / ".git" / "info").symlink_to(outside)
+        inputs = install.Inputs(claude_md="x\n", settings_text="{}", current={}, template={},
+                                examples={"profile/profile.md": "p\n", "inbox.md": "i\n"}, has_git=True,
+                                git_note="", exclude=None, old_dir=None)
+        outputs = install.Outputs(settings={}, claude_md="x\n", exclude="e\n")
+        written, skipped = [], []
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            install.write_outputs(inputs, outputs, mimir, folder / "CLAUDE.md", folder / "settings.json", written,
+                                  skipped)
+        self.assertEqual(os.listdir(str(outside)), [])
+        self.assertEqual(written, ["inbox.md"])
+        self.assertEqual(skipped, ["profile/profile.md", ".git/info/exclude"])
+        self.assertIn("non è quella attesa", out.getvalue())
+
+    def test_file_saltati_in_scrittura_fanno_uscire_con_errore(self):
+        # con --yes un avviso passa inosservato: una cartella cambiata durante l'installazione è manomissione
+        def skip(*args):
+            args[-1].append("profile/profile.md")
+        stderr = io.StringIO()
+        with mock.patch.object(install, "read_inputs"), mock.patch.object(install, "compute"), \
+                mock.patch.object(install, "write_outputs", side_effect=skip), \
+                mock.patch.object(install, "run", return_value=False), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+            self.assertEqual(install.main(["--skip-system"]), 1)
+        self.assertIn("profile/profile.md", stderr.getvalue())
+
+    def test_errore_di_scrittura_elenca_anche_i_file_saltati(self):
+        def skip_then_fail(*args):
+            args[-1].append("profile/profile.md")
+            raise OSError("disco pieno")
+        stderr = io.StringIO()
+        with mock.patch.object(install, "read_inputs"), mock.patch.object(install, "compute"), \
+                mock.patch.object(install, "write_outputs", side_effect=skip_then_fail), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+            self.assertEqual(install.main(["--skip-system"]), 1)
+        self.assertIn("disco pieno", stderr.getvalue())
+        self.assertIn("profile/profile.md", stderr.getvalue())
+
+    def test_errore_di_scrittura_senza_file_saltati_non_parla_di_cartelle(self):
+        # con un normale disco pieno la frase sulle cartelle non attese sarebbe fuorviante
+        stderr = io.StringIO()
+        with mock.patch.object(install, "read_inputs"), mock.patch.object(install, "compute"), \
+                mock.patch.object(install, "write_outputs", side_effect=OSError("disco pieno")), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+            self.assertEqual(install.main(["--skip-system"]), 1)
+        self.assertIn("disco pieno", stderr.getvalue())
+        self.assertNotIn("saltati", stderr.getvalue())
+
+    @unittest.skipIf(os.name == "nt", "symlink: su Windows un non amministratore non li crea")
+    def test_scrittura_salta_git_sostituito_da_un_symlink_dopo_la_lettura(self):
+        folder = Path(tempfile.mkdtemp(prefix="mimir-write-test-")).resolve()
+        self.addCleanup(shutil.rmtree, str(folder), ignore_errors=True)
+        mimir, outside = folder / "mimir", folder / "fuori"
+        (mimir / "profile").mkdir(parents=True)
+        (outside / "info").mkdir(parents=True)
+        (mimir / ".git").symlink_to(outside)
+        inputs = install.Inputs(claude_md="x\n", settings_text="{}", current={}, template={},
+                                examples={"profile/profile.md": "p\n", "inbox.md": "i\n"}, has_git=True,
+                                git_note="", exclude=None, old_dir=None)
+        outputs = install.Outputs(settings={}, claude_md="x\n", exclude="e\n")
+        written, skipped = [], []
+        with contextlib.redirect_stdout(io.StringIO()):
+            install.write_outputs(inputs, outputs, mimir, folder / "CLAUDE.md", folder / "settings.json", written,
+                                  skipped)
+        self.assertEqual(os.listdir(str(outside / "info")), [])
+        self.assertEqual(skipped, [".git/info/exclude"])
+
+    @unittest.skipIf(os.name == "nt", "symlink: su Windows un non amministratore non li crea")
+    def test_cartella_attesa_solo_se_coincide_una_volta_risolta(self):
+        folder = Path(tempfile.mkdtemp(prefix="mimir-dir-test-")).resolve()
+        self.addCleanup(shutil.rmtree, str(folder), ignore_errors=True)
+        mimir = folder / "mimir"
+        (mimir / "bin").mkdir(parents=True)
+        (mimir / "profile2").mkdir()
+        self.assertTrue(install.in_expected_dir(mimir, "inbox.md"))
+        self.assertTrue(install.in_expected_dir(mimir, "profile/profile.md"), "cartella che non esiste ancora")
+        (folder / "link").symlink_to(mimir)
+        self.assertTrue(install.in_expected_dir(folder / "link", "profile/profile.md"), "Mímir sotto un symlink")
+        (mimir / "profile").symlink_to(mimir / "bin")
+        self.assertFalse(install.in_expected_dir(mimir, "profile/profile.md"), "symlink interno a Mímir")
+        (mimir / "profile").unlink()
+        # profile2 inizia con il percorso atteso: un confronto per prefisso la accetterebbe
+        (mimir / "profile").symlink_to(mimir / "profile2")
+        self.assertFalse(install.in_expected_dir(mimir, "profile/profile.md"), "sorella con lo stesso prefisso")
+
+    def test_percorso_con_caratteri_di_pattern_rifiutato(self):
+        # doc permissions e settings-reference (10/10): le regole Edit seguono gitignore e non vengono
+        # escapate, su Linux una voce di denyWrite con * ? [ viene saltata. Le parentesi sono letterali.
+        # caratteri di controllo: gitignore va a righe, un a capo spezza la regola
+        for path in ("/home/a/mi[mi]r", "/home/a/mimir*", "/home/a/mimir?", "/home/a/mi]r", "/home/a/mi\\r",
+                     "/home/a/mi\nr", "/home/a/mi\tr", "/home/a/mi\x1fr", "/home/a/mi\x7fr", "/home/a/mi\x80r",
+                     "/home/a/mi\x9br", "/home/a/mi\x9fr", "/home/a/mi\udcffr"):
+            with self.assertRaises(install.InstallError, msg=path):
+                install.check_mimir_dir(path)
+        install.check_mimir_dir("/home/a/mimir (copia)")
+        install.check_mimir_dir("C:/Users/a/mimir")
+        install.check_mimir_dir("/home/a/Mímir\xa0è")
+
+    def test_template_con_chiavi_non_ammesse_rifiutato(self):
+        # prima della prima installazione una sessione nella sandbox può modificare il template, che poi
+        # l'installer unisce fuori: allow, hook o sandbox allentata non devono arrivare in settings.json
+        for template in ({"hooks": {}}, {"sandbox": {"enabled": False}}, {"permissions": {"allow": ["Bash"]}},
+                         {"permissions": {"defaultMode": "bypassPermissions"}}):
+            with self.assertRaises(install.InstallError, msg=template):
+                install.check_template_keys(template)
+        install.check_template_keys({"attribution": {"commit": ""}, "skillListingBudgetFraction": 0.03,
+                                     "permissions": {"ask": ["A"], "deny": ["D"]}})
+        install.check_template_keys({})
+        install.check_template_keys({"permissions": None})
+        # i nomi delle chiavi vengono dalla cartella scrivibile dalla sandbox: niente sequenze al terminale
+        with self.assertRaises(install.InstallError) as raised:
+            install.check_template_keys({"\x1b[2J\n✓ ok": 1})
+        self.assertNotIn("\x1b", str(raised.exception))
+        self.assertNotIn("\n", str(raised.exception))
+
+    def test_errore_di_codifica_in_scrittura_si_segnala_senza_traceback(self):
+        # rete di sicurezza: la validazione rifiuta prima i valori non scrivibili in UTF-8
+        error = UnicodeEncodeError("utf-8", "\ud800", 0, 1, "surrogates not allowed")
+        stderr = io.StringIO()
+        # redirect anche di stdout: main riconfigura gli stream veri, quelli del runner non vanno toccati
+        with mock.patch.object(install, "read_inputs"), mock.patch.object(install, "compute"), \
+                mock.patch.object(install, "write_outputs", side_effect=error), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+            self.assertEqual(install.main(["--skip-system"]), 1)
+        self.assertIn("scrittura non riuscita", stderr.getvalue())
+
+    def test_settings_con_surrogato_isolato_rifiutati_ovunque(self):
+        for text in ('{"\\ud800": 1}', '{"a": ["\\ud800"]}', '{"a": "\\udc00\\ud800"}'):
+            with self.assertRaises(install.InstallError, msg=text):
+                install.parse_settings(text, "settings.json")
+        # una coppia valida json la compone in un carattere vero
+        self.assertEqual(install.parse_settings('{"a": "\\ud83d\\ude00"}', "settings.json"), {"a": "\U0001F600"})
+
+    def test_settings_con_nan_o_infinity_rifiutati(self):
+        # json.loads li accetta, json.dumps li riscrive così: settings.json non sarebbe più JSON
+        # 1e999 è JSON valido, ma json lo legge come infinito e lo riscriverebbe Infinity
+        for text in ('{"a": NaN}', '{"a": [Infinity]}', '{"a": {"b": -Infinity}}', '{"a": 1e999}',
+                     '{"a": [-1e999]}'):
+            with self.assertRaises(install.InstallError, msg=text):
+                install.parse_settings(text, "settings.json")
+        self.assertEqual(install.parse_settings('{"a": 0.03, "b": "NaN"}', "settings.json"), {"a": 0.03, "b": "NaN"})
+
     def test_import_scritto_una_volta_e_sostituito(self):
         first = install.linked_claude_md("riga\n@/a/CLAUDE.md\n", "/a")
         self.assertEqual(first, f"riga\n{install.MARKER}\n@/a/CLAUDE.md\n")
@@ -207,6 +360,10 @@ class PureFunctions(unittest.TestCase):
         self.assertEqual(install.updated_exclude(once), once)
         partial = install.updated_exclude("/.bashrc\n")
         self.assertEqual(partial.count("/.bashrc\n"), 1)
+
+    def test_exclude_nasconde_il_file_idea_della_sandbox(self):
+        # la sandbox crea .idea come device, non come cartella: .idea/ del .gitignore non lo copre
+        self.assertIn("/.idea\n", install.updated_exclude(""))
 
     def test_detect_system(self):
         cases = [("Darwin", "", "macos"), ("Windows", "", "windows"), ("Linux", "6.11.0-29-generic", "linux"),
@@ -226,29 +383,163 @@ class PureFunctions(unittest.TestCase):
         def which(*present):
             return lambda name: f"/usr/bin/{name}" if name in present else None
         with mock.patch.object(install, "as_root", side_effect=lambda c: ["sudo"] + c):
-            self.assertEqual(install.install_command(["bwrap", "socat"], which("dnf", "zypper")),
-                             ["sudo", "dnf", "install", "-y", "bubblewrap", "socat"])
-            self.assertEqual(install.install_command(["socat"], which("pacman")),
-                             ["sudo", "pacman", "-S", "--needed", "--noconfirm", "socat"])
-            self.assertIsNone(install.install_command(["socat"], which()))
+            # con indici vecchi apt-get install non trova i pacchetti: prima l'aggiornamento
+            self.assertEqual(install.install_commands(["bwrap", "socat"], which("apt-get", "dnf")),
+                             [["sudo", "apt-get", "-o", "Acquire::Retries=3", "-o", "Acquire::http::Timeout=30",
+                               "update"],
+                              ["sudo", "apt-get", "install", "-y", "bubblewrap", "socat"]])
+            self.assertEqual(install.install_commands(["bwrap", "socat"], which("dnf", "zypper")),
+                             [["sudo", "dnf", "install", "-y", "bubblewrap", "socat"]])
+            self.assertEqual(install.install_commands(["socat"], which("pacman")),
+                             [["sudo", "pacman", "-S", "--needed", "--noconfirm", "socat"]])
+            self.assertIsNone(install.install_commands(["socat"], which()))
+
+    def test_ricarica_di_apparmor_anche_senza_systemd(self):
+        folder = Path(tempfile.mkdtemp(prefix="mimir-systemd-test-"))
+        self.addCleanup(shutil.rmtree, str(folder), ignore_errors=True)
+        parser = ["sudo", "apparmor_parser", "-r", install.APPARMOR_PROFILE_PATH]
+        with mock.patch.object(install, "as_root", side_effect=lambda c: ["sudo"] + c):
+            # la cartella può esserci anche senza un systemd che risponde (container): poi il parser
+            self.assertEqual(install.apparmor_reload_commands(str(folder)),
+                             [["sudo", "systemctl", "reload", "apparmor"], parser])
+            self.assertEqual(install.apparmor_reload_commands(str(folder / "manca")), [parser])
 
     def test_conferma_con_eof_vale_no(self):
         with mock.patch("builtins.input", side_effect=EOFError), mock.patch("builtins.print"):
             self.assertFalse(install.confirm("procedo?", assume_yes=False))
         self.assertTrue(install.confirm("procedo?", assume_yes=True))
 
+    def requirements(self, outcomes, apparmor=False):
+        """Lancia install_sandbox_requirements con apt-get e un runner finto: outcomes dice, per il primo
+        elemento di ogni comando, se riesce. Restituisce i problemi e i comandi lanciati; le stampe restano
+        in self.printed."""
+        calls = []
+
+        def runner(command, **kwargs):
+            calls.append(command)
+            return outcomes[command[1]]
+        with mock.patch.object(install, "needs_apparmor_profile", return_value=apparmor), \
+                mock.patch.object(install, "as_root", side_effect=lambda c: ["sudo"] + c), \
+                mock.patch.object(install, "apparmor_reload_commands", return_value=[["sudo", "systemctl"],
+                                                                                     ["sudo", "apparmor_parser"]]), \
+                mock.patch("builtins.print") as self.printed:
+            # con bwrap e socat presenti si arriva subito ad AppArmor
+            tools = {"bwrap", "socat"} if apparmor else {"apt-get"}
+            problems = install.install_sandbox_requirements(
+                "linux", True, which=lambda n: "/usr/bin/" + n if n in tools else None, runner=runner)
+        return problems, [c[1] for c in calls]
+
     def test_installazione_fallita_si_segnala(self):
+        problems, calls = self.requirements({"apt-get": False})
+        self.assertEqual(problems, ["bubblewrap, socat"])
+        self.assertEqual(calls, ["apt-get", "apt-get"])
+
+    def test_aggiornamento_fallito_non_ferma_l_installazione(self):
+        # un repository di terze parti rotto fa fallire apt-get update, ma i pacchetti ci sono
+        calls = []
+
+        def runner(command, **kwargs):
+            calls.append(command)
+            return "update" not in command
+        with mock.patch.object(install, "needs_apparmor_profile", return_value=False), \
+                mock.patch.object(install, "as_root", side_effect=lambda c: ["sudo"] + c), \
+                mock.patch("builtins.print") as printed:
+            problems = install.install_sandbox_requirements(
+                "linux", True, which=lambda n: "/usr/bin/apt-get" if n == "apt-get" else None, runner=runner)
+        self.assertEqual(problems, [])
+        self.assertEqual(calls, [["sudo", "apt-get", "-o", "Acquire::Retries=3", "-o", "Acquire::http::Timeout=30",
+                                  "update"],
+                                 ["sudo", "apt-get", "install", "-y", "bubblewrap", "socat"]])
+        self.assertIn("update non riuscito", str(printed.call_args_list))
+
+    def test_profilo_apparmor_ricaricato_con_il_primo_comando_che_riesce(self):
+        problems, calls = self.requirements({"tee": True, "systemctl": False, "apparmor_parser": True},
+                                            apparmor=True)
+        self.assertEqual(problems, [])
+        self.assertEqual(calls, ["tee", "systemctl", "apparmor_parser"])
+        problems, calls = self.requirements({"tee": True, "systemctl": True}, apparmor=True)
+        self.assertEqual((problems, calls), ([], ["tee", "systemctl"]))
+
+    def test_profilo_apparmor_creato_e_non_ricaricato_si_toglie(self):
+        # lasciato lì, al lancio successivo il profilo risulterebbe a posto e il ricarico non si riproverebbe
+        problems, calls = self.requirements({"tee": True, "systemctl": False, "apparmor_parser": False, "rm": True},
+                                            apparmor=True)
+        self.assertEqual((problems, calls), (["profilo AppArmor"], ["tee", "systemctl", "apparmor_parser", "rm"]))
+
+    def test_profilo_apparmor_non_tolto_mostra_il_comando(self):
+        problems, calls = self.requirements({"tee": True, "systemctl": False, "apparmor_parser": False, "rm": False},
+                                            apparmor=True)
+        self.assertEqual((problems, calls), (["profilo AppArmor"], ["tee", "systemctl", "apparmor_parser", "rm"]))
+        self.assertIn(f"sudo rm -f {install.APPARMOR_PROFILE_PATH}", str(self.printed.call_args_list))
+
+    def test_profilo_apparmor_non_scritto_non_si_ricarica(self):
+        # tee fallito: questo lancio non sa se il file c'è, quindi non lo tocca
+        problems, calls = self.requirements({"tee": False}, apparmor=True)
+        self.assertEqual(problems, ["profilo AppArmor"])
+        self.assertEqual(calls, ["tee"])
+
+    def test_profilo_apparmor_esistente_non_si_tocca(self):
+        folder = Path(tempfile.mkdtemp(prefix="mimir-apparmor-test-"))
+        self.addCleanup(shutil.rmtree, str(folder), ignore_errors=True)
+        write(folder / "sysctl", "1\n")
+        write(folder / "bwrap", "profilo dell'utente\n")
+        real = install.needs_apparmor_profile
         calls = []
 
         def runner(command, **kwargs):
             calls.append(command)
             return False
-        with mock.patch.object(install, "needs_apparmor_profile", return_value=False), \
+        with mock.patch.object(install, "needs_apparmor_profile",
+                               side_effect=lambda: real(str(folder / "sysctl"), str(folder / "bwrap"))), \
                 mock.patch("builtins.print"):
-            problems = install.install_sandbox_requirements(
-                "linux", True, which=lambda n: "/usr/bin/apt-get" if n == "apt-get" else None, runner=runner)
-        self.assertEqual(problems, ["bubblewrap, socat"])
-        self.assertEqual(len(calls), 1)
+            problems = install.install_sandbox_requirements("linux", True, which=lambda n: "/usr/bin/" + n,
+                                                            runner=runner)
+        self.assertEqual((problems, calls), ([], []))
+        self.assertEqual((folder / "bwrap").read_text(encoding="utf-8"), "profilo dell'utente\n")
+
+    @unittest.skipIf(os.name == "nt", "symlink: su Windows un non amministratore non li crea")
+    def test_profilo_apparmor_symlink_rotto_esiste(self):
+        # tee scriverebbe attraverso il link e, con il ricarico fallito, rm toglierebbe il link
+        folder = Path(tempfile.mkdtemp(prefix="mimir-apparmor-test-"))
+        self.addCleanup(shutil.rmtree, str(folder), ignore_errors=True)
+        write(folder / "sysctl", "1\n")
+        (folder / "bwrap").symlink_to(folder / "manca")
+        self.assertFalse(install.needs_apparmor_profile(str(folder / "sysctl"), str(folder / "bwrap")))
+
+    def test_profilo_apparmor_comparso_dopo_la_conferma_non_si_tocca(self):
+        # la conferma può durare minuti: nel frattempo un altro lancio o l'amministratore possono crearlo
+        calls = []
+
+        def runner(command, **kwargs):
+            calls.append(command)
+            return False
+        with mock.patch.object(install, "needs_apparmor_profile", side_effect=[True, False]), \
+                mock.patch.object(install, "confirm", return_value=True), \
+                mock.patch("builtins.print") as printed:
+            problems = install.install_sandbox_requirements("linux", False, which=lambda n: "/usr/bin/" + n,
+                                                            runner=runner)
+        self.assertEqual((problems, calls), ([], []))
+        self.assertIn("comparso", str(printed.call_args_list))
+
+    def test_conferma_dei_pacchetti_non_promette_lo_stop_dopo_l_aggiornamento(self):
+        asked = []
+        with mock.patch.object(install, "needs_apparmor_profile", return_value=False), \
+                mock.patch.object(install, "as_root", side_effect=lambda c: ["sudo"] + c), \
+                mock.patch.object(install, "confirm", side_effect=lambda q, _: asked.append(q)), \
+                mock.patch("builtins.print"):
+            install.install_sandbox_requirements(
+                "linux", False, which=lambda n: "/usr/bin/apt-get" if n == "apt-get" else None)
+        self.assertIn("update, poi sudo apt-get install -y bubblewrap socat", asked[0])
+
+    def test_conferma_di_apparmor_mostra_i_comandi(self):
+        asked = []
+        with mock.patch.object(install, "needs_apparmor_profile", return_value=True), \
+                mock.patch.object(install, "apparmor_reload_commands", return_value=[["sudo", "a"], ["sudo", "b"]]), \
+                mock.patch.object(install, "confirm", side_effect=lambda q, _: asked.append(q)), \
+                mock.patch("builtins.print"):
+            install.install_sandbox_requirements("linux", False, which=lambda n: "/usr/bin/" + n)
+        self.assertIn("sudo a o sudo b", asked[0])
+        self.assertIn(f"rm -f {install.APPARMOR_PROFILE_PATH})?", asked[0])
 
 
 @unittest.skipIf(os.name == "nt", "asserzioni nel formato POSIX: su Windows install.py lo provano InstallPs1 e la CI")
@@ -297,6 +588,63 @@ class Installer(unittest.TestCase):
         self.assertEqual(self.box.run_py(mimir).returncode, 1)
         self.assertEqual(self.box.snapshot(), before)
 
+    def test_template_con_chiavi_non_ammesse_nessuna_modifica(self):
+        mimir = self.box.mimir()
+        write(mimir / "settings.template.json", '{"permissions": {"allow": ["Bash(curl:*)"]}}')
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("permissions.allow", result.stderr)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_template_con_valore_non_scrivibile_in_utf8_nessuna_modifica(self):
+        # json accetta un surrogato isolato come escape, ma non si può scrivere in UTF-8: va rifiutato
+        # prima delle scritture, non a metà dopo CLAUDE.md
+        mimir = self.box.mimir()
+        write(mimir / "settings.template.json", '{"attribution": {"commit": "\\ud800"}}')
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertFalse((self.box.home / ".claude" / "CLAUDE.md").exists(), "CLAUDE.md scritto prima dell'errore")
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_template_con_nan_nessuna_modifica(self):
+        mimir = self.box.mimir()
+        write(mimir / "settings.template.json", '{"attribution": {"commit": NaN}}')
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_settings_utente_con_valore_non_scrivibile_in_utf8_nessuna_modifica(self):
+        mimir = self.box.mimir()
+        write(self.box.home / ".claude" / "settings.json", '{"env": {"A": "\\udfff"}}')
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertFalse((self.box.home / ".claude" / "CLAUDE.md").exists(), "CLAUDE.md scritto prima dell'errore")
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_settings_utente_con_chiavi_qualsiasi_conservato(self):
+        # il controllo delle chiavi vale solo per il template: settings.json è dell'utente
+        mimir = self.box.mimir()
+        user = {"model": "opus", "env": {"A": "1"}, "hooks": {"Stop": []}, "statusLine": {"type": "command"},
+                "permissions": {"allow": ["Read"], "defaultMode": "acceptEdits", "additionalDirectories": ["/x"]},
+                "sandbox": {"enabled": True, "network": {"allowedDomains": ["example.com"]}}}
+        write(self.box.home / ".claude" / "settings.json", json.dumps(user))
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        settings = self.box.settings()
+        for key in ("model", "env", "hooks", "statusLine"):
+            self.assertEqual(settings[key], user[key], key)
+        for key in ("allow", "defaultMode", "additionalDirectories"):
+            self.assertEqual(settings["permissions"][key], user["permissions"][key], key)
+        self.assertEqual(settings["sandbox"]["network"], user["sandbox"]["network"])
+
     def test_spostamento_toglie_le_voci_vecchie(self):
         old, new = self.box.mimir("vecchia"), self.box.mimir("nuova")
         self.assertEqual(self.box.run_py(old).returncode, 0)
@@ -321,6 +669,36 @@ class Installer(unittest.TestCase):
             settings = self.box.settings()
             self.assertIn(f"Edit(/{mimir}/plugins/**)", settings["permissions"]["ask"], other)
             self.assertIn(f"{mimir}/plugins", settings["sandbox"]["filesystem"]["denyWrite"], other)
+
+    def test_cartella_con_caratteri_di_pattern_nessuna_modifica(self):
+        mimir = self.box.mimir("mi[mi]r")
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("contiene [ ]", result.stderr)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertEqual(self.box.snapshot(), before)
+        self.assertFalse((self.box.root / "claude.log").exists(), "il marketplace non va registrato")
+
+    @unittest.skipIf(sys.platform == "darwin", "APFS rifiuta i nomi non UTF-8")
+    def test_cartella_con_nome_non_utf8_nessuna_modifica(self):
+        # su Linux un byte non UTF-8 nel nome arriva come surrogato (surrogateescape), che non si scrive
+        # in CLAUDE.md: prima l'errore arrivava dopo aver creato i file personali
+        mimir = self.box.mimir(os.fsdecode(b"mimir_\xff"))
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertIn("\\udcff", result.stderr, "il percorso va mostrato con repr")
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_cartella_con_parentesi_protetta(self):
+        mimir = self.box.mimir("mimir (copia)")
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        settings = self.box.settings()
+        self.assertIn(f"Edit(/{mimir}/plugins/**)", settings["permissions"]["ask"])
+        self.assertIn(f"{mimir}/plugins", settings["sandbox"]["filesystem"]["denyWrite"])
 
     def test_destinazione_symlink_pendente_non_scrive_fuori(self):
         mimir = self.box.mimir()
@@ -364,6 +742,58 @@ class Installer(unittest.TestCase):
         before = self.box.snapshot()
         result = self.box.run_py(mimir)
         self.assertEqual(result.returncode, 1)
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_cartella_profile_symlink_fuori_nessuna_modifica(self):
+        # O_NOFOLLOW copre solo l'ultimo componente: una cartella intermedia che punta fuori porterebbe
+        # letture e creazioni fuori dalla cartella di Mímir
+        mimir = self.box.mimir()
+        outside = self.box.root / "fuori"
+        shutil.move(str(mimir / "profile"), str(outside))
+        (mimir / "profile").symlink_to(outside)
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertFalse((outside / "profile.md").exists(), "profile.md creato fuori dalla cartella")
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_cartella_git_info_symlink_fuori_nessuna_modifica(self):
+        mimir = self.box.mimir()
+        outside = self.box.root / "info-fuori"
+        outside.mkdir()
+        shutil.rmtree(str(mimir / ".git" / "info"))
+        (mimir / ".git" / "info").symlink_to(outside)
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertFalse((outside / "exclude").exists(), "exclude scritto fuori dalla cartella")
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_cartella_profile_symlink_interno_nessuna_modifica(self):
+        # un symlink che resta dentro Mímir porterebbe profile.md in una cartella protetta come bin/
+        mimir = self.box.mimir()
+        (mimir / "bin").mkdir()
+        shutil.move(str(mimir / "profile" / "profile.example.md"), str(mimir / "bin"))
+        (mimir / "profile").rmdir()
+        (mimir / "profile").symlink_to(mimir / "bin")
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertFalse((mimir / "bin" / "profile.md").exists(), "profile.md creato in bin/")
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_cartella_profile_symlink_a_se_stessa_nessuna_modifica(self):
+        # il ciclo passa il controllo della cartella (realpath non lo risolve): lo ferma ELOOP in lettura
+        mimir = self.box.mimir()
+        shutil.rmtree(str(mimir / "profile"))
+        (mimir / "profile").symlink_to("profile")
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
         self.assertEqual(self.box.snapshot(), before)
 
     def test_claude_md_symlink_scritto_attraverso_il_link(self):

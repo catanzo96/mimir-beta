@@ -33,7 +33,7 @@ MARKER = "<!-- mimir: la riga sotto la gestisce install.sh -->"
 EXCLUDE_MARKER = "# mimir: file che la sandbox crea vuoti nel repo (gestiti da install.py)"
 # Voci che la sandbox crea vuote (mount di /dev/null) nella cartella di lavoro: viste con git status il 07/10
 EXCLUDE_ENTRIES = [
-    "/.bash_profile", "/.bashrc", "/.gitconfig", "/.gitmodules", "/.mcp.json", "/.profile",
+    "/.bash_profile", "/.bashrc", "/.gitconfig", "/.gitmodules", "/.idea", "/.mcp.json", "/.profile",
     "/.ripgreprc", "/.vscode", "/.zprofile", "/.zshrc",
     "/.claude/commands", "/.claude/hooks", "/.claude/launch.json", "/.claude/loop.md",
     "/.claude/output-styles", "/.claude/routines", "/.claude/scheduled_tasks.json",
@@ -47,6 +47,16 @@ PROTECTED_DIRS = ["plugins", "bin", ".claude-plugin", ".claude", "sandbox", "rul
 PROTECTED_FILES = ["sandbox.settings.json", "settings.template.json", "inbox.example.md", "install.sh", "install.py",
                    "install.ps1", "test_install.py", "test_claude_mimir.py", "CLAUDE.md"]
 
+# Le regole Edit seguono la sintassi gitignore e Claude Code non escapa quelle scritte a mano; su Linux e
+# WSL2 una voce di denyWrite con * ? [ viene saltata (doc permissions e settings-reference, 10/10).
+# ] e \ per prudenza: \ è l'escape di gitignore, ] chiude [. Le parentesi sono letterali.
+PATTERN_CHARS = "*?[]\\"
+
+# Prima della prima installazione la sandbox può scrivere il template, che l'installer unisce fuori:
+# ammesse solo le chiavi che non allentano nulla. Non protegge da un install.py modificato.
+TEMPLATE_KEYS = {"attribution", "skillListingBudgetFraction", "permissions"}
+TEMPLATE_PERMISSION_KEYS = {"ask", "deny"}
+
 # Testo dalla doc di Claude Code, pagina sandboxing (08/10/2026)
 APPARMOR_PROFILE_PATH = "/etc/apparmor.d/bwrap"
 APPARMOR_PROFILE = """abi <abi/4.0>,
@@ -58,12 +68,19 @@ profile bwrap /usr/bin/bwrap flags=(unconfined) {
 }
 """
 APPARMOR_SYSCTL = "/proc/sys/kernel/apparmor_restrict_unprivileged_userns"
+# senza systemd come PID 1 systemctl non funziona: lì si carica il solo profilo con apparmor_parser
+SYSTEMD_RUNTIME_DIR = "/run/systemd/system"
 SANDBOX_PACKAGES = {"bwrap": "bubblewrap", "socat": "socat"}
+# (gestore, aggiornamento degli indici da lanciare prima, comando di installazione). Con indici vecchi
+# apt-get install non trova i pacchetti; dnf e zypper aggiornano i metadati da soli, pacman -Sy
+# aggiornerebbe a metà. Tentativi e timeout: un mirror che non rispondeva ha tenuto fermo apt per
+# 14 minuti in CI (run 37809319638).
 PACKAGE_MANAGERS = [
-    ("apt-get", ["apt-get", "install", "-y"]),
-    ("dnf", ["dnf", "install", "-y"]),
-    ("pacman", ["pacman", "-S", "--needed", "--noconfirm"]),
-    ("zypper", ["zypper", "install", "-y"]),
+    ("apt-get", [["apt-get", "-o", "Acquire::Retries=3", "-o", "Acquire::http::Timeout=30", "update"]],
+     ["apt-get", "install", "-y"]),
+    ("dnf", [], ["dnf", "install", "-y"]),
+    ("pacman", [], ["pacman", "-S", "--needed", "--noconfirm"]),
+    ("zypper", [], ["zypper", "install", "-y"]),
 ]
 
 
@@ -120,6 +137,44 @@ def protected_entries(mimir_dir):
 
 # --- lettura e validazione ------------------------------------------------------------------------
 
+def is_control_char(c):
+    """C0, DEL e C1: alcuni terminali interpretano anche questi ultimi."""
+    return ord(c) < 32 or 0x7f <= ord(c) <= 0x9f
+
+
+def check_mimir_dir(mimir_dir):
+    """Un percorso con caratteri di pattern renderebbe la protezione inefficace senza avviso. Anche i
+    caratteri di controllo: gitignore va a righe e un a capo spezzerebbe la regola."""
+    try:
+        mimir_dir.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        # su Linux un byte non UTF-8 del nome arriva come surrogato, che CLAUDE.md non potrebbe contenere
+        raise InstallError(f"il percorso {mimir_dir!r} non è UTF-8 valido: rinomina la cartella") from exc
+    found = sorted(set(PATTERN_CHARS) & set(mimir_dir))
+    if any(is_control_char(c) for c in mimir_dir):
+        found.append("caratteri di controllo")
+    if found:
+        raise InstallError(f"il percorso {mimir_dir!r} contiene {' '.join(found)}: Claude Code lo leggerebbe "
+                           "come un pattern e i file di Mímir resterebbero senza protezione. Sposta la cartella "
+                           f"in un percorso senza {' '.join(PATTERN_CHARS)} né caratteri di controllo")
+
+
+def in_expected_dir(mimir_path, relative):
+    """La cartella di relative, risolta, è esattamente quella attesa sotto Mímir? O_NOFOLLOW copre solo
+    l'ultimo componente: una cartella intermedia come profile/ sostituita con un symlink porterebbe
+    fuori, o in una cartella protetta come bin/. In un worktree .git è un file e l'exclude non si scrive."""
+    root = os.path.realpath(str(mimir_path))
+    expected = os.path.normpath(os.path.join(root, os.path.dirname(relative)))
+    actual = os.path.realpath(os.path.join(str(mimir_path), os.path.dirname(relative)))
+    return os.path.normcase(actual) == os.path.normcase(expected)
+
+
+def check_expected_dir(mimir_path, relative):
+    if not in_expected_dir(mimir_path, relative):
+        raise InstallError(f"la cartella di {relative!r} non è quella attesa: punta fuori dalla cartella di Mímir "
+                           "o altrove al suo interno")
+
+
 def read_text(path):
     """Legge un file di ~/.claude, che la sandbox non scrive: i symlink si seguono (dotfiles)."""
     try:
@@ -160,6 +215,19 @@ def parse_settings(text, path):
         raise InstallError(f"{path} non è JSON valido ({exc})") from exc
     if not isinstance(data, dict):
         raise InstallError(f"{path} non contiene un oggetto JSON")
+    # json accetta NaN, Infinity e numeri fuori scala come 1e999 (letti come infinito), ma li riscriverebbe
+    # tali e quali: settings.json non sarebbe più JSON. Rifiutarli qui, come i caratteri sotto
+    try:
+        encoded = json.dumps(data, ensure_ascii=False, allow_nan=False)
+    except ValueError as exc:
+        raise InstallError(f"{path} contiene NaN, Infinity o un numero fuori scala, che non sono JSON standard") \
+            from exc
+    # json accetta un surrogato isolato come escape (\ud800), che poi non si scrive in UTF-8: rifiutarlo qui
+    # evita di fermarsi a metà, dopo aver già scritto CLAUDE.md
+    try:
+        encoded.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise InstallError(f"{path} contiene un carattere non scrivibile in UTF-8 ({exc.reason})") from exc
     for keys in (("permissions",), ("sandbox",), ("sandbox", "filesystem")):
         value = data
         for key in keys:
@@ -173,6 +241,16 @@ def parse_settings(text, path):
         if value is not None and not (isinstance(value, list) and all(isinstance(v, str) for v in value)):
             raise InstallError(f"{path}: {'.'.join(keys)} deve essere una lista di stringhe")
     return data
+
+
+def check_template_keys(template):
+    """Solo per settings.template.json: il settings.json dell'utente può avere qualsiasi chiave."""
+    extra = sorted(set(template) - TEMPLATE_KEYS)
+    extra += sorted(f"permissions.{k}" for k in set(template.get("permissions") or {}) - TEMPLATE_PERMISSION_KEYS)
+    if extra:
+        # repr: i nomi vengono da un file che la sandbox può scrivere, niente sequenze al terminale
+        raise InstallError("settings.template.json contiene chiavi non ammesse, da controllare con git status e "
+                           f"git diff HEAD: {', '.join(repr(k) for k in extra)}")
 
 
 def split_lines(text):
@@ -318,12 +396,32 @@ def as_root(command):
     return command if hasattr(os, "geteuid") and os.geteuid() == 0 else ["sudo"] + command
 
 
-def install_command(missing, which=shutil.which):
-    """Il comando per installare i pacchetti mancanti con il gestore della distro, o None."""
-    for name, base in PACKAGE_MANAGERS:
+def install_commands(missing, which=shutil.which):
+    """I comandi, in ordine, per installare i pacchetti mancanti con il gestore della distro, o None.
+    L'ultimo installa, quelli prima aggiornano gli indici."""
+    for name, before, base in PACKAGE_MANAGERS:
         if which(name):
-            return as_root(base + [SANDBOX_PACKAGES[tool] for tool in missing])
+            return [as_root(c) for c in before] + [as_root(base + [SANDBOX_PACKAGES[tool] for tool in missing])]
     return None
+
+
+def install_packages(commands, runner):
+    """Un aggiornamento degli indici fallito (per esempio un repository di terze parti rotto) non
+    ferma l'installazione: i pacchetti possono essere già negli indici che ci sono."""
+    for refresh in commands[:-1]:
+        if not runner(refresh):
+            print(f"! {' '.join(refresh)} non riuscito: installo con gli indici presenti")
+    return runner(commands[-1])
+
+
+def apparmor_reload_commands(systemd_runtime_dir=SYSTEMD_RUNTIME_DIR):
+    """I modi di ricaricare AppArmor, da provare in ordine fino al primo che riesce."""
+    parser = as_root(["apparmor_parser", "-r", APPARMOR_PROFILE_PATH])
+    # la cartella c'è se systemd è il PID 1 (sd_booted), ma in un container può esserci senza che
+    # systemd risponda: lì systemctl fallisce e resta il parser
+    if os.path.isdir(systemd_runtime_dir):
+        return [as_root(["systemctl", "reload", "apparmor"]), parser]
+    return [parser]
 
 
 def needs_apparmor_profile(sysctl_path=APPARMOR_SYSCTL, profile_path=APPARMOR_PROFILE_PATH):
@@ -331,7 +429,8 @@ def needs_apparmor_profile(sysctl_path=APPARMOR_SYSCTL, profile_path=APPARMOR_PR
         restricted = Path(sysctl_path).read_text(encoding="utf-8").strip() == "1"
     except OSError:
         return False
-    return restricted and not Path(profile_path).exists()
+    # lexists: anche un symlink rotto è un profilo esistente, che non si scrive né si toglie
+    return restricted and not os.path.lexists(profile_path)
 
 
 def run(command, **kwargs):
@@ -358,28 +457,43 @@ def install_sandbox_requirements(system, assume_yes, which=shutil.which, runner=
         print("✓ bubblewrap e socat presenti")
     else:
         packages = ", ".join(SANDBOX_PACKAGES[t] for t in missing)
-        command = install_command(missing, which)
-        if command is None:
+        commands = install_commands(missing, which)
+        if commands is None:
             print(f"! gestore dei pacchetti non riconosciuto: installa a mano {packages}")
             problems.append(packages)
-        elif not confirm(f"La sandbox richiede {packages}. Installo con: {' '.join(command)}?", assume_yes):
+        elif not confirm(f"La sandbox richiede {packages}. Installo con: "
+                         f"{', poi '.join(' '.join(c) for c in commands)}?", assume_yes):
             print(f"! {packages} non installati")
             problems.append(packages)
-        elif runner(command):
+        elif install_packages(commands, runner):
             print(f"✓ {packages} installati")
         else:
             print(f"! installazione di {packages} non riuscita")
             problems.append(packages)
     if needs_apparmor_profile():
-        if not confirm(f"AppArmor blocca bubblewrap: scrivo {APPARMOR_PROFILE_PATH} e ricarico AppArmor (sudo)?", assume_yes):
+        reloads = apparmor_reload_commands()
+        remove = as_root(["rm", "-f", APPARMOR_PROFILE_PATH])
+        if not confirm(f"AppArmor blocca bubblewrap: scrivo {APPARMOR_PROFILE_PATH} e ricarico AppArmor con: "
+                       f"{' o '.join(' '.join(c) for c in reloads)} (se non riesce, tolgo il profilo con: "
+                       f"{' '.join(remove)})?", assume_yes):
             print("! profilo AppArmor non installato: la sandbox non parte")
             problems.append("profilo AppArmor")
-        elif (runner(as_root(["tee", APPARMOR_PROFILE_PATH]), input=APPARMOR_PROFILE, text=True,
-                     stdout=subprocess.DEVNULL)
-              and runner(as_root(["systemctl", "reload", "apparmor"]))):
+        elif not needs_apparmor_profile():
+            # la conferma può durare minuti: un profilo comparso nel frattempo non è di questo lancio
+            print(f"! {APPARMOR_PROFILE_PATH} comparso durante la conferma: lo lascio com'è")
+        elif not runner(as_root(["tee", APPARMOR_PROFILE_PATH]), input=APPARMOR_PROFILE, text=True,
+                        stdout=subprocess.DEVNULL):
+            print("! profilo AppArmor non installato")
+            problems.append("profilo AppArmor")
+        elif any(runner(c) for c in reloads):
             print(f"✓ profilo AppArmor installato in {APPARMOR_PROFILE_PATH}")
         else:
-            print("! profilo AppArmor non installato")
+            # needs_apparmor_profile l'ha visto assente, quindi l'ha creato questo lancio: lasciato lì, al
+            # lancio successivo risulterebbe a posto e il ricarico non si riproverebbe
+            if runner(remove):
+                print("! profilo AppArmor non ricaricato: tolto, rilancia install.sh dopo aver sistemato AppArmor")
+            else:
+                print(f"! profilo AppArmor non ricaricato e non tolto: toglilo con {' '.join(remove)}")
             problems.append("profilo AppArmor")
     return problems
 
@@ -421,27 +535,34 @@ def read_old_dir(claude_md):
 
 def read_inputs(mimir_path, claude_md_path, settings_path):
     """Legge e valida tutto prima di qualsiasi scrittura; InstallError se qualcosa non va."""
+    check_mimir_dir(mimir_path.as_posix())
     for required in ("CLAUDE.md", "plugins", "sandbox.settings.json"):
         if not (mimir_path / required).exists():
             raise InstallError(f"{mimir_path.as_posix()} non sembra la cartella di Mímir: manca {required}")
     template_text = read_mimir_file(mimir_path / "settings.template.json")
     if template_text is None:
         raise InstallError("manca settings.template.json")
+    template = parse_settings(template_text, "settings.template.json")
+    check_template_keys(template)
     examples = {}
     for example, personal in PERSONAL_FILES:
+        check_expected_dir(mimir_path, example)
+        check_expected_dir(mimir_path, personal)
         examples[personal] = read_mimir_file(mimir_path / example)
         if examples[personal] is None:
             raise InstallError(f"manca {example}")
     git = mimir_path / ".git"
     has_git = git.is_dir() and not git.is_symlink()
     git_note = "" if has_git else ("assente" if not os.path.lexists(str(git)) else "non è una cartella (worktree?)")
+    if has_git:
+        check_expected_dir(mimir_path, ".git/info/exclude")
     claude_md = read_text(claude_md_path)
     settings_text = read_text(settings_path)
     return Inputs(
         claude_md=claude_md,
         settings_text=settings_text,
         current=parse_settings(settings_text, settings_path) if settings_text is not None else {},
-        template=parse_settings(template_text, "settings.template.json"),
+        template=template,
         examples=examples,
         has_git=has_git,
         git_note=git_note,
@@ -460,11 +581,19 @@ def compute(inputs, mimir_dir, system):
     )
 
 
-def write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, written):
-    """Scrive solo ciò che cambia; aggiunge a written ogni file scritto (per il messaggio d'errore)."""
+def write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, written, skipped):
+    """Scrive solo ciò che cambia; aggiunge a written ogni file scritto (per il messaggio d'errore) e a
+    skipped quelli saltati perché la loro cartella non è più quella attesa."""
     stamp = time.strftime("%Y%m%d-%H%M%S")
+    # La lettura ha già controllato le cartelle; qui si ricontrolla perché la sandbox può cambiarle nel
+    # frattempo. Resta una finestra tra controllo e apertura: chiuderla vorrebbe dir_fd per ogni componente,
+    # e il guadagno per chi la sfrutta è un profile.md o un exclude scritti altrove.
     for _, personal in PERSONAL_FILES:
         path = mimir_path / personal
+        if not in_expected_dir(mimir_path, personal):
+            print(f"! {personal}: la cartella non è quella attesa, non creato")
+            skipped.append(personal)
+            continue
         try:
             create_file(path, inputs.examples[personal])
             written.append(personal)
@@ -496,6 +625,9 @@ def write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, wr
 
     if not inputs.has_git:
         print(f"  .git {inputs.git_note}: .git/info/exclude saltato")
+    elif not in_expected_dir(mimir_path, ".git/info/exclude"):
+        print("! .git/info/exclude: la cartella non è quella attesa, non scritto")
+        skipped.append(".git/info/exclude")
     elif outputs.exclude != inputs.exclude:
         write_atomic(mimir_path / ".git" / "info" / "exclude", outputs.exclude)
         written.append(".git/info/exclude")
@@ -532,12 +664,14 @@ def main(argv=None):
         print(f"✗ {exc}: nessuna modifica fatta", file=sys.stderr)
         return 1
     outputs = compute(inputs, mimir_dir, system)
-    written = []
+    written, skipped = [], []
     try:
-        write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, written)
-    except OSError as exc:
+        write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, written, skipped)
+    except (OSError, UnicodeError) as exc:
+        skipped_note = (f"File saltati perché la loro cartella non è quella attesa: {', '.join(skipped)}. "
+                        if skipped else "")
         print(f"✗ scrittura non riuscita ({exc}). File già scritti: {', '.join(written) or 'nessuno'}. "
-              "Risolvi e rilancia install.sh.", file=sys.stderr)
+              f"{skipped_note}Risolvi e rilancia install.sh.", file=sys.stderr)
         return 1
 
     # Il marketplace (registrato o spostato sulla cartella attuale) aggiorna extraKnownMarketplaces e
@@ -558,11 +692,14 @@ Per averli anche nelle sessioni normali, dentro Claude Code:
   /plugin install brokkr@mimir   (solo dove si lavora)
 Se sposti la cartella, rilancia install.sh.
 Host privati per la sandbox (azienda, clienti): aggiungili a sandbox.network.allowedDomains in {settings_path}.""")
+    if skipped:
+        # una cartella cambiata durante l'installazione è un segno di manomissione: con --yes un avviso passerebbe
+        print(f"\n✗ File saltati perché la loro cartella non è quella attesa: {', '.join(skipped)}. "
+              "Controlla con git status e rilancia install.sh.", file=sys.stderr)
     if problems:
         print(f"\n✗ Requisiti della sandbox mancanti: {', '.join(problems)}. Rilancia install.sh dopo averli sistemati.",
               file=sys.stderr)
-        return 1
-    return 0
+    return 1 if skipped or problems else 0
 
 
 if __name__ == "__main__":
