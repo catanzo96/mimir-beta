@@ -33,7 +33,7 @@ MARKER = "<!-- mimir: la riga sotto la gestisce install.sh -->"
 EXCLUDE_MARKER = "# mimir: file che la sandbox crea vuoti nel repo (gestiti da install.py)"
 # Voci che la sandbox crea vuote (mount di /dev/null) nella cartella di lavoro: viste con git status il 07/10
 EXCLUDE_ENTRIES = [
-    "/.bash_profile", "/.bashrc", "/.gitconfig", "/.gitmodules", "/.mcp.json", "/.profile",
+    "/.bash_profile", "/.bashrc", "/.gitconfig", "/.gitmodules", "/.idea", "/.mcp.json", "/.profile",
     "/.ripgreprc", "/.vscode", "/.zprofile", "/.zshrc",
     "/.claude/commands", "/.claude/hooks", "/.claude/launch.json", "/.claude/loop.md",
     "/.claude/output-styles", "/.claude/routines", "/.claude/scheduled_tasks.json",

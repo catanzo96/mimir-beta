@@ -349,6 +349,10 @@ class PureFunctions(unittest.TestCase):
         partial = install.updated_exclude("/.bashrc\n")
         self.assertEqual(partial.count("/.bashrc\n"), 1)
 
+    def test_exclude_nasconde_il_file_idea_della_sandbox(self):
+        # la sandbox crea .idea come device, non come cartella: .idea/ del .gitignore non lo copre
+        self.assertIn("/.idea\n", install.updated_exclude(""))
+
     def test_detect_system(self):
         cases = [("Darwin", "", "macos"), ("Windows", "", "windows"), ("Linux", "6.11.0-29-generic", "linux"),
                  ("Linux", "5.15.153.1-microsoft-standard-WSL2", "wsl2"),
