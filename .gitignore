@@ -7,6 +7,8 @@
 # generato da bin/claude-mimir.ps1 a ogni avvio
 sandbox/windows.settings.json
 __pycache__/
+# cartelle temporanee dei test, rimaste solo se il processo viene ucciso
+.tmp-test-*/
 
 # Perimetro di una sessione di lavoro in un worktree, da non committare
 PERIMETRO.md
