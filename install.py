@@ -208,22 +208,24 @@ def read_mimir_file(path):
         raise InstallError(f"{path} non è in UTF-8 ({exc})") from exc
 
 
-def reject_constant(name):
-    """json.loads accetta NaN e Infinity, ma json.dumps li riscriverebbe tali e quali: JSON non valido."""
-    raise ValueError(f"{name} non è JSON standard")
-
-
 def parse_settings(text, path):
     try:
-        data = json.loads(text, parse_constant=reject_constant)
+        data = json.loads(text)
     except ValueError as exc:
         raise InstallError(f"{path} non è JSON valido ({exc})") from exc
     if not isinstance(data, dict):
         raise InstallError(f"{path} non contiene un oggetto JSON")
+    # json accetta NaN, Infinity e numeri fuori scala come 1e999 (letti come infinito), ma li riscriverebbe
+    # tali e quali: settings.json non sarebbe più JSON. Rifiutarli qui, come i caratteri sotto
+    try:
+        encoded = json.dumps(data, ensure_ascii=False, allow_nan=False)
+    except ValueError as exc:
+        raise InstallError(f"{path} contiene NaN, Infinity o un numero fuori scala, che non sono JSON standard") \
+            from exc
     # json accetta un surrogato isolato come escape (\ud800), che poi non si scrive in UTF-8: rifiutarlo qui
     # evita di fermarsi a metà, dopo aver già scritto CLAUDE.md
     try:
-        json.dumps(data, ensure_ascii=False).encode("utf-8")
+        encoded.encode("utf-8")
     except UnicodeEncodeError as exc:
         raise InstallError(f"{path} contiene un carattere non scrivibile in UTF-8 ({exc.reason})") from exc
     for keys in (("permissions",), ("sandbox",), ("sandbox", "filesystem")):
@@ -666,9 +668,10 @@ def main(argv=None):
     try:
         write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, written, skipped)
     except (OSError, UnicodeError) as exc:
+        skipped_note = (f"File saltati perché la loro cartella non è quella attesa: {', '.join(skipped)}. "
+                        if skipped else "")
         print(f"✗ scrittura non riuscita ({exc}). File già scritti: {', '.join(written) or 'nessuno'}. "
-              f"File saltati perché la loro cartella non è quella attesa: {', '.join(skipped) or 'nessuno'}. "
-              "Risolvi e rilancia install.sh.", file=sys.stderr)
+              f"{skipped_note}Risolvi e rilancia install.sh.", file=sys.stderr)
         return 1
 
     # Il marketplace (registrato o spostato sulla cartella attuale) aggiorna extraKnownMarketplaces e

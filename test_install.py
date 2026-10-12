@@ -242,6 +242,16 @@ class PureFunctions(unittest.TestCase):
         self.assertIn("disco pieno", stderr.getvalue())
         self.assertIn("profile/profile.md", stderr.getvalue())
 
+    def test_errore_di_scrittura_senza_file_saltati_non_parla_di_cartelle(self):
+        # con un normale disco pieno la frase sulle cartelle non attese sarebbe fuorviante
+        stderr = io.StringIO()
+        with mock.patch.object(install, "read_inputs"), mock.patch.object(install, "compute"), \
+                mock.patch.object(install, "write_outputs", side_effect=OSError("disco pieno")), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+            self.assertEqual(install.main(["--skip-system"]), 1)
+        self.assertIn("disco pieno", stderr.getvalue())
+        self.assertNotIn("saltati", stderr.getvalue())
+
     @unittest.skipIf(os.name == "nt", "symlink: su Windows un non amministratore non li crea")
     def test_scrittura_salta_git_sostituito_da_un_symlink_dopo_la_lettura(self):
         folder = Path(tempfile.mkdtemp(prefix="mimir-write-test-")).resolve()
@@ -329,7 +339,9 @@ class PureFunctions(unittest.TestCase):
 
     def test_settings_con_nan_o_infinity_rifiutati(self):
         # json.loads li accetta, json.dumps li riscrive così: settings.json non sarebbe più JSON
-        for text in ('{"a": NaN}', '{"a": [Infinity]}', '{"a": {"b": -Infinity}}'):
+        # 1e999 è JSON valido, ma json lo legge come infinito e lo riscriverebbe Infinity
+        for text in ('{"a": NaN}', '{"a": [Infinity]}', '{"a": {"b": -Infinity}}', '{"a": 1e999}',
+                     '{"a": [-1e999]}'):
             with self.assertRaises(install.InstallError, msg=text):
                 install.parse_settings(text, "settings.json")
         self.assertEqual(install.parse_settings('{"a": 0.03, "b": "NaN"}', "settings.json"), {"a": 0.03, "b": "NaN"})
