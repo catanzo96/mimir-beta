@@ -42,7 +42,8 @@ Si può rilanciare senza danni. Prima legge e valida i file; se uno non è valid
 - registra il marketplace `mimir`;
 - su Linux e WSL2 installa `bubblewrap` e `socat` (apt-get, dnf, pacman o zypper) e, se AppArmor lo richiede, il profilo per `bwrap`. Lo fa con sudo e dopo una conferma che mostra i comandi. Se qualcosa non riesce, continua con il resto ma esce con un errore.
   - con apt-get aggiorna prima gli indici; se `apt-get update` fallisce, installa con quelli presenti;
-  - il profilo si carica con `systemctl reload apparmor` o, senza systemd o se non riesce, con `apparmor_parser -r`.
+  - il profilo si carica con `systemctl reload apparmor` o, senza systemd o se non riesce, con `apparmor_parser -r`;
+  - se non si carica, l'installer toglie il profilo appena scritto, così al lancio successivo riprova. Un `/etc/apparmor.d/bwrap` che c'era già, anche come symlink, non si tocca.
 
 Dalla cartella di Mímir l'installer non segue i symlink: rifiuta esempi, template ed `exclude` che sono symlink e non crea un file personale al posto di un symlink. Lo stesso vale per le cartelle intermedie: se `profile/` o `.git/info`, risolte, non sono esattamente quelle attese (un symlink verso fuori o verso un'altra cartella di Mímir), si ferma senza modifiche. Se cambiano durante l'installazione, salta quei file ed esce con un errore. La cartella è scrivibile dalla sandbox, e un symlink porterebbe un segreto in un file leggibile o una scrittura fuori. In `~/.claude`, che la sandbox non scrive, i symlink (per esempio verso un repo di dotfiles) si seguono.
 

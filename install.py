@@ -427,7 +427,8 @@ def needs_apparmor_profile(sysctl_path=APPARMOR_SYSCTL, profile_path=APPARMOR_PR
         restricted = Path(sysctl_path).read_text(encoding="utf-8").strip() == "1"
     except OSError:
         return False
-    return restricted and not Path(profile_path).exists()
+    # lexists: anche un symlink rotto è un profilo esistente, che non si scrive né si toglie
+    return restricted and not os.path.lexists(profile_path)
 
 
 def run(command, **kwargs):
@@ -469,16 +470,28 @@ def install_sandbox_requirements(system, assume_yes, which=shutil.which, runner=
             problems.append(packages)
     if needs_apparmor_profile():
         reloads = apparmor_reload_commands()
+        remove = as_root(["rm", "-f", APPARMOR_PROFILE_PATH])
         if not confirm(f"AppArmor blocca bubblewrap: scrivo {APPARMOR_PROFILE_PATH} e ricarico AppArmor con: "
-                       f"{' o '.join(' '.join(c) for c in reloads)}?", assume_yes):
+                       f"{' o '.join(' '.join(c) for c in reloads)} (se non riesce, tolgo il profilo con: "
+                       f"{' '.join(remove)})?", assume_yes):
             print("! profilo AppArmor non installato: la sandbox non parte")
             problems.append("profilo AppArmor")
-        elif (runner(as_root(["tee", APPARMOR_PROFILE_PATH]), input=APPARMOR_PROFILE, text=True,
-                     stdout=subprocess.DEVNULL)
-              and any(runner(c) for c in reloads)):
+        elif not needs_apparmor_profile():
+            # la conferma può durare minuti: un profilo comparso nel frattempo non è di questo lancio
+            print(f"! {APPARMOR_PROFILE_PATH} comparso durante la conferma: lo lascio com'è")
+        elif not runner(as_root(["tee", APPARMOR_PROFILE_PATH]), input=APPARMOR_PROFILE, text=True,
+                        stdout=subprocess.DEVNULL):
+            print("! profilo AppArmor non installato")
+            problems.append("profilo AppArmor")
+        elif any(runner(c) for c in reloads):
             print(f"✓ profilo AppArmor installato in {APPARMOR_PROFILE_PATH}")
         else:
-            print("! profilo AppArmor non installato")
+            # needs_apparmor_profile l'ha visto assente, quindi l'ha creato questo lancio: lasciato lì, al
+            # lancio successivo risulterebbe a posto e il ricarico non si riproverebbe
+            if runner(remove):
+                print("! profilo AppArmor non ricaricato: tolto, rilancia install.sh dopo aver sistemato AppArmor")
+            else:
+                print(f"! profilo AppArmor non ricaricato e non tolto: toglilo con {' '.join(remove)}")
             problems.append("profilo AppArmor")
     return problems
 

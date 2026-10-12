@@ -399,7 +399,8 @@ class PureFunctions(unittest.TestCase):
 
     def requirements(self, outcomes, apparmor=False):
         """Lancia install_sandbox_requirements con apt-get e un runner finto: outcomes dice, per il primo
-        elemento di ogni comando, se riesce. Restituisce i problemi e i comandi lanciati."""
+        elemento di ogni comando, se riesce. Restituisce i problemi e i comandi lanciati; le stampe restano
+        in self.printed."""
         calls = []
 
         def runner(command, **kwargs):
@@ -409,7 +410,7 @@ class PureFunctions(unittest.TestCase):
                 mock.patch.object(install, "as_root", side_effect=lambda c: ["sudo"] + c), \
                 mock.patch.object(install, "apparmor_reload_commands", return_value=[["sudo", "systemctl"],
                                                                                      ["sudo", "apparmor_parser"]]), \
-                mock.patch("builtins.print"):
+                mock.patch("builtins.print") as self.printed:
             # con bwrap e socat presenti si arriva subito ad AppArmor
             tools = {"bwrap", "socat"} if apparmor else {"apt-get"}
             problems = install.install_sandbox_requirements(
@@ -446,14 +447,67 @@ class PureFunctions(unittest.TestCase):
         self.assertEqual(calls, ["tee", "systemctl", "apparmor_parser"])
         problems, calls = self.requirements({"tee": True, "systemctl": True}, apparmor=True)
         self.assertEqual((problems, calls), ([], ["tee", "systemctl"]))
-        problems, calls = self.requirements({"tee": True, "systemctl": False, "apparmor_parser": False},
+
+    def test_profilo_apparmor_creato_e_non_ricaricato_si_toglie(self):
+        # lasciato lì, al lancio successivo il profilo risulterebbe a posto e il ricarico non si riproverebbe
+        problems, calls = self.requirements({"tee": True, "systemctl": False, "apparmor_parser": False, "rm": True},
                                             apparmor=True)
-        self.assertEqual((problems, calls), (["profilo AppArmor"], ["tee", "systemctl", "apparmor_parser"]))
+        self.assertEqual((problems, calls), (["profilo AppArmor"], ["tee", "systemctl", "apparmor_parser", "rm"]))
+
+    def test_profilo_apparmor_non_tolto_mostra_il_comando(self):
+        problems, calls = self.requirements({"tee": True, "systemctl": False, "apparmor_parser": False, "rm": False},
+                                            apparmor=True)
+        self.assertEqual((problems, calls), (["profilo AppArmor"], ["tee", "systemctl", "apparmor_parser", "rm"]))
+        self.assertIn(f"sudo rm -f {install.APPARMOR_PROFILE_PATH}", str(self.printed.call_args_list))
 
     def test_profilo_apparmor_non_scritto_non_si_ricarica(self):
+        # tee fallito: questo lancio non sa se il file c'è, quindi non lo tocca
         problems, calls = self.requirements({"tee": False}, apparmor=True)
         self.assertEqual(problems, ["profilo AppArmor"])
         self.assertEqual(calls, ["tee"])
+
+    def test_profilo_apparmor_esistente_non_si_tocca(self):
+        folder = Path(tempfile.mkdtemp(prefix="mimir-apparmor-test-"))
+        self.addCleanup(shutil.rmtree, str(folder), ignore_errors=True)
+        write(folder / "sysctl", "1\n")
+        write(folder / "bwrap", "profilo dell'utente\n")
+        real = install.needs_apparmor_profile
+        calls = []
+
+        def runner(command, **kwargs):
+            calls.append(command)
+            return False
+        with mock.patch.object(install, "needs_apparmor_profile",
+                               side_effect=lambda: real(str(folder / "sysctl"), str(folder / "bwrap"))), \
+                mock.patch("builtins.print"):
+            problems = install.install_sandbox_requirements("linux", True, which=lambda n: "/usr/bin/" + n,
+                                                            runner=runner)
+        self.assertEqual((problems, calls), ([], []))
+        self.assertEqual((folder / "bwrap").read_text(encoding="utf-8"), "profilo dell'utente\n")
+
+    @unittest.skipIf(os.name == "nt", "symlink: su Windows un non amministratore non li crea")
+    def test_profilo_apparmor_symlink_rotto_esiste(self):
+        # tee scriverebbe attraverso il link e, con il ricarico fallito, rm toglierebbe il link
+        folder = Path(tempfile.mkdtemp(prefix="mimir-apparmor-test-"))
+        self.addCleanup(shutil.rmtree, str(folder), ignore_errors=True)
+        write(folder / "sysctl", "1\n")
+        (folder / "bwrap").symlink_to(folder / "manca")
+        self.assertFalse(install.needs_apparmor_profile(str(folder / "sysctl"), str(folder / "bwrap")))
+
+    def test_profilo_apparmor_comparso_dopo_la_conferma_non_si_tocca(self):
+        # la conferma può durare minuti: nel frattempo un altro lancio o l'amministratore possono crearlo
+        calls = []
+
+        def runner(command, **kwargs):
+            calls.append(command)
+            return False
+        with mock.patch.object(install, "needs_apparmor_profile", side_effect=[True, False]), \
+                mock.patch.object(install, "confirm", return_value=True), \
+                mock.patch("builtins.print") as printed:
+            problems = install.install_sandbox_requirements("linux", False, which=lambda n: "/usr/bin/" + n,
+                                                            runner=runner)
+        self.assertEqual((problems, calls), ([], []))
+        self.assertIn("comparso", str(printed.call_args_list))
 
     def test_conferma_dei_pacchetti_non_promette_lo_stop_dopo_l_aggiornamento(self):
         asked = []
@@ -472,7 +526,8 @@ class PureFunctions(unittest.TestCase):
                 mock.patch.object(install, "confirm", side_effect=lambda q, _: asked.append(q)), \
                 mock.patch("builtins.print"):
             install.install_sandbox_requirements("linux", False, which=lambda n: "/usr/bin/" + n)
-        self.assertIn("sudo a o sudo b?", asked[0])
+        self.assertIn("sudo a o sudo b", asked[0])
+        self.assertIn(f"rm -f {install.APPARMOR_PROFILE_PATH})?", asked[0])
 
 
 @unittest.skipIf(os.name == "nt", "asserzioni nel formato POSIX: su Windows install.py lo provano InstallPs1 e la CI")
