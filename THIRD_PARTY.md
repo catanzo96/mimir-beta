@@ -1,86 +1,34 @@
 # Materiale di terzi
 
-Alcuni file di Mímir sono traduzioni o adattamenti in italiano di opere di terzi, usati secondo la loro licenza. Gli altri file sono sotto la licenza MIT di Mímir ([LICENSE](LICENSE)).
+L'elenco del materiale di terzi e le licenze dei plugin stanno nella cartella di ciascun plugin, perché arrivino a chi lo installa: [plugins/mimir/THIRD_PARTY.md](plugins/mimir/THIRD_PARTY.md) e [plugins/brokkr/THIRD_PARTY.md](plugins/brokkr/THIRD_PARTY.md). Qui restano le voci dei file fuori dai plugin (`rules/`, `CLAUDE.md`, `profile/profile.example.md`); gli altri file sono sotto la licenza MIT di Mímir ([LICENSE](LICENSE)).
 
-L'elenco viene da un confronto del 10/10 ed è da completare con un confronto sistematico, fonte per fonte (vedi "Da verificare"). Va svuotato, riscrivendo o eliminando i file, oppure giustificato voce per voce prima che il repo diventi pubblico.
+## Regole
 
-## skills di Emil Kowalski
+Confronto del 10/10 su `rules/`, `CLAUDE.md` e `profile/profile.example.md`, insieme al resto di Mímir, contro i repo di Matt Pocock, superpowers, ECC, hermes-agent, openclaw, system-design-primer e developer-roadmap. Metodo, limiti e voci dei plugin sono nella sezione "Skill e agent" di [plugins/mimir/THIRD_PARTY.md](plugins/mimir/THIRD_PARTY.md).
 
-- **Fonte**: https://github.com/emilkowalski/skills
-- **Licenza**: MIT (testo in fondo, con il copyright di Emil Kowalski).
+### hermes-agent
+
+- **Fonte**: https://github.com/NousResearch/hermes-agent
+- **Licenza**: MIT (testo in fondo, con il copyright di Nous Research).
 - **File derivati**:
 
 | File di Mímir | Origine | Tipo |
 |---|---|---|
-| `plugins/mimir/skills/animazioni-ui/SKILL.md` | `skills/animate/SKILL.md`; la sezione "Revisione" in parte da `skills/review-animations/SKILL.md` e `skills/find-animation-opportunities/SKILL.md` | traduzione con modifiche |
-| `plugins/mimir/skills/animazioni-ui/references/ricette.md` | `skills/animate/RECIPES.md`; la tabella "Prestazioni" da `performance-cheatsheet.md` | traduzione con modifiche |
-| `plugins/mimir/skills/animazioni-ui/references/gesti-e-spring.md` | `skills/apple-design/SKILL.md` (a sua volta ricavata dai talk WWDC di Apple) | traduzione con modifiche |
-| `plugins/mimir/skills/animazioni-ui/references/vocabolario.md` | `skills/animation-vocabulary/SKILL.md` | adattamento |
-| `plugins/mimir/skills/ui-casi-limite/SKILL.md` | `skills/break-ui/SKILL.md` | traduzione con modifiche |
-| `plugins/mimir/skills/ui-casi-limite/references/catalogo.md` | `skills/break-ui/CATALOG.md` | adattamento, dati d'esempio propri |
-| `plugins/mimir/skills/prototipi-ui/SKILL.md` | `skills/prototype/SKILL.md` | traduzione con modifiche |
-| `plugins/mimir/skills/design-ui/references/mobile-web.md` | `skills/mobile-native/SKILL.md` | adattamento |
+| `rules/working-style.md` | `SOUL.md` (due frasi: d'accordo perché è giusto; cosa è cambiato, cosa è verificato, cosa resta) | traduzione di due frasi |
 
-## taste-skill
-
-- **Fonte**: https://github.com/Leonxlnx/taste-skill
-- **Licenza**: MIT (testo in fondo, con il copyright di Leonxlnx).
-- **File derivati**:
-
-| File di Mímir | Origine | Tipo |
-|---|---|---|
-| `plugins/mimir/skills/design-ui/references/pagine-marketing.md` | `skills/taste-skill/SKILL.md` (soglie della pagina marketing) | traduzione con modifiche |
-| `plugins/mimir/skills/design-ui/references/anti-pattern.md` | `skills/redesign-skill/SKILL.md`, `skills/taste-skill/SKILL.md` | adattamento |
-| `plugins/mimir/skills/design-ui/references/rifacimento.md` | `skills/redesign-skill/SKILL.md` | adattamento |
-| `plugins/mimir/skills/design-ui/SKILL.md` | `skills/taste-skill/SKILL.md` (i tre assi) | adattamento parziale |
-
-## impeccable
-
-- **Fonte**: https://github.com/pbakaus/impeccable
-- **Licenza**: Apache License 2.0, Copyright 2025 Paul Bakaus. Testo in [LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt). Il `NOTICE.md` di impeccable riguarda solo file che Mímir non usa.
-- **Modifiche**: testo tradotto in italiano, ridotto e riorganizzato dentro procedure di Mímir.
-- **File derivati**:
-
-| File di Mímir | Origine | Tipo |
-|---|---|---|
-| `plugins/mimir/skills/design-ui/SKILL.md` | `skill/reference/craft-floor.md` (default da rifiutare, elementi del browser) | adattamento parziale |
-| `plugins/mimir/agents/design-reviewer.md` | `skill/reference/critique.md` (euristiche, carico cognitivo, due utenti) | adattamento parziale |
-
-## Da verificare
-- `plugins/mimir/skills/design-ui/SKILL.md`, sezioni sul copy e sugli stati, e `references/anti-pattern.md` (cifre tabulari): possibili adattamenti da `skill/reference/clarify.md` e `typeset.md` di impeccable, segnalati dalla review del 10/10 e non ancora confrontati.
+## Valutati e non inclusi
+Sovrapposizioni di sola idea, senza frasi, struttura o costanti in comune; restano qui perché un controllo futuro non le rifaccia da capo.
+- superpowers: `rules/` ha solo temi in comune.
+- hermes-agent: `growth` e il resto di `working-style` solo temi in comune.
+- openclaw (`AGENTS.md`, template dei ruoli, skill e documentazione): solo temi in comune con `rules/` e `CLAUDE.md`.
 
 ## Testi della licenza MIT
 
-### skills di Emil Kowalski
+### hermes-agent
 ```
 MIT License
 
-Copyright (c) 2026 Emil Kowalski
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### taste-skill
-```
-MIT License
-
-Copyright (c) 2026 Leonxlnx
+Copyright (c) 2025 Nous Research
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

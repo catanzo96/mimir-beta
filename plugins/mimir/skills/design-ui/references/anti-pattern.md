@@ -82,3 +82,5 @@ Usalo in due modi: mentre costruisci, per accorgerti di un riflesso; in revision
 | `height: 100vh` per sezioni a schermo intero | `min-height: 100svh` per il primo schermo, `100dvh` per il guscio dell'app (vedi `mobile-web.md`) |
 | Link a `#` e bottoni che non fanno nulla | Destinazione vera o elemento disabilitato in modo visibile |
 | Import di pacchetti non presenti nel progetto | Controllo del manifest prima di importare |
+
+_Derivato da impeccable di Paul Bakaus (Apache-2.0), tradotto e modificato per Mímir; dettagli in THIRD_PARTY.md del plugin._

@@ -45,6 +45,9 @@ shutil.copyfile(DIRTY_FILE, WIN_FILE)
 
 LONG = "feat(core): " + "x" * 70
 HEREDOC = "git commit -F - <<'EOF'\n{}\nEOF"
+# heredoc con un testo che cita sottocomandi git che scrivono: {} è il comando che lo apre
+TEXT_HEREDOC = "{}\nnota: git push -f e git reset --hard restano vietati\nEOF"
+HEREDOC_HINT = "Per scrivere un file usa Write (file nuovo) o Edit (modifica o aggiunta in fondo), non cat/tee con un heredoc."
 
 # Bloccati per il contenuto: attribuzioni, righe oltre 72, force push (exit 2)
 CONTENT_BLOCK = {
@@ -88,6 +91,23 @@ CONTENT_BLOCK = {
     "dentro powershell -Command con opzioni": 'powershell -NoProfile -ExecutionPolicy Bypass -Command "git push -f"',
     "dentro bash -o pipefail -c": "bash -o pipefail -c 'git push -f'",
     "sostituzione tra virgolette in un'assegnazione": 'X="$(git push -f)"',
+    # redirect attaccato all'opzione: la shell lo toglie, git riceve -f
+    "-f con redirect attaccato": "git push -f>/dev/null",
+    "--force con redirect attaccato": "git push --force>log",
+    "-f con redirect in ingresso attaccato": "git push -f</dev/null",
+    "--force-with-lease con redirect attaccato": "git push --force-with-lease>x",
+    "+ref con redirect attaccato": "git push origin +main>/dev/null",
+    # con le virgolette git riceve -o con il valore >x attaccato, e -f è un force push
+    "-f dopo -o con redirect tra virgolette": 'git push -o">x" -f',
+    # falso positivo accettato (fail-closed): per git -f qui è il valore di -o
+    "-f come valore di -o": "git push -o -f",
+    # nomi dei modelli senza il nome del prodotto
+    "Co-Authored-By con Opus": 'git commit -m "feat: x" -m "Co-Authored-By: Opus 4.1 <a@b.it>"',
+    "Co-Authored-By con Sonnet": 'git commit -m "feat: x" -m "Co-Authored-By: Sonnet 5.5 <a@b.it>"',
+    "Generated with Haiku": 'git commit -m "feat: x" -m "Generated with Haiku 5.5"',
+    "Generato con Fable": 'git commit -m "feat: x" -m "Generato con Fable 5.1"',
+    # << con backslash: non è un heredoc per l'hook, le righe dopo si leggono come comandi
+    "heredoc con <<\\EOF in cat": TEXT_HEREDOC.format("cat > f <<\\EOF"),
 }
 
 # Bloccati per la forma: commit, push e tag che la regola ask a prefisso non riconoscerebbe (exit 2)
@@ -186,6 +206,87 @@ FORM_BLOCK = {
     "make in una variabile e clean": "$MAKE clean",
     # -committerdate contiene una d: senza = sembra un'opzione distruttiva raggruppata
     "branch --sort senza =": "git branch --sort -committerdate",
+    # redirect attaccato all'opzione distruttiva, dove la regola ask non scatta
+    "branch -D con redirect attaccato dopo il nome": "git branch x -D>y",
+    "switch -f con redirect attaccato dopo il branch": "git switch main -f>x",
+    "stash drop con redirect attaccato e -c": "git -c a=b stash drop>x",
+    "reflog expire con redirect attaccato e -c": "git -c a=b reflog expire>x --all",
+    "branch -D con redirect attaccato dopo ls": "ls && git branch -D>y x",
+    "branch -D con redirect attaccato al nome dopo ls": "ls && git branch -D x>y",
+    "reset --hard con redirect attaccato dopo ls": "ls && git reset --hard>/dev/null",
+    "clean -fd con redirect attaccato dopo ls": "ls && git clean -fd>x",
+    "checkout -f con redirect attaccato dopo ls": "ls && git checkout -f>x",
+    # worktree remove, rm, checkout-index e reflog drop: la regola ask riconosce la forma solo subito dopo
+    "worktree remove dopo ls": "ls && git worktree remove ../wt",
+    "worktree remove con -C": "git -C . worktree remove --force ../wt",
+    "worktree remove nel corpo di bash <<EOF": "bash <<'EOF'\ngit worktree remove ../wt\nEOF",
+    "rm -rf raggruppato": "git rm -rf x",
+    "rm -f dopo -r": "git rm -r -f x",
+    "rm --force dopo ls": "ls && git rm --force x",
+    "rm --forc abbreviato": "git rm --forc x",
+    "checkout-index -f dopo -a": "git checkout-index -a -f",
+    "checkout-index -af raggruppato": "git checkout-index -af",
+    "checkout-index --force con env": "env X=1 git checkout-index --force -a",
+    "reflog drop con env": "env X=1 git reflog drop",
+    # il corpo di un heredoc si guarda sempre, anche quando cat o tee lo scrivono in un file: ogni forma chiusa
+    # di esenzione è stata aggirata da un modo in cui bash legge il comando diversamente dall'hook
+    "heredoc in cat >> verso un file (falso positivo del 10/10)": TEXT_HEREDOC.format("cat >> note.md <<'EOF'"),
+    "heredoc in cat > verso un file, delimitatore tra virgolette doppie": TEXT_HEREDOC.format('cat > f <<"EOF"'),
+    "heredoc in cat con il redirect dopo": TEXT_HEREDOC.format("cat <<'EOF' > f"),
+    "heredoc quotato con $( ) e backtick nel corpo": "cat > f <<'EOF'\n$(git push -f) e `git reset --hard`\nEOF",
+    "heredoc in tee verso un file con ~ e +": TEXT_HEREDOC.format("tee ~/note+1.md <<'EOF'"),
+    "heredoc in cat con >> dopo": TEXT_HEREDOC.format("cat <<'EOF' >> f"),
+    "heredoc in cat con redirect attaccati": TEXT_HEREDOC.format("cat >f<<'EOF'"),
+    "heredoc in cat con <<-": TEXT_HEREDOC.format("cat <<-'EOF' > f"),
+    "heredoc in cat con un a capo finale": TEXT_HEREDOC.format("cat <<'EOF' > f") + "\n",
+    "heredoc in tee verso un file": TEXT_HEREDOC.format("tee f <<'EOF'"),
+    "heredoc in tee verso due file": TEXT_HEREDOC.format("tee f g <<'EOF'"),
+    "heredoc in tee -a": TEXT_HEREDOC.format("tee -a f <<'EOF'"),
+    "heredoc in tee --append": TEXT_HEREDOC.format("tee --append f <<'EOF'"),
+    # riga dell'heredoc continuata con \: bash esegue la riga dopo come seguito del comando, il corpo è vuoto
+    "continuazione dopo l'heredoc in cat": "cat > out.txt <<'EOF' \\\n; git push -f\nEOF\n",
+    "continuazione dopo l'heredoc in cat, reset": "cat > out.txt <<'EOF' \\\n; git reset --hard\nEOF\n",
+    "continuazione dopo l'heredoc in cat con <<-": "cat > out.txt <<-'EOF' \\\n; git push -f\nEOF\n",
+    "continuazione senza a capo finale": "cat > out.txt <<'EOF' \\\n; git push -f\nEOF\n>/dev/null",
+    "continuazione dopo l'heredoc in tee": 'tee out.txt <<"EOF" \\\n&& git push -f\nEOF\n',
+    "heredoc in cat verso una pipe": TEXT_HEREDOC.format("cat <<'EOF' | sh"),
+    "heredoc in cat senza redirect": TEXT_HEREDOC.format("cat <<'EOF'"),
+    "heredoc in cat verso stderr": TEXT_HEREDOC.format("cat <<'EOF' 2>f"),
+    "heredoc in cat con un'opzione": TEXT_HEREDOC.format("cat -v <<'EOF' > f"),
+    "heredoc in cat con un file in ingresso": TEXT_HEREDOC.format("cat a <<'EOF' > f"),
+    "heredoc in /bin/cat": TEXT_HEREDOC.format("/bin/cat <<'EOF' > f"),
+    "heredoc in cat con una variabile davanti": TEXT_HEREDOC.format("X=1 cat <<'EOF' > f"),
+    "heredoc in cat verso una sostituzione di processo": TEXT_HEREDOC.format("cat <<'EOF' > >(sh)"),
+    # la parola del redirect si espande con lo stdin già sull'heredoc: python3 esegue il corpo
+    "heredoc in cat verso un file da $( )": TEXT_HEREDOC.format('cat <<\'EOF\' > "$(python3)"'),
+    "heredoc in cat verso un file da backtick": TEXT_HEREDOC.format("cat <<'EOF' > `python3`"),
+    "heredoc in cat seguito da ;": TEXT_HEREDOC.format("cat <<'EOF' > f; sh f"),
+    "heredoc in cat seguito da &&": TEXT_HEREDOC.format("cat <<'EOF' > f && sh f"),
+    "heredoc in cat seguito da un comando a capo": TEXT_HEREDOC.format("cat <<'EOF' > f") + "\n./f",
+    "heredoc in cat dentro $( )": 'echo "$(' + TEXT_HEREDOC.format("cat <<'EOF'") + '\n)"',
+    "due heredoc in cat": "cat <<'A' <<'EOF' > f\nuno\nA\nnota: git push -f\nEOF",
+    "heredoc in tee verso una sostituzione di processo": TEXT_HEREDOC.format("tee >(sh) <<'EOF'"),
+    "heredoc in tee con un file da backtick": TEXT_HEREDOC.format("tee `python3` <<'EOF'"),
+    "heredoc in tee verso una pipe": TEXT_HEREDOC.format("tee f <<'EOF' | python3"),
+    # bash legge un solo heredoc (EOF, vuoto) ed esegue le righe dopo; l'analisi vede due corpi
+    "heredoc in tee con un << tra virgolette": "tee \"x<<A\" <<'EOF'\nEOF\ngit push -f\nA",
+    "heredoc in tee con -p": TEXT_HEREDOC.format("tee -p f <<'EOF'"),
+    "heredoc in tee con -a dopo il file": TEXT_HEREDOC.format("tee f -a <<'EOF'"),
+    "heredoc in tee con un redirect": TEXT_HEREDOC.format("tee f <<'EOF' > /dev/null"),
+    "heredoc in sudo tee": TEXT_HEREDOC.format("sudo tee f <<'EOF'"),
+    # << che la shell non legge come heredoc: le righe dopo sono comandi
+    "<< tra virgolette in cat": TEXT_HEREDOC.format('cat > "x <<EOF"'),
+    "<< dopo un backslash in cat": TEXT_HEREDOC.format("cat > x \\<<EOF"),
+    "<< dopo # in tee": "tee a # <<'EOF'\ngit push -f origin main\nEOF",
+    "<< dentro ${x//…} in tee": "tee ${x//<<'EOF'/}\ngit push -f origin main\nEOF",
+    "<< dentro ${x:-…} in tee": "tee a ${x:-<<'EOF'}\ngit push -f origin main\nEOF",
+    # delimitatore senza virgolette: la shell espande $( ) e backtick del corpo prima di scriverlo
+    "heredoc non quotato in cat con $( ) nel corpo": "cat > f <<EOF\n$(git push -f origin main)\nEOF",
+    "heredoc non quotato in cat con backtick nel corpo": "cat > f <<EOF\n`git push -f origin main`\nEOF",
+    "heredoc non quotato in tee con $( ) nel corpo": "tee f <<EOF\n$(git reset --hard HEAD~3)\nEOF",
+    "heredoc non quotato in cat con testo": TEXT_HEREDOC.format("cat > f <<EOF"),
+    "heredoc non quotato in cat con <<-": TEXT_HEREDOC.format("cat <<-EOF > f"),
+    "heredoc quotato solo in parte in cat": TEXT_HEREDOC.format('cat > f <<E"OF"'),
 }
 
 # Bloccati perché gli argomenti di git commit non sono tra le forme ammesse (elenco chiuso): exit 2
@@ -247,7 +348,14 @@ REASON_BLOCK = {
     "heredoc come messaggio": (HEREDOC.format("feat: x\n\nCorpo breve."), "heredoc"),
     "redirect dopo il messaggio": ('git commit -m "feat: x" 2>&1', "redirect"),
     "--amend ripetuto": ('git commit --amend --amend -m "feat: x"', "--amend è ripetuto"),
-    "branch -D dopo -q: indica come riscriverlo": ("git branch -q -D x", "Per branch, switch, stash e reflog"),
+    "branch -D dopo -q: indica come riscriverlo": ("git branch -q -D x", "l'opzione distruttiva va subito dopo"),
+    "rm -rf: indica come riscriverlo": ("git rm -rf x", "git rm -f -r"),
+    # gli argomenti del commit non si tagliano al primo < o >: il messaggio va controllato tutto
+    "attribuzione dopo > in un -m": ('git commit -m "fix: a > b" -m "nota > generated with Claude"', "attribuzione"),
+    # a far bloccare è il corpo: il motivo indica gli strumenti per scrivere un file, in entrambi i rami del blocco
+    "heredoc in un file: indica Write o Edit": (TEXT_HEREDOC.format("cat >> note.md <<'EOF'"), HEREDOC_HINT),
+    "heredoc in un file con una forma distruttiva: indica Write o Edit": (
+        "git branch -fD x && " + TEXT_HEREDOC.format("cat > f <<'EOF'"), HEREDOC_HINT),
 }
 
 # Lasciati alle regole ask di settings (forma semplice) o senza nulla da controllare: exit 0, nessun output
@@ -256,6 +364,9 @@ ALLOW = {
     "push -u": "git push -u origin feature",
     "push --dry-run": "git push --dry-run",
     "push -o con valore che inizia con +": "git push -o +x origin main",
+    "push con redirect attaccato al branch": "git push origin main>/dev/null",
+    "push con redirect separato": "git push origin main 2>/dev/null",
+    "tag -l con redirect attaccato in un comando composto": "git tag -l>x && ls",
     "tag leggero": "git tag v1",
     "tag annotato": 'git tag -a v1 -m "rilascio"',
     "tag cancellato": "git tag -d v1",
@@ -315,6 +426,12 @@ ALLOW = {
     "stash clear": "git stash clear",
     "reflog expire": "git reflog expire --expire=now --all",
     "reflog delete": "git reflog delete HEAD@{1}",
+    "worktree remove": "git worktree remove ../wt",
+    "rm -f": "git rm -f -r x",
+    "rm --force": "git rm --force x",
+    "checkout-index -f": "git checkout-index -f -a",
+    "checkout-index --force": "git checkout-index --force -a",
+    "reflog drop": "git reflog drop",
     # letture e forme non distruttive: libere anche in un comando composto
     "branch in un comando composto": "git branch && git status",
     "branch -a in una pipe": "git branch -a | grep x",
@@ -325,6 +442,14 @@ ALLOW = {
     "switch con -C globale": "git -C . switch main",
     "switch -c dopo un fetch": "git fetch && git switch -c x",
     "merge-base non è merge": "git merge-base main HEAD && git log",
+    "worktree list e add": "git worktree list && git worktree add ../wt",
+    "worktree list nel corpo di bash <<EOF": "bash <<'EOF'\ngit worktree list\nEOF",
+    "rm senza -f": "ls && git rm --cached x",
+    "checkout-index senza -f": "git checkout-index -a && ls",
+    "reflog show": "git reflog show && ls",
+    # limiti documentati: read-tree --reset senza -u perde solo lo stage, gc solo ciò che la reflog non tiene
+    "read-tree di git-workflow": 'GIT_INDEX_FILE="$I" git read-tree HEAD',
+    "gc.auto in git config": "git config gc.auto 0 && ls",
     # parole come clean o branch dopo una variabile, in comandi che non sono git o sono letture
     "make con una variabile e clean": "make -C $DIR clean",
     "mvn con una variabile e clean": "mvn -f $POM clean verify",
@@ -339,6 +464,8 @@ ALLOW = {
     "rg di git in più cartelle": "rg -n git skills/ agents/",
     "apt install git": "apt install -y git libssl-dev:amd64",
     "comando PowerShell con backtick nel tool Bash": "Get-ChildItem -Path C:\\repo `\n  -Filter *.md | Select-Object Name",
+    # confine di parola: opus dentro opuscolo non è un nome di modello
+    "opuscolo nel messaggio": 'git commit -m "docs: scritto con un opuscolo di esempio"',
 }
 
 # comandi del tool PowerShell
@@ -350,6 +477,7 @@ PS_CONTENT_BLOCK = {
     "git.exe push --FORCE": "git.exe push --FORCE",
     "& 'git' push --force": "& 'git' push --force",
     "git.exe con intestazione lunga": f'git.exe commit -m "{LONG}"',
+    "-f con redirect attaccato": "git push -f>$null",
 }
 PS_FORM_BLOCK = {
     "git.exe, senza regola ask": "git.exe push origin main",
@@ -358,6 +486,7 @@ PS_FORM_BLOCK = {
     "continuazione con backtick": "git push `\n  origin main",
     "git.exe reset": "git.exe reset --hard",
     "& git branch -D": "& git branch -D x",
+    "& git worktree remove": "& git worktree remove ../wt",
     "splat dopo git": "git @args",
     "array dopo git": 'git @("reset","--hard")',
     "sottocomando tra parentesi": "git ($b) --hard",
@@ -365,6 +494,8 @@ PS_FORM_BLOCK = {
     "sottocomando tra parentesi dopo --no-pager": "git --no-pager ($sub) --hard",
     # su più righe il tokenizzatore trova virgolette sbilanciate: non arriva al controllo degli argomenti
     "here-string pulita": 'git commit -m @"\nfeat: x\n\nCorpo breve.\n"@',
+    # gli heredoc sono di bash: in PowerShell il corpo si guarda sempre
+    "heredoc in cat verso un file": TEXT_HEREDOC.format("cat > f <<'EOF'"),
 }
 PS_COMMIT_FORM_BLOCK = {
     "here-string su una riga": "git commit -m @'feat: x'@",
@@ -376,6 +507,7 @@ PS_ALLOW = {
     "push semplice": "git push origin main",
     "reset in maiuscolo": "Git RESET --hard",
     "branch -d": "git branch -d x",
+    "rm -f": "git rm -f x",
     "comando non git": "Get-ChildItem -Path C:\\repo -Filter *.md",
 }
 
@@ -390,20 +522,20 @@ BROKEN = {
 }
 
 
-def run_raw(payload):
+def run_raw(payload, script=SCRIPT):
     """(exit, stdout, stderr) dell'hook; exit "timeout" oltre HOOK_TIMEOUT."""
     # byte UTF-8 come li manda Claude Code, indipendenti dalla codifica di default del sistema
     try:
-        res = subprocess.run([sys.executable, SCRIPT], input=payload.encode("utf-8"), capture_output=True,
+        res = subprocess.run([sys.executable, script], input=payload.encode("utf-8"), capture_output=True,
                              timeout=HOOK_TIMEOUT)
     except subprocess.TimeoutExpired:
         return "timeout", "", ""
     return res.returncode, res.stdout.decode("utf-8").strip(), res.stderr.decode("utf-8")
 
 
-def run(command, tool="Bash"):
+def run(command, tool="Bash", script=SCRIPT):
     return run_raw(json.dumps({"tool_name": tool, "tool_input": {"command": command}, "cwd": TMP},
-                              ensure_ascii=False))
+                              ensure_ascii=False), script)
 
 
 failures = 0
@@ -468,6 +600,43 @@ for name, (cmd, code) in SLOW.items():
         failures += 1
         print(f"FALLITO (tempo: {elapsed:.1f} s, massimo {MAX_SECONDS}): {name}")
 
+# Input che l'analisi non chiude in tempo (review del passo 4): il tempo massimo interno dell'hook li blocca
+# prima del timeout di hooks.json. Su una macchina molto veloce l'analisi può finire prima della soglia: il
+# blocco arriva allora dalla forma (push nel composto), senza il motivo del tempo
+HEAVY_FILE = "msg-pesante.txt"
+with open(os.path.join(TMP, HEAVY_FILE), "w", encoding="utf-8") as fh:
+    fh.write("feat: x\n\n" + "riga corta di testo\n" * 4500)
+TOO_SLOW = {
+    # ogni git è il valore dell'opzione prima: la ricerca delle opzioni riparte a ogni git
+    "git -c ripetuto e push": ("Bash", "git -c " * 14284 + "; git push"),
+    "git -C ripetuto e push, PowerShell": ("PowerShell", "git -C " * 14284 + "; git push"),
+    # ogni commit rilegge e controlla un messaggio valido da 90 KB; sotto MAX_COMMAND, oltre il quale
+    # decide la ricerca lineare
+    "git commit -F ripetuto su un messaggio grande e push":
+        ("Bash", f"git commit -F {HEAVY_FILE}; " * 3000 + "git push"),
+}
+assert all(len(cmd) <= 100_000 for _, cmd in TOO_SLOW.values())
+for name, (tool, cmd) in TOO_SLOW.items():
+    start = time.monotonic()
+    result = run(cmd, tool)
+    elapsed = time.monotonic() - start
+    expect("tempo massimo interno", name, result, 2)
+    if elapsed >= HOOK_TIMEOUT:
+        failures += 1
+        print(f"FALLITO (tempo: {elapsed:.1f} s, timeout dell'hook {HOOK_TIMEOUT}): {name}")
+
+# Il blocco dei casi sopra può arrivare dalla forma invece che dal timer. Qui il blocco può venire solo dal
+# timer: una copia dell'hook con una soglia di 0,05 s riceve un comando innocuo (nessun git che scrive, exit
+# 0 senza timer) ma lento da analizzare, qualche decimo di secondo
+TIMER_COPY = os.path.join(TMP, "git-guard-timer.py")
+with open(SCRIPT, encoding="utf-8") as fh:
+    source = fh.read()
+assert source.count("MAX_ANALYSIS_SECONDS = 6\n") == 1, "soglia del timer non trovata nell'hook"
+with open(TIMER_COPY, "w", encoding="utf-8") as fh:
+    fh.write(source.replace("MAX_ANALYSIS_SECONDS = 6\n", "MAX_ANALYSIS_SECONDS = 0.05\n"))
+expect("tempo massimo interno", "comando innocuo oltre la soglia", run("git -c " * 3000 + "; ls", script=TIMER_COPY),
+       2, "troppo complesso")
+
 # Le forme semplici dell'hook devono essere i prefissi delle regole ask di settings: se divergono, un
 # comando passa senza conferma o viene bloccato anche in forma semplice.
 spec = importlib.util.spec_from_file_location("git_guard", SCRIPT)
@@ -483,6 +652,24 @@ for settings, tool in ALIGNMENT:
         failures += 1
         print(f"FALLITO (allineamento {settings}, {tool}): solo nelle regole {sorted(prefixes - set(guard.ASK_PREFIXES))}, "
               f"solo nell'hook {sorted(set(guard.ASK_PREFIXES) - prefixes)}")
+# gh e hub agiscono su GitHub senza passare da git-guard: almeno il prefisso chiede conferma
+GH_RULES = [(settings, f"{tool}({cli}:*)") for settings, tool in ALIGNMENT for cli in ("gh", "hub")]
+for settings, rule in GH_RULES:
+    if rule not in json.loads(Path(ROOT, settings).read_text(encoding="utf-8"))["permissions"]["ask"]:
+        failures += 1
+        print(f"FALLITO (regola ask mancante in {settings}): {rule}")
+# i file dove gh e hub tengono il token in chiaro, negati ai comandi nella sandbox e allo strumento Read;
+# di gh solo hosts.yml: config.yml serve a gh anche senza autenticazione
+sandbox_settings = json.loads(Path(ROOT, "sandbox.settings.json").read_text(encoding="utf-8"))
+denied_files = sandbox_settings.get("sandbox", {}).get("credentials", {}).get("files", [])
+denied_reads = sandbox_settings.get("permissions", {}).get("deny", [])
+GH_CREDENTIALS = [(where, path, denied) for path in ("~/.config/gh/hosts.yml", "~/.config/hub")
+                  for where, denied in (("nella sandbox", {"path": path, "mode": "deny"} in denied_files),
+                                        ("a Read", f"Read({path})" in denied_reads))]
+for where, path, denied in GH_CREDENTIALS:
+    if not denied:
+        failures += 1
+        print(f"FALLITO (credenziale non negata {where}): {path}")
 FORMS = [(sub, form) for sub, forms in guard.ASK_FORMS.items() for form in forms]
 for sub, form in FORMS:
     if not guard.is_destructive(sub, [form, "x"]):
@@ -492,6 +679,6 @@ for sub, form in FORMS:
 shutil.rmtree(TMP, ignore_errors=True)
 total = sum(len(c) for c in (CONTENT_BLOCK, FORM_BLOCK, COMMIT_FORM_BLOCK, ALLOW, PS_CONTENT_BLOCK,
                              PS_FORM_BLOCK, PS_COMMIT_FORM_BLOCK, PS_ALLOW, REASON_BLOCK, BROKEN, SLOW,
-                             ALIGNMENT, FORMS))
+                             TOO_SLOW, ALIGNMENT, GH_RULES, GH_CREDENTIALS, FORMS))
 print(f"{total - failures}/{total} casi corretti")
 sys.exit(1 if failures else 0)
