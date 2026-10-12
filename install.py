@@ -159,6 +159,22 @@ def check_mimir_dir(mimir_dir):
                            f"in un percorso senza {' '.join(PATTERN_CHARS)} né caratteri di controllo")
 
 
+def in_expected_dir(mimir_path, relative):
+    """La cartella di relative, risolta, è esattamente quella attesa sotto Mímir? O_NOFOLLOW copre solo
+    l'ultimo componente: una cartella intermedia come profile/ sostituita con un symlink porterebbe
+    fuori, o in una cartella protetta come bin/. In un worktree .git è un file e l'exclude non si scrive."""
+    root = os.path.realpath(str(mimir_path))
+    expected = os.path.normpath(os.path.join(root, os.path.dirname(relative)))
+    actual = os.path.realpath(os.path.join(str(mimir_path), os.path.dirname(relative)))
+    return os.path.normcase(actual) == os.path.normcase(expected)
+
+
+def check_expected_dir(mimir_path, relative):
+    if not in_expected_dir(mimir_path, relative):
+        raise InstallError(f"la cartella di {relative!r} non è quella attesa: punta fuori dalla cartella di Mímir "
+                           "o altrove al suo interno")
+
+
 def read_text(path):
     """Legge un file di ~/.claude, che la sandbox non scrive: i symlink si seguono (dotfiles)."""
     try:
@@ -515,12 +531,16 @@ def read_inputs(mimir_path, claude_md_path, settings_path):
     check_template_keys(template)
     examples = {}
     for example, personal in PERSONAL_FILES:
+        check_expected_dir(mimir_path, example)
+        check_expected_dir(mimir_path, personal)
         examples[personal] = read_mimir_file(mimir_path / example)
         if examples[personal] is None:
             raise InstallError(f"manca {example}")
     git = mimir_path / ".git"
     has_git = git.is_dir() and not git.is_symlink()
     git_note = "" if has_git else ("assente" if not os.path.lexists(str(git)) else "non è una cartella (worktree?)")
+    if has_git:
+        check_expected_dir(mimir_path, ".git/info/exclude")
     claude_md = read_text(claude_md_path)
     settings_text = read_text(settings_path)
     return Inputs(
@@ -546,11 +566,19 @@ def compute(inputs, mimir_dir, system):
     )
 
 
-def write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, written):
-    """Scrive solo ciò che cambia; aggiunge a written ogni file scritto (per il messaggio d'errore)."""
+def write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, written, skipped):
+    """Scrive solo ciò che cambia; aggiunge a written ogni file scritto (per il messaggio d'errore) e a
+    skipped quelli saltati perché la loro cartella non è più quella attesa."""
     stamp = time.strftime("%Y%m%d-%H%M%S")
+    # La lettura ha già controllato le cartelle; qui si ricontrolla perché la sandbox può cambiarle nel
+    # frattempo. Resta una finestra tra controllo e apertura: chiuderla vorrebbe dir_fd per ogni componente,
+    # e il guadagno per chi la sfrutta è un profile.md o un exclude scritti altrove.
     for _, personal in PERSONAL_FILES:
         path = mimir_path / personal
+        if not in_expected_dir(mimir_path, personal):
+            print(f"! {personal}: la cartella non è quella attesa, non creato")
+            skipped.append(personal)
+            continue
         try:
             create_file(path, inputs.examples[personal])
             written.append(personal)
@@ -582,6 +610,9 @@ def write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, wr
 
     if not inputs.has_git:
         print(f"  .git {inputs.git_note}: .git/info/exclude saltato")
+    elif not in_expected_dir(mimir_path, ".git/info/exclude"):
+        print("! .git/info/exclude: la cartella non è quella attesa, non scritto")
+        skipped.append(".git/info/exclude")
     elif outputs.exclude != inputs.exclude:
         write_atomic(mimir_path / ".git" / "info" / "exclude", outputs.exclude)
         written.append(".git/info/exclude")
@@ -618,11 +649,12 @@ def main(argv=None):
         print(f"✗ {exc}: nessuna modifica fatta", file=sys.stderr)
         return 1
     outputs = compute(inputs, mimir_dir, system)
-    written = []
+    written, skipped = [], []
     try:
-        write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, written)
+        write_outputs(inputs, outputs, mimir_path, claude_md_path, settings_path, written, skipped)
     except (OSError, UnicodeError) as exc:
         print(f"✗ scrittura non riuscita ({exc}). File già scritti: {', '.join(written) or 'nessuno'}. "
+              f"File saltati perché la loro cartella non è quella attesa: {', '.join(skipped) or 'nessuno'}. "
               "Risolvi e rilancia install.sh.", file=sys.stderr)
         return 1
 
@@ -644,11 +676,14 @@ Per averli anche nelle sessioni normali, dentro Claude Code:
   /plugin install brokkr@mimir   (solo dove si lavora)
 Se sposti la cartella, rilancia install.sh.
 Host privati per la sandbox (azienda, clienti): aggiungili a sandbox.network.allowedDomains in {settings_path}.""")
+    if skipped:
+        # una cartella cambiata durante l'installazione è un segno di manomissione: con --yes un avviso passerebbe
+        print(f"\n✗ File saltati perché la loro cartella non è quella attesa: {', '.join(skipped)}. "
+              "Controlla con git status e rilancia install.sh.", file=sys.stderr)
     if problems:
         print(f"\n✗ Requisiti della sandbox mancanti: {', '.join(problems)}. Rilancia install.sh dopo averli sistemati.",
               file=sys.stderr)
-        return 1
-    return 0
+    return 1 if skipped or problems else 0
 
 
 if __name__ == "__main__":

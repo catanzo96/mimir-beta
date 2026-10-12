@@ -195,6 +195,90 @@ class PureFunctions(unittest.TestCase):
             with self.assertRaises(install.InstallError, msg=name):
                 install.read_mimir_file(folder / name)
 
+    @unittest.skipIf(os.name == "nt", "symlink: su Windows un non amministratore non li crea")
+    def test_scrittura_salta_le_cartelle_spostate_fuori_dopo_la_lettura(self):
+        # la sandbox può sostituire una cartella con un symlink tra lettura e scrittura
+        folder = Path(tempfile.mkdtemp(prefix="mimir-write-test-")).resolve()
+        self.addCleanup(shutil.rmtree, str(folder), ignore_errors=True)
+        mimir, outside = folder / "mimir", folder / "fuori"
+        (mimir / ".git").mkdir(parents=True)
+        outside.mkdir()
+        (mimir / "profile").symlink_to(outside)
+        (mimir / ".git" / "info").symlink_to(outside)
+        inputs = install.Inputs(claude_md="x\n", settings_text="{}", current={}, template={},
+                                examples={"profile/profile.md": "p\n", "inbox.md": "i\n"}, has_git=True,
+                                git_note="", exclude=None, old_dir=None)
+        outputs = install.Outputs(settings={}, claude_md="x\n", exclude="e\n")
+        written, skipped = [], []
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            install.write_outputs(inputs, outputs, mimir, folder / "CLAUDE.md", folder / "settings.json", written,
+                                  skipped)
+        self.assertEqual(os.listdir(str(outside)), [])
+        self.assertEqual(written, ["inbox.md"])
+        self.assertEqual(skipped, ["profile/profile.md", ".git/info/exclude"])
+        self.assertIn("non è quella attesa", out.getvalue())
+
+    def test_file_saltati_in_scrittura_fanno_uscire_con_errore(self):
+        # con --yes un avviso passa inosservato: una cartella cambiata durante l'installazione è manomissione
+        def skip(*args):
+            args[-1].append("profile/profile.md")
+        stderr = io.StringIO()
+        with mock.patch.object(install, "read_inputs"), mock.patch.object(install, "compute"), \
+                mock.patch.object(install, "write_outputs", side_effect=skip), \
+                mock.patch.object(install, "run", return_value=False), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+            self.assertEqual(install.main(["--skip-system"]), 1)
+        self.assertIn("profile/profile.md", stderr.getvalue())
+
+    def test_errore_di_scrittura_elenca_anche_i_file_saltati(self):
+        def skip_then_fail(*args):
+            args[-1].append("profile/profile.md")
+            raise OSError("disco pieno")
+        stderr = io.StringIO()
+        with mock.patch.object(install, "read_inputs"), mock.patch.object(install, "compute"), \
+                mock.patch.object(install, "write_outputs", side_effect=skip_then_fail), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+            self.assertEqual(install.main(["--skip-system"]), 1)
+        self.assertIn("disco pieno", stderr.getvalue())
+        self.assertIn("profile/profile.md", stderr.getvalue())
+
+    @unittest.skipIf(os.name == "nt", "symlink: su Windows un non amministratore non li crea")
+    def test_scrittura_salta_git_sostituito_da_un_symlink_dopo_la_lettura(self):
+        folder = Path(tempfile.mkdtemp(prefix="mimir-write-test-")).resolve()
+        self.addCleanup(shutil.rmtree, str(folder), ignore_errors=True)
+        mimir, outside = folder / "mimir", folder / "fuori"
+        (mimir / "profile").mkdir(parents=True)
+        (outside / "info").mkdir(parents=True)
+        (mimir / ".git").symlink_to(outside)
+        inputs = install.Inputs(claude_md="x\n", settings_text="{}", current={}, template={},
+                                examples={"profile/profile.md": "p\n", "inbox.md": "i\n"}, has_git=True,
+                                git_note="", exclude=None, old_dir=None)
+        outputs = install.Outputs(settings={}, claude_md="x\n", exclude="e\n")
+        written, skipped = [], []
+        with contextlib.redirect_stdout(io.StringIO()):
+            install.write_outputs(inputs, outputs, mimir, folder / "CLAUDE.md", folder / "settings.json", written,
+                                  skipped)
+        self.assertEqual(os.listdir(str(outside / "info")), [])
+        self.assertEqual(skipped, [".git/info/exclude"])
+
+    @unittest.skipIf(os.name == "nt", "symlink: su Windows un non amministratore non li crea")
+    def test_cartella_attesa_solo_se_coincide_una_volta_risolta(self):
+        folder = Path(tempfile.mkdtemp(prefix="mimir-dir-test-")).resolve()
+        self.addCleanup(shutil.rmtree, str(folder), ignore_errors=True)
+        mimir = folder / "mimir"
+        (mimir / "bin").mkdir(parents=True)
+        (mimir / "profile2").mkdir()
+        self.assertTrue(install.in_expected_dir(mimir, "inbox.md"))
+        self.assertTrue(install.in_expected_dir(mimir, "profile/profile.md"), "cartella che non esiste ancora")
+        (folder / "link").symlink_to(mimir)
+        self.assertTrue(install.in_expected_dir(folder / "link", "profile/profile.md"), "Mímir sotto un symlink")
+        (mimir / "profile").symlink_to(mimir / "bin")
+        self.assertFalse(install.in_expected_dir(mimir, "profile/profile.md"), "symlink interno a Mímir")
+        (mimir / "profile").unlink()
+        # profile2 inizia con il percorso atteso: un confronto per prefisso la accetterebbe
+        (mimir / "profile").symlink_to(mimir / "profile2")
+        self.assertFalse(install.in_expected_dir(mimir, "profile/profile.md"), "sorella con lo stesso prefisso")
+
     def test_percorso_con_caratteri_di_pattern_rifiutato(self):
         # doc permissions e settings-reference (10/10): le regole Edit seguono gitignore e non vengono
         # escapate, su Linux una voce di denyWrite con * ? [ viene saltata. Le parentesi sono letterali.
@@ -587,6 +671,58 @@ class Installer(unittest.TestCase):
         before = self.box.snapshot()
         result = self.box.run_py(mimir)
         self.assertEqual(result.returncode, 1)
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_cartella_profile_symlink_fuori_nessuna_modifica(self):
+        # O_NOFOLLOW copre solo l'ultimo componente: una cartella intermedia che punta fuori porterebbe
+        # letture e creazioni fuori dalla cartella di Mímir
+        mimir = self.box.mimir()
+        outside = self.box.root / "fuori"
+        shutil.move(str(mimir / "profile"), str(outside))
+        (mimir / "profile").symlink_to(outside)
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertFalse((outside / "profile.md").exists(), "profile.md creato fuori dalla cartella")
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_cartella_git_info_symlink_fuori_nessuna_modifica(self):
+        mimir = self.box.mimir()
+        outside = self.box.root / "info-fuori"
+        outside.mkdir()
+        shutil.rmtree(str(mimir / ".git" / "info"))
+        (mimir / ".git" / "info").symlink_to(outside)
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertFalse((outside / "exclude").exists(), "exclude scritto fuori dalla cartella")
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_cartella_profile_symlink_interno_nessuna_modifica(self):
+        # un symlink che resta dentro Mímir porterebbe profile.md in una cartella protetta come bin/
+        mimir = self.box.mimir()
+        (mimir / "bin").mkdir()
+        shutil.move(str(mimir / "profile" / "profile.example.md"), str(mimir / "bin"))
+        (mimir / "profile").rmdir()
+        (mimir / "profile").symlink_to(mimir / "bin")
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
+        self.assertFalse((mimir / "bin" / "profile.md").exists(), "profile.md creato in bin/")
+        self.assertEqual(self.box.snapshot(), before)
+
+    def test_cartella_profile_symlink_a_se_stessa_nessuna_modifica(self):
+        # il ciclo passa il controllo della cartella (realpath non lo risolve): lo ferma ELOOP in lettura
+        mimir = self.box.mimir()
+        shutil.rmtree(str(mimir / "profile"))
+        (mimir / "profile").symlink_to("profile")
+        before = self.box.snapshot()
+        result = self.box.run_py(mimir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("nessuna modifica", result.stderr)
         self.assertEqual(self.box.snapshot(), before)
 
     def test_claude_md_symlink_scritto_attraverso_il_link(self):
