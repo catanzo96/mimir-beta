@@ -1,6 +1,6 @@
 ---
 name: git-workflow
-description: Flusso di lavoro con git. Usala quando crei, cambi, unisci o riallinei un branch, prepari o descrivi una MR/PR, gestisci feature dipendenti o crei un tag di rilascio.
+description: Flusso di lavoro con git. Usala quando crei, cambi, unisci o riallinei un branch, prepari o descrivi una MR/PR, gestisci feature dipendenti, coordini sessioni in più worktree o crei un tag di rilascio.
 ---
 
 # Git workflow
@@ -84,6 +84,9 @@ develop
 - Ticket: <id>
 ```
 Anche nelle MR e PR, nessun riferimento a Claude o all'AI.
+
+## Sessioni parallele in worktree
+Quando più sessioni lavorano ognuna nel proprio worktree e una su main le coordina, leggi `references/sessioni-parallele.md`: apertura, coordinamento e chiusura.
 
 ## Tag e versioning
 - SemVer: `vMAJOR.MINOR.PATCH`.

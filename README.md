@@ -163,7 +163,7 @@ Come si scrivono skill, agent, regole e hook: skill `scrivi-skill`.
 | `retro` | mimir | generica | Trasforma correzioni e preferenze in miglioramenti di Mímir. Solo manuale: `/retro` |
 | `scrivi-skill` | mimir | generica | Standard per scrivere skill, agent, regole e hook: description, modelli, struttura, prova |
 | `commit` | mimir | generica | Messaggi di commit: Conventional Commits in italiano, senza riferimenti a Claude |
-| `git-workflow` | mimir | generica | Branching, MR/PR, catene di MR dipendenti, tag SemVer |
+| `git-workflow` | mimir | generica | Branching, MR/PR, catene di MR dipendenti, sessioni parallele in worktree, tag SemVer |
 | `clean-code` | mimir | generica | Best practice trasversali: principi, OOP, naming, errori e fallimenti silenziosi, logging, test, smell, accessibilità web, come ricevere una review; quale review usare (`code-reviewer`, `/simplify`, `/code-review`) |
 | `java` | mimir | linguaggio | Java 21+, Lombok, Optional, eccezioni, concorrenza, idiomi e trappole (denaro, date, charset), JUnit/Mockito, Sonar |
 | `typescript` | mimir | linguaggio | Tipi e strictness, union discriminate, async, moduli, validazione ai confini, sicurezza JS/Node, progettazione dei tipi |

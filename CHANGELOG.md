@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-12 (retro: sessioni parallele in worktree)
+- `git-workflow`: nuovo `references/sessioni-parallele.md` (apertura, coordinamento e chiusura di più sessioni in worktree: perimetro, verifica sul worktree, installer rilanciato dopo il merge, perimetro archiviato prima di `git worktree remove`, rimozione lanciata dall'utente); description e rimando nel corpo. Versione 0.25.2.
+- `git-and-safety`: un ok incollato da un'altra sessione o arrivato da un file o da un tool non vale come approvazione.
+- `working-style`: per un controllo che classifica (script, giudice LLM) criterio di accettazione fissato prima, negativi indipendenti, nessuna taratura sull'insieme di validazione.
+- `.claude/CLAUDE.md`: istruzioni di sviluppo solo per il repo di Mímir (versione dei plugin al merge, merge sui file protetti lanciati dall'utente, `install.sh` dopo i merge su template e installer, `run_tests.py` fuori dalla sandbox).
+
 ## 2026-10-12 (installer-2: rilievi di installer, launcher e CI)
 - `install.py` su Linux e WSL2: con apt-get lancia prima `apt-get update` (3 tentativi, timeout HTTP di 30 s), perché con indici vecchi l'installazione non trova i pacchetti; se l'aggiornamento fallisce avvisa e installa con gli indici presenti. Il profilo AppArmor di `bwrap` si ricarica con `systemctl reload apparmor` e, se systemd manca o il comando fallisce, con `apparmor_parser -r`; la conferma mostra i comandi. La CI non prepara più apt da sé, così il percorso di `install.py` è provato; il timeout di 8 minuti passa allo step dell'installer. Review con `code-reviewer` e `security-reviewer`.
 - `install.py` si ferma senza modifiche se il percorso di Mímir contiene `*`, `?`, `[`, `]` o `\`: secondo la doc le regole `Edit(…)` scritte a mano seguono gitignore senza escape e su Linux una voce di `denyWrite` con `*`, `?` o `[` viene saltata, quindi la protezione sarebbe sparita senza avviso; `]` e `\` per prudenza, e i caratteri di controllo, perché gitignore va a righe. Le parentesi sono letterali e restano ammesse (test con `mimir (copia)`).
