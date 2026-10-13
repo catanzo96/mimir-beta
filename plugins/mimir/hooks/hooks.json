@@ -24,6 +24,14 @@
         ]
       }
     ],
+    "SubagentStart": [
+      {
+        "matcher": "Explore|Plan",
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/subagent-reminder.py\"", "timeout": 5 }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "startup|resume|clear|compact",

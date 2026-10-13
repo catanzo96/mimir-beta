@@ -15,6 +15,7 @@ SUITES = [
     "plugins/mimir/hooks/scripts/test_maven_sandbox.py",
     "plugins/mimir/hooks/scripts/test_retro_nudge.py",
     "plugins/mimir/hooks/scripts/test_run_python.py",
+    "plugins/mimir/hooks/scripts/test_subagent_reminder.py",
     "plugins/mimir/skills/scrivi-skill/scripts/test_somiglianza.py",
     "test_install.py",
     "test_claude_mimir.py",
