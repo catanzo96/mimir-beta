@@ -81,7 +81,7 @@ Per ogni segnalazione rileggi il codice e conferma che il problema esista davver
 ```
 ## Review: <perimetro analizzato>
 
-**Esito:** ✅ Pronto | ⚠️ Pronto con correzioni minori | ❌ Da rivedere
+**Esito:** ✅ Pronto | ⚠️ Pronto con correzioni | ❌ Da rivedere
 <una o due frasi di sintesi>
 
 ### Aderenza alla richiesta
@@ -113,5 +113,7 @@ Gravità:
 - 🔴 **Bloccante**: bug, rischio di sicurezza, rottura di contratti;
 - 🟠 **Importante**: problema di design o test mancanti su logica rilevante;
 - 🟡 **Suggerimento**: miglioramento di leggibilità o convenzioni.
+
+Esito: Da rivedere con almeno un rilievo Bloccante; Pronto con correzioni con almeno un Importante e nessun Bloccante; Pronto con soli Suggerimenti o nessun rilievo.
 
 Se non trovi problemi, dillo chiaramente, con l'esito ✅, senza inventare segnalazioni.

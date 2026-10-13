@@ -49,7 +49,7 @@ Compatto, in chat, con le segnalazioni ordinate per gravità.
 ```
 ## Review UI: <perimetro>
 
-**Esito:** ✅ Pronto | ⚠️ Pronto con correzioni minori | ❌ Da rivedere
+**Esito:** ✅ Pronto | ⚠️ Pronto con correzioni | ❌ Da rivedere
 <impressione generale in due frasi: cosa regge, cosa no, la leva più grande>
 
 ### Segnalazioni
@@ -75,5 +75,7 @@ Gravità:
 - 🔴 **Bloccante**: il compito principale è impedito o falsato, barriera di accessibilità, contenuto non vero;
 - 🟠 **Importante**: l'utente inciampa, o un default da rifiutare domina la schermata;
 - 🟡 **Suggerimento**: rifinitura di gerarchia, testi o dettaglio visivo.
+
+Esito: Da rivedere con almeno un rilievo Bloccante; Pronto con correzioni con almeno un Importante e nessun Bloccante; Pronto con soli Suggerimenti o nessun rilievo.
 
 Il verdetto segue il risultato, non lo sforzo visibile né il tono del brief. È accertato solo ciò che un sorgente o una cattura mostrano direttamente, con `file:riga` o il nome della cattura. Ciò che dipende dalla resa effettiva è dedotto: lo dici e indichi quale prova lo confermerebbe. Se non trovi problemi, dillo con ✅ senza inventarne.
