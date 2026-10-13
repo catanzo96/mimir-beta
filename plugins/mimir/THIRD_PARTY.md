@@ -133,6 +133,16 @@ Confronto del 10/10 sul resto di Mímir (skill di questo plugin tranne quelle di
 |---|---|---|
 | `skills/delega/SKILL.md` | `skills/doubt-driven-development/SKILL.md`, Step 2 e 3 (paragrafo "Review e verifiche": niente tesi al revisore, perché lo spinge a dare ragione, e richiesta di cercare i problemi rispetto al criterio) | adattamento (un paragrafo) |
 
+### ponytail di DietrichGebert
+
+- **Fonte**: https://github.com/DietrichGebert/ponytail
+- **Licenza**: MIT (testo in fondo, con il copyright di DietrichGebert).
+- **File derivati**:
+
+| File di Mímir | Origine | Tipo |
+|---|---|---|
+| `skills/clean-code/references/principi.md` | `AGENTS.md`, sezione "The smallest complete change", punti 2-4 (ordine di riuso: repo, libreria standard, piattaforma, dipendenza installata) e marcatore `shortcut: <limite>, <quando rivedere>` | adattamento (due voci) |
+
 ## Valutati e non inclusi
 Sovrapposizioni di sola idea, senza frasi, struttura o costanti in comune; restano qui perché un controllo futuro non le rifaccia da capo.
 - `prototipi-ui`: `skills/engineering/prototype` di Matt Pocock (`github.com/mattpocock/skills`) e `skill/reference/live.md` di impeccable hanno la stessa idea (varianti su assi diversi, barra in basso, variante nell'URL), con testo diverso.
@@ -330,6 +340,31 @@ SOFTWARE.
 MIT License
 
 Copyright (c) 2025 Addy Osmani
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### ponytail di DietrichGebert
+```
+MIT License
+
+Copyright (c) 2026 DietrichGebert
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

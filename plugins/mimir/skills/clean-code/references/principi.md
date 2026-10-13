@@ -3,6 +3,7 @@
 ## Principi di progettazione
 - **KISS**: preferisci soluzioni semplici e lineari. Astrazione eccessiva, ottimizzazione prematura e generalizzazione si introducono solo per necessità concrete.
 - **YAGNI**: non implementare ciò che non serve ora.
+- **Riusa prima di scrivere**: cerca chi fa già il lavoro, in quest'ordine: il repo (helper, componenti, pattern esistenti), la libreria standard, una funzione nativa della piattaforma, una dipendenza già installata. Usa il primo che basta. Una dipendenza nuova è l'ultima scelta e va motivata.
 - **DRY, con giudizio**: elimina la duplicazione di *conoscenza*, non ogni somiglianza. Due pezzi simili che cambiano per ragioni diverse non vanno unificati. Una duplicazione è meglio di un'astrazione sbagliata; astrai alla terza ripetizione.
 - **Minima sorpresa**: il codice fa ciò che il nome promette, senza effetti collaterali inattesi.
 - **Command Query Separation**: preferisci metodi che o modificano lo stato (command) o restituiscono un valore (query). Eccezioni idiomatiche ammesse:
@@ -71,6 +72,7 @@
 - Un commento non aggiornato è peggio di nessun commento. Se modifichi il codice, aggiorna i commenti.
 - In review verifica che i commenti dicano ancora il vero: parametri e valori di ritorno descritti, riferimenti a comportamenti o ticket che non esistono più, "temporaneo" vecchio di anni.
 - `TODO`, `FIXME`, `HACK` sono debito: nel codice che scrivi solo con un riferimento (ticket o motivo); quelli esistenti si segnalano, non si risolvono fuori perimetro.
+- **Scorciatoie volute**: una soluzione semplificata con un limite noto porta il commento `shortcut: <limite>, <quando rivedere>` (es. `// shortcut: carica tutto in memoria, rivedere oltre 10k righe`). Se il progetto traccia il debito con un suo marcatore (TODO con ticket, convenzione del team), usa quello, con le stesse due informazioni.
 - Niente codice commentato: c'è git.
 
 ## Manutenzione
