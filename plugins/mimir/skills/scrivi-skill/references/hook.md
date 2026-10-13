@@ -10,7 +10,8 @@ Un hook è un comando (o una chiamata HTTP, un prompt, un agent) che l'harness e
 | `UserPromptSubmit` | quando l'utente invia un prompt | sì |
 | `SessionStart` | all'avvio, alla ripresa, dopo `/clear` o `/compact` | no; lo stdout entra nel contesto |
 | `Stop` | quando Claude sta per concludere il turno | sì (lo obbliga a continuare) |
-| `SubagentStart`, `SubagentStop` | avvio e fine di un subagent | `SubagentStop` sì |
+| `SubagentStart` | avvio di un subagent | no; `additionalContext` entra nel contesto del subagent |
+| `SubagentStop` | fine di un subagent | sì |
 | `PreCompact` | prima della compattazione | sì |
 | `PermissionRequest` | quando sta per comparire una richiesta di permesso | decide lui |
 
@@ -26,7 +27,7 @@ Lo script riceve un oggetto JSON su stdin. Campi comuni: `session_id`, `transcri
 - **JSON in stdout con exit 0**, dove l'evento supporta una decisione:
   - `PreToolUse`: `{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow|deny|ask|defer", "permissionDecisionReason": "...", "updatedInput": {...}}}`; `updatedInput` riscrive i parametri del tool. Non affidarti a `ask` per un controllo di sicurezza: l'08/10, con Claude Code 2.1.293 in sandbox e modalità auto, un `ask` dell'hook è stato ignorato e il comando è partito. Per chiedere conferma usa una regola `ask` di settings e fai bloccare all'hook le forme che la regola non riconosce;
   - `UserPromptSubmit`, `PostToolUse`, `Stop` e altri: `{"decision": "block", "reason": "..."}`;
-  - `PostToolUse` e `SessionStart`: `additionalContext` per aggiungere testo al contesto di Claude;
+  - `PostToolUse` e `SessionStart`: `additionalContext` per aggiungere testo al contesto di Claude; `SubagentStart` lo aggiunge al contesto del subagent;
   - campi universali: `continue: false` con `stopReason`, `systemMessage`.
 - Il `systemMessage` di `SessionStart` dopo `/clear` non compare all'utente (prova con Claude Code v2.1.296): se l'utente deve saperlo, chiedi a Claude nell'`additionalContext` di dirlo nella prima risposta.
 - Una funzione che dipende da come Claude Code mostra o passa qualcosa (messaggi, contesto, permessi) va provata a mano in una sessione vera prima del merge: la documentazione non basta.
@@ -36,7 +37,7 @@ Lo script riceve un oggetto JSON su stdin. Campi comuni: `session_id`, `transcri
 - `matcher` è una stringa unica sul nome del tool (`PreToolUse`, `PostToolUse`): `Bash`, oppure `Edit|Write` per più tool. Usa una stringa, non un array. Con caratteri diversi da lettere, cifre, `_`, `-`, spazi, `|`, `,` è una regex (non ancorata): `^Bash$`, `mcp__.*`.
 - Il nome del tool è sensibile alle maiuscole: `Bash`, non `bash`.
 - Su Windows senza Git Bash i comandi passano dal tool `PowerShell`: le regole `Bash(...)` non lo coprono. Servono regole `PowerShell(...)` e il matcher `Bash|PowerShell`.
-- Altri eventi filtrano su altro (per `SessionStart` la sorgente: `startup`, `resume`, `clear`, `compact`); `UserPromptSubmit` e `Stop` non hanno matcher.
+- Altri eventi filtrano su altro (per `SessionStart` la sorgente: `startup`, `resume`, `clear`, `compact`; per `SubagentStart` il tipo di agent: `Explore|Plan`, `plugin:nome` per gli agent di un plugin); `UserPromptSubmit` e `Stop` non hanno matcher.
 - Il campo `if` (permission rule syntax, per esempio `Bash(git *)`) restringe ancora, ma solo sugli eventi dei tool. Non sostituisce il controllo nello script: i pattern complessi girano comunque.
 
 ## Timeout
