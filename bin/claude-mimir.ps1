@@ -83,7 +83,18 @@ $env:CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD = '1'
 # Fuori da Mímir, come in bin/claude-mimir, anche se qui la sandbox non c'è. Dalla variabile, come
 # XDG_STATE_HOME in bin/claude-mimir: GetFolderPath nella 5.1 restituisce '' se la cartella non esiste.
 # Senza percorso il passaggio resta spento e claude parte lo stesso.
-if ([string]::IsNullOrEmpty($env:LOCALAPPDATA)) {
+# Con -p/--print no, e si toglie anche se arriva dall'ambiente (un -p lanciato da una sessione del
+# launcher): SessionStart archivierebbe il passaggio della cartella senza che nessuno lo veda.
+# Un prompt uguale a "-p" spegne i passaggi per quel lancio: caso accettato.
+$printMode = $false
+foreach ($arg in $args) {
+    if ($arg -ceq '-p' -or $arg -ceq '--print') {
+        $printMode = $true
+    }
+}
+if ($printMode) {
+    Remove-Item Env:MIMIR_HANDOFF_DIR -ErrorAction SilentlyContinue
+} elseif ([string]::IsNullOrEmpty($env:LOCALAPPDATA)) {
     Write-Notice '! LOCALAPPDATA non impostata: passaggio di consegne tra sessioni (Ratatoskr) spento.'
 } else {
     $env:MIMIR_HANDOFF_DIR = Join-Path (Join-Path $env:LOCALAPPDATA 'mimir') 'handoff'

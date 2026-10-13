@@ -19,6 +19,9 @@
         "~/.local/share/pnpm",
         "~/.gradle/caches",
         "~/.gradle/wrapper"
+      ],
+      "denyRead": [
+        "~/.local/state/mimir/handoff"
       ]
     },
     "credentials": {
