@@ -81,7 +81,7 @@ Per ogni segnalazione rileggi il codice e conferma che il problema esista davver
 ```
 ## Review: <perimetro analizzato>
 
-**Esito:** ✅ Pronto | ⚠️ Pronto con correzioni | ❌ Da rivedere
+**Esito:** Pronto | Pronto con correzioni | Da rivedere
 <una o due frasi di sintesi>
 
 ### Aderenza alla richiesta
@@ -90,12 +90,12 @@ Per ogni segnalazione rileggi il codice e conferma che il problema esista davver
 ### Segnalazioni
 | # | Gravità | Dove | Problema |
 |---|---|---|---|
-| 1 | 🔴 Bloccante | `percorso/file.ts:42` | ... |
+| 1 | Bloccante | `percorso/file.ts:42` | ... |
 
 **1. <titolo breve>**
 - Problema: cosa non va e in quale scenario si manifesta.
 - Perché: la regola o il rischio (es. "clean-code: niente null restituiti").
-- Costo se resta (per 🔴 e 🟠): cosa succede o cosa costa lasciarlo così. Se non sai dirlo, probabilmente è un suggerimento, non un problema importante.
+- Costo se resta (per Bloccante e Importante): cosa succede o cosa costa lasciarlo così. Se non sai dirlo, probabilmente è un suggerimento, non un problema importante.
 - Proposta: la correzione, con uno snippet se utile.
 - Riproduzione (solo se il difetto si dimostra eseguendo): il comando da lanciare nella sessione principale e l'esito atteso.
 
@@ -110,10 +110,10 @@ Per ogni segnalazione rileggi il codice e conferma che il problema esista davver
 ```
 
 Gravità:
-- 🔴 **Bloccante**: bug, rischio di sicurezza, rottura di contratti;
-- 🟠 **Importante**: problema di design o test mancanti su logica rilevante;
-- 🟡 **Suggerimento**: miglioramento di leggibilità o convenzioni.
+- **Bloccante**: bug, rischio di sicurezza, rottura di contratti;
+- **Importante**: problema di design o test mancanti su logica rilevante;
+- **Suggerimento**: miglioramento di leggibilità o convenzioni.
 
 Esito: Da rivedere con almeno un rilievo Bloccante; Pronto con correzioni con almeno un Importante e nessun Bloccante; Pronto con soli Suggerimenti o nessun rilievo.
 
-Se non trovi problemi, dillo chiaramente, con l'esito ✅, senza inventare segnalazioni.
+Se non trovi problemi, dillo chiaramente, con l'esito Pronto, senza inventare segnalazioni.

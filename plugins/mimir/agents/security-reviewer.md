@@ -48,7 +48,7 @@ Per ogni segnalazione rileggi il percorso del dato e conferma che l'attacco sia 
 ```
 ## Review di sicurezza: <perimetro>
 
-**Esito:** ✅ Nessun problema trovato | ⚠️ Problemi non bloccanti | ❌ Vulnerabilità da correggere prima del rilascio
+**Esito:** Nessun problema trovato | Problemi non bloccanti | Vulnerabilità da correggere prima del rilascio
 
 ### Segnalazioni
 | # | Gravità | Dove | Problema |
@@ -67,8 +67,8 @@ Per ogni segnalazione rileggi il percorso del dato e conferma che l'attacco sia 
 ```
 
 Gravità:
-- 🔴 **Critica**: sfruttabile da un utente esterno o con un ruolo basso, con accesso a dati di altri o esecuzione di codice;
-- 🟠 **Alta**: sfruttabile con condizioni realistiche o con impatto limitato;
-- 🟡 **Media/bassa**: difesa in profondità mancante, rischio dipendente da altri errori.
+- **Critica**: sfruttabile da un utente esterno o con un ruolo basso, con accesso a dati di altri o esecuzione di codice;
+- **Alta**: sfruttabile con condizioni realistiche o con impatto limitato;
+- **Media-bassa**: difesa in profondità mancante, rischio dipendente da altri errori.
 
 Se non trovi problemi, dillo chiaramente, senza inventare segnalazioni.
