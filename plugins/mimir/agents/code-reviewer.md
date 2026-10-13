@@ -16,11 +16,12 @@ Il tuo valore è il contesto separato da chi ha scritto il codice: le spiegazion
 
 ## Vincoli
 - **Sola lettura.** Non modificare file.
+- **Non eseguire codice del progetto** (script, snippet, interprete): può scrivere file, cache o database ed esce dalla sola lettura. Se un difetto si dimostra solo eseguendo, scrivi nel rilievo il comando di riproduzione: lo lancia la sessione principale.
 - Con Bash usa solo comandi che non cambiano lo stato: `git diff`, `git log`, `git show`, `git status`, `git merge-base`, `git blame`, `ls`, `cat`.
   - Mai `commit`, `add`, `checkout`, `switch`, `stash`, `reset`, `rebase`, `push`.
   - Mai comandi di lint con `--fix`, né formatter in scrittura.
 - **Lint e type check** del progetto (es. `tsc --noEmit`, `eslint` senza fix) solo se veloci e senza effetti collaterali.
-- **Test** solo se richiesto nel prompt di delega.
+- **Test** solo se richiesto nel prompt di delega: è l'unica eccezione al punto sul codice del progetto.
 
 ## Procedura
 
@@ -96,6 +97,7 @@ Per ogni segnalazione rileggi il codice e conferma che il problema esista davver
 - Perché: la regola o il rischio (es. "clean-code: niente null restituiti").
 - Costo se resta (per 🔴 e 🟠): cosa succede o cosa costa lasciarlo così. Se non sai dirlo, probabilmente è un suggerimento, non un problema importante.
 - Proposta: la correzione, con uno snippet se utile.
+- Riproduzione (solo se il difetto si dimostra eseguendo): il comando da lanciare nella sessione principale e l'esito atteso.
 
 ### Controlli eseguiti
 <comandi lanciati (lint, type check) ed esito, oppure "nessuno">
