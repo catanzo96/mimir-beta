@@ -43,7 +43,7 @@ Se non riesci a riprodurre, non indovinare: vai a "Causa non trovata".
 Se due o tre correzioni non hanno risolto, o ne hanno fatto emergere altre altrove, l'ipotesi di partenza è sbagliata o il difetto è strutturale. Smetti di aggiungere toppe:
 - torna al ciclo di riproduzione e controlla che misuri davvero il difetto;
 - riscrivi cosa sai con certezza e cosa hai solo supposto;
-- riparti da una nuova ipotesi, oppure dichiara all'utente che il problema è di design e propone le opzioni (se serve, l'agent `architetto`).
+- riparti da una nuova ipotesi, oppure dichiara all'utente che il problema è di design e propone le opzioni (se serve, l'agent `mimir:architetto`).
 
 ## 5. Problemi intermittenti
 Annota quando succede e quando no: ora, carico, utente, ambiente, ordine delle operazioni. Sospetta concorrenza, cache, timeout, stato condiviso tra richieste, dipendenza dall'ora. Una sola riproduzione non basta: ripeti il ciclo molte volte prima e dopo il fix e confronta le frequenze. Tecniche per tipo di problema: `references/tecniche.md`.

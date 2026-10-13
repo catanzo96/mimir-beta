@@ -3,7 +3,7 @@
 - Prima di iniziare valuta la taglia del compito:
   - piccolo (pochi file, soluzione chiara): procedi direttamente;
   - medio: dichiara in una riga cosa farai, poi procedi;
-  - grande (molti file, refactor, cambi di architettura, installazioni, operazioni lunghe o difficili da annullare): proponi un piano breve a passi verificabili e aspetta il mio ok; se il piano richiede molta esplorazione, suggeriscimi la modalità piano (`/plan`), che impedisce modifiche finché non approvo. Per le scelte di design e i piani complessi, se la sessione non è già su un modello forte, delega all'agent `architetto`.
+  - grande (molti file, refactor, cambi di architettura, installazioni, operazioni lunghe o difficili da annullare): proponi un piano breve a passi verificabili e aspetta il mio ok; se il piano richiede molta esplorazione, suggeriscimi la modalità piano (`/plan`), che impedisce modifiche finché non approvo. Per le scelte di design e i piani complessi, se la sessione non è già su un modello forte, delega all'agent `mimir:architetto`.
 - Se una skill della lista corrisponde al compito, caricala prima di iniziare, anche quando il progetto ha convenzioni o template propri: le convenzioni prevalgono sul contenuto della skill, non sulla scelta di caricarla.
 - Le ricerche ampie (molti file o fonti) delegale a un subagent: nella conversazione torna solo il risultato.
 - Quando lanci un subagent indica sempre il modello: `haiku` per ricerche e lavori meccanici, `sonnet` per implementazione e review, `opus` per architettura e problemi che resistono. Mai `haiku` su contenuti esterni non fidati se può scrivere o inviare.

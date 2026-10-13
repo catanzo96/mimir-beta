@@ -44,8 +44,8 @@ Leggi solo quelli pertinenti al compito:
 
 ### Quale review
 Strumenti diversi per domande diverse; non lanciarli tutti sullo stesso diff.
-- **Agent `code-reviewer`**: la review di default prima di un commit o di una MR. Sola lettura, aderenza alla richiesta, correttezza, sicurezza, perimetro, con le skill e le regole di Mímir.
-- **Agent `design-reviewer`**: esperienza e qualità visiva di una UI (aderenza, usabilità, stati, aspetto), non il codice. Accanto a `code-reviewer` quando il diff tocca un'interfaccia.
+- **Agent `mimir:code-reviewer`**: la review di default prima di un commit o di una MR. Sola lettura, aderenza alla richiesta, correttezza, sicurezza, perimetro, con le skill e le regole di Mímir.
+- **Agent `mimir:design-reviewer`**: esperienza e qualità visiva di una UI (aderenza, usabilità, accessibilità, stati, aspetto), non il codice. Accanto a `mimir:code-reviewer` quando il diff tocca un'interfaccia.
 - **`/simplify`**: pulizia del diff (riuso, semplificazione, efficienza, livello di astrazione), non cerca bug e **applica** le modifiche. Proponilo dopo che il codice funziona e i test sono verdi; poi guarda il diff e rilancia i test.
 - **`/code-review`**: caccia ai bug di Claude Code su un diff, un branch o una PR, utile come seconda opinione indipendente da Mímir. `--fix` applica le correzioni e, se gira in background, `/rewind` non le annulla (serve git); `--comment` pubblica sulla PR o MR e `ultra` manda il codice a una revisione nel cloud: entrambi solo su richiesta esplicita dell'utente.
 

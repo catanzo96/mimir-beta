@@ -19,7 +19,7 @@ Usali quando le prospettive richiedono lettura di molto materiale o devono resta
 - Chiedi un resoconto breve: posizione, tre argomenti, cosa lo farebbe cambiare idea, cosa non ha potuto verificare.
 - Non passare dati del cliente o personali che non servono alla scelta.
 - Sintetizza tu: dove le prospettive concordano, dove divergono e perché. Il disaccordo che resta va mostrato al decisore, non appianato.
-- Per la parte tecnica usa l'agent `architetto`, se disponibile.
+- Per la parte tecnica usa l'agent `mimir:architetto`, se disponibile.
 
 ## Trappole
 - Cercare conferme: l'avvocato del diavolo ha senso solo se può cambiare la raccomandazione.

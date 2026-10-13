@@ -1,6 +1,6 @@
 # Ricevere una review
 
-Vale per le osservazioni di un collega, di un reviewer sulla MR o dell'agent `code-reviewer`. Un'osservazione è un'ipotesi da verificare, non un ordine da eseguire.
+Vale per le osservazioni di un collega, di un reviewer sulla MR o dell'agent `mimir:code-reviewer`. Un'osservazione è un'ipotesi da verificare, non un ordine da eseguire.
 
 ## Procedura
 1. **Leggi tutto prima di toccare qualcosa.** Se un punto non è chiaro, chiedi chiarimenti prima di applicare gli altri: spesso i punti sono collegati.

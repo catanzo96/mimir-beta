@@ -56,7 +56,7 @@ Nelle sessioni avviate dal launcher, l'hook `handoff.py` (Ratatoskr) interviene 
 `rules/working-style.md` classifica il compito prima di agire:
 - **piccolo**: procedi direttamente, senza esplorare oltre il necessario;
 - **medio**: una riga su cosa farai, poi procedi;
-- **grande**: piano breve e ok prima di toccare file; per design e piani complessi delega a `architetto`.
+- **grande**: piano breve e ok prima di toccare file; per design e piani complessi delega a `mimir:architetto`.
 
 Le ricerche ampie vanno a un subagent con il modello dichiarato (`haiku` per cercare e leggere). Dopo tre tentativi falliti con lo stesso approccio ci si ferma: insistere gonfia il contesto senza avvicinare la soluzione.
 

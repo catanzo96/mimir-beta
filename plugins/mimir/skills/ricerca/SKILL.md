@@ -6,7 +6,7 @@ when_to_use: 'Es.: "cerca informazioni su…", "confronta X e Y", "cosa dice la 
 
 # Ricerca con fonti
 
-Si applica insieme alla regola "verificato ≠ plausibile": un fatto ha una fonte, il resto è ipotesi dichiarata. Le convenzioni del progetto prevalgono sulle preferenze di tecnologia. Per un confronto che porta a una scelta vedi anche `decisioni` o l'agent `architetto`.
+Si applica insieme alla regola "verificato ≠ plausibile": un fatto ha una fonte, il resto è ipotesi dichiarata. Le convenzioni del progetto prevalgono sulle preferenze di tecnologia. Per un confronto che porta a una scelta vedi anche `decisioni` o l'agent `mimir:architetto`.
 
 ## Prima: la domanda
 - Riformula la domanda in modo preciso (cosa, in quale contesto, per decidere cosa).

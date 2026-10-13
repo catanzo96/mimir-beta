@@ -97,7 +97,7 @@ Sul risultato costruito, non sulle intenzioni:
 7. Controllo nel browser almeno a 320px (la larghezza minima di WCAG per il reflow) e alla larghezza desktop, in entrambi i temi se previsti. Se non puoi aprirlo, dichiaralo.
 8. Alla fine i default del punto 5: per ciascuno usato, la richiesta che lo giustifica.
 
-Una passata di controllo e una di correzioni, al massimo un secondo giro; oltre, riporta ciò che resta aperto. Per una revisione con contesto pulito c'è l'agent `design-reviewer`; per i dati estremi, `ui-casi-limite`.
+Una passata di controllo e una di correzioni, al massimo un secondo giro; oltre, riporta ciò che resta aperto. Per una revisione con contesto pulito c'è l'agent `mimir:design-reviewer`; per i dati estremi, `ui-casi-limite`.
 
 ## File di supporto
 - `references/anti-pattern.md`: i default riconoscibili con l'alternativa. Leggilo quando rivedi una UI o una pagina "sembra generata".

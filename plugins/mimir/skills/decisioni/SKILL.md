@@ -6,12 +6,12 @@ when_to_use: 'Es.: "meglio A o B?", "cosa faccio prima?", "conviene…?", "aiuta
 
 # Decisioni
 
-Si applica insieme a `pianificazione` quando la decisione genera lavoro. Per le scelte tecniche e di architettura usa l'agent `architetto` e, se disponibile, `analisi-tecnica` (template `analisi-tecnica/templates/adr.md`). Prevalgono le procedure di governance del cliente e dell'azienda (chi approva cosa).
+Si applica insieme a `pianificazione` quando la decisione genera lavoro. Per le scelte tecniche e di architettura usa l'agent `mimir:architetto` e, se disponibile, `analisi-tecnica` (template `analisi-tecnica/templates/adr.md`). Prevalgono le procedure di governance del cliente e dell'azienda (chi approva cosa).
 
 Scopo: arrivare a una decisione chiara, motivata e rintracciabile, con la profondità giusta rispetto a ciò che costa sbagliarla. Se l'utente chiede solo un parere, spiega e raccomanda senza produrre documenti.
 
 ## Quando non usarla
-- Scelta di design o di architettura del codice: ADR e `architetto`.
+- Scelta di design o di architettura del codice: ADR e `mimir:architetto`.
 - Decisione già presa che va solo comunicata: salta al punto 7.
 
 ## 1. Chiarisci la domanda
