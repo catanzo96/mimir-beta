@@ -123,6 +123,16 @@ Confronto del 10/10 sul resto di Mímir (skill di questo plugin tranne quelle di
 |---|---|---|
 | `skills/pianificazione/SKILL.md` | `skills/spike/SKILL.md` (sezione "Spike": spazio temporaneo di default e repo solo su richiesta, codice da non unire alla produzione, smentita utile; probabile origine comune con la spike di hermes-agent, sopra) | adattamento, nel dubbio |
 
+### agent-skills di Addy Osmani
+
+- **Fonte**: https://github.com/addyosmani/agent-skills
+- **Licenza**: MIT (testo in fondo, con il copyright di Addy Osmani).
+- **File derivati**:
+
+| File di Mímir | Origine | Tipo |
+|---|---|---|
+| `skills/delega/SKILL.md` | `skills/doubt-driven-development/SKILL.md`, Step 2 e 3 (paragrafo "Review e verifiche": niente tesi al revisore, perché lo spinge a dare ragione, e richiesta di cercare i problemi rispetto al criterio) | adattamento (un paragrafo) |
+
 ## Valutati e non inclusi
 Sovrapposizioni di sola idea, senza frasi, struttura o costanti in comune; restano qui perché un controllo futuro non le rifaccia da capo.
 - `prototipi-ui`: `skills/engineering/prototype` di Matt Pocock (`github.com/mattpocock/skills`) e `skill/reference/live.md` di impeccable hanno la stessa idea (varianti su assi diversi, barra in basso, variante nell'URL), con testo diverso.
@@ -295,6 +305,31 @@ SOFTWARE.
 MIT License
 
 Copyright (c) 2026 OpenClaw Foundation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### agent-skills di Addy Osmani
+```
+MIT License
+
+Copyright (c) 2025 Addy Osmani
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

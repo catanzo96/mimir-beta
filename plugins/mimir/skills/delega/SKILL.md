@@ -24,6 +24,8 @@ Scrivilo come per un collega bravo che non ha seguito la conversazione. Ogni bri
 
 Un brief buono sta in 8-15 righe. Se ne servono molte di più, il compito è troppo grande: spezzalo. Esempi buoni e cattivi: `references/brief-esempi.md`, da leggere prima di scrivere il primo brief della sessione.
 
+**Review e verifiche.** Un revisore a contesto pulito serve perché non conosce le tue conclusioni: dagli l'oggetto da rivedere (diff, file, piano) e il criterio per giudicarlo (la richiesta, la specifica), non la tua tesi né i motivi per cui credi che vada bene. Chiedi di cercare i problemi rispetto al criterio ("cosa non soddisfa la richiesta?"), non una conferma ("è corretto?"). Se il brief anticipa cosa trovare o cosa è a posto, torna indietro un'eco di ciò che hai scritto.
+
 ## Modello
 Dichiaralo a ogni lancio; senza indicazione il subagent usa il modello della sessione (quello dell'agent, se la sua definizione ne ha uno), e un modello costoso su una ricerca meccanica è spreco.
 
