@@ -28,11 +28,12 @@ Documento breve, in italiano, con queste sezioni (salta quelle vuote):
 1. **Obiettivo**: cosa si vuole ottenere e per chi, in poche righe, con il perimetro e ciò che resta fuori.
 2. **Stato**: fatto (con evidenza: commit, file, test), in corso (a che punto esatto, cosa manca), da fare (in ordine).
 3. **Decisioni prese e perché**: scelta, alternative scartate, motivo. Sono ciò che si perde di più.
-4. **File e commit rilevanti**: percorsi con una riga di spiegazione, hash dei commit, branch. Indica se ci sono modifiche non committate.
-5. **Per riprendere**: i comandi esatti (checkout, build, test, avvio), l'ambiente e le variabili necessarie (solo i nomi, mai i valori).
-6. **Punti aperti e rischi**: domande senza risposta, assunzioni non verificate, cose che potrebbero rompersi.
-7. **Da non rifare**: tentativi falliti e strade già escluse, con il motivo.
-8. **Skill e agent utili** alla prossima sessione (per esempio `debugging`, `pianificazione`, la skill del linguaggio).
+4. **Vincoli posti dall'utente** in questa sessione: cosa non toccare, approvazioni da chiedere, strumenti, modelli o approcci da usare o evitare. Riportali con le sue parole quando conta la formulazione: chi riparte non li trova nel repo e li violerebbe senza saperlo.
+5. **File e commit rilevanti**: percorsi con una riga di spiegazione, hash dei commit, branch. Indica se ci sono modifiche non committate.
+6. **Per riprendere**: i comandi esatti (checkout, build, test, avvio), l'ambiente e le variabili necessarie (solo i nomi, mai i valori).
+7. **Punti aperti e rischi**: domande senza risposta, assunzioni non verificate, cose che potrebbero rompersi.
+8. **Da non rifare**: tentativi falliti e strade già escluse, con il motivo.
+9. **Skill e agent utili** alla prossima sessione (per esempio `debugging`, `pianificazione`, la skill del linguaggio).
 
 Distingui sempre ciò che è accertato da ciò che è ipotesi, con l'evidenza dei fatti.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test di bin/claude-mimir.ps1, il launcher per Windows nativo.
+"""Test di bin/claude-mimir.ps1, il launcher per Windows nativo, e del passaggio di consegne in bin/claude-mimir.
 
 Uso: python3 -I test_claude_mimir.py
 Il launcher gira su una copia di Mímir in una cartella temporanea, con un claude finto nel PATH che
@@ -21,6 +21,7 @@ PYTHON = Path(sys.executable).resolve()
 # Percorso assoluto: su POSIX subprocess cerca il programma nel PATH di env=, che qui è ridotto
 PWSH = (shutil.which(os.environ["MIMIR_TEST_PWSH"]) or os.environ["MIMIR_TEST_PWSH"]
         if os.environ.get("MIMIR_TEST_PWSH") else shutil.which("pwsh") or shutil.which("powershell"))
+BASH = os.environ.get("MIMIR_TEST_BASH") or shutil.which("bash")
 # Verso un .cmd (il claude finto su Windows, e lo shim di npm) gli argomenti passano in modo Legacy:
 # nella 5.1 sempre, in pwsh 7.3+ per .bat e .cmd ($PSNativeCommandArgumentPassing = 'Windows')
 expected_failure_on_windows = unittest.expectedFailure if os.name == "nt" else (lambda test: test)
@@ -136,6 +137,20 @@ class ClaudeMimirPs1(unittest.TestCase):
         self.assertIsNone(self.received()["env"]["MIMIR_HANDOFF_DIR"])
         self.assertIn("LOCALAPPDATA", result.stderr)
 
+    def test_con_print_passaggio_spento_anche_se_ereditato(self):
+        # un -p lanciato da una sessione del launcher eredita la variabile: SessionStart archivierebbe il passaggio
+        for flag in ("-p", "--print"):
+            with self.subTest(flag=flag):
+                result = self.run_ps1(flag, "a b", MIMIR_HANDOFF_DIR=str(self.root / "ereditata"))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIsNone(self.received()["env"]["MIMIR_HANDOFF_DIR"])
+                self.assertEqual(self.received()["args"], self.mimir_args() + [flag, "a b"])
+
+    def test_con_print_e_senza_localappdata_nessun_avviso(self):
+        result = self.run_ps1("-p", "a b", LOCALAPPDATA=None)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("LOCALAPPDATA", result.stderr)
+
     def test_file_generato_con_sandbox_spenta(self):
         result = self.run_ps1()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -236,6 +251,64 @@ class ClaudeMimirPs1(unittest.TestCase):
         result = self.run_ps1()
         self.assertEqual(result.returncode, 1)
         self.assertIn("claude non trovato", result.stderr)
+
+
+# Solo POSIX: su Windows il bash di Git non lancerebbe il claude finto, che lì è un .cmd
+@unittest.skipUnless(BASH and os.name == "posix", "bash non trovato (MIMIR_TEST_BASH o bash) o non POSIX")
+class ClaudeMimirBash(unittest.TestCase):
+    """bin/claude-mimir: con -p/--print il passaggio di consegne (MIMIR_HANDOFF_DIR) resta spento."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp(prefix="mimir-launcher-test-")).resolve()
+        self.addCleanup(shutil.rmtree, str(self.root), ignore_errors=True)
+        self.mimir = self.root / "mimir"
+        (self.mimir / "bin").mkdir(parents=True)
+        shutil.copy2(str(HERE / "bin" / "claude-mimir"), str(self.mimir / "bin" / "claude-mimir"))
+        self.bin = self.root / "fake-bin"
+        self.log = self.root / "claude.json"
+        self.state = self.root / "state"
+        script = self.root / "fake_claude.py"
+        write(script, FAKE_CLAUDE)
+        write(self.bin / "claude", f'#!/bin/sh\nexec "{PYTHON}" -I "{script}" "$@"\n')
+        (self.bin / "claude").chmod(0o755)
+
+    def run_bash(self, *args, **env):
+        # XDG_STATE_HOME nella box: il percorso atteso del passaggio non dipende dalla macchina
+        full_env = {"PATH": f"{self.bin}{os.pathsep}{os.defpath}", "HOME": str(self.root),
+                    "XDG_STATE_HOME": str(self.state), "FAKE_CLAUDE_LOG": str(self.log)}
+        full_env.update(env)
+        return subprocess.run([BASH, str(self.mimir / "bin" / "claude-mimir")] + list(args), env=full_env,
+                              capture_output=True, text=True, stdin=subprocess.DEVNULL)
+
+    def received(self):
+        return json.loads(self.log.read_text(encoding="utf-8"))
+
+    def mimir_args(self):
+        return ["--settings", str(self.mimir / "sandbox.settings.json"), "--add-dir", str(self.mimir),
+                "--plugin-dir", str(self.mimir / "plugins")]
+
+    def test_senza_print_passaggio_attivo_e_argomenti_invariati(self):
+        result = self.run_bash("--add-dir", "altro", "domanda con spazi", "")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.received()["env"]["MIMIR_HANDOFF_DIR"], str(self.state / "mimir" / "handoff"))
+        self.assertEqual(self.received()["args"], self.mimir_args() + ["--add-dir", "altro", "domanda con spazi", ""])
+
+    def test_con_print_passaggio_spento_e_argomenti_invariati(self):
+        cases = ((["-p", "a b"], self.mimir_args() + ["-p", "a b"]),
+                 (["--print", "a b"], self.mimir_args() + ["--print", "a b"]),
+                 (["agents", "-p", "x"], ["agents"] + self.mimir_args() + ["-p", "x"]))
+        for args, expected in cases:
+            with self.subTest(args=args):
+                result = self.run_bash(*args)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIsNone(self.received()["env"]["MIMIR_HANDOFF_DIR"])
+                self.assertEqual(self.received()["args"], expected)
+
+    def test_con_print_tolta_anche_la_variabile_ereditata(self):
+        # un -p lanciato da una sessione del launcher eredita la variabile: SessionStart archivierebbe il passaggio
+        result = self.run_bash("-p", "a b", MIMIR_HANDOFF_DIR=str(self.root / "ereditata"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIsNone(self.received()["env"]["MIMIR_HANDOFF_DIR"])
 
 
 if __name__ == "__main__":
