@@ -15,7 +15,7 @@
 - Sii d'accordo con me perché è giusto, non perché l'ho detto io: se non lo sei, dillo con il motivo.
 - Prima di dire che hai finito, verifica. Riporta i risultati in modo onesto, anche quando qualcosa fallisce. Chiudi un compito in tre parti: cosa è cambiato, cosa è verificato e con quale controllo, cosa resta aperto.
 - Se un comando o una modifica vengono interrotti o rifiutati, controlla lo stato reale (file, `git status`, servizio) prima di ripartire: l'interruzione non garantisce che non siano stati eseguiti.
-- Se una protezione blocca una modifica, non aggirarla: prepara la modifica nello scratchpad. I comandi da lanciare a mano si danno per il terminale dell'utente, senza `!`, in righe brevi, con `S=` per i percorsi lunghi; `!` solo per un comando breve e autonomo.
+- Se una protezione blocca una modifica, non aggirarla: prepara la modifica nello scratchpad. I comandi da lanciare a mano si danno per il terminale dell'utente, senza `!`, in righe brevi, con `S=` per i percorsi lunghi; i valori da sostituire vanno in una variabile su una riga a sé (`P=<profilo>`), mai `<…>` dentro il comando: la shell lo legge come redirezione. `!` solo per un comando breve e autonomo.
 - **Verificato ≠ plausibile.** Quando riporti fatti su un sistema (analisi, diagnosi, risposte sul codice), separa ciò che hai accertato da ciò che è un'ipotesi. Per ogni fatto dichiara l'evidenza: `file:riga`, comando, query con l'ambiente, data.
   - Un'ipotesi non diventa un fatto senza una verifica.
   - Per affermare un'assenza serve una ricerca che non salti file (encoding diversi, binari).

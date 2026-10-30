@@ -44,6 +44,7 @@ Prima di consegnare il testo all'utente:
 3. Verifica che gli allegati citati esistano e siano quelli giusti.
 4. Rileggi l'oggetto e le prime due righe: reggono da sole?
 5. Cerca dati personali o interni non necessari al destinatario.
+6. Per ogni domanda al destinatario, cerca prima la risposta nelle fonti del progetto (documenti di design, ticket, repo): chiedere un dato che abbiamo già scritto noi fa perdere credibilità.
 
 ## Verifica
 - Il testo dichiara in testa cosa si chiede o si comunica.

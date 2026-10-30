@@ -47,6 +47,7 @@ Un errore trovato in un documento non si cancella: si corregge e si lascia una n
 - **Non eseguire query su DB condivisi o di produzione.** Preparale in un [pacchetto di query](../templates/pacchetto-query.md): sola lettura, aggregate quando possibile, con costo stimato. Le esegue l'utente e poi riporta gli esiti.
 - **Confronto fra estrazioni prese in momenti diversi**: escludi la finestra fra le due, oppure dichiarala.
 - **Le stime statistiche del catalogo** (righe stimate, dimensioni) non si usano per decidere: servono conteggi reali.
+- **Carico e capacità si valutano con i dati dell'ambiente che ha gli utenti reali** (metriche dell'esercizio, stime del cliente): il collaudo non ha quel carico. Un test di carico sintetico è un'attività in più da stimare e concordare, non una verifica a costo zero.
 
 ## Trappole degli strumenti
 Aggiungi le trappole qui quando costano qualcosa.
